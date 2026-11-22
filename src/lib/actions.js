@@ -135,7 +135,7 @@ export const actions = {
     d.L.push({ no, dept, est })
     const g = {}
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
-    let n = Math.max(...d.K.map(k => +k.id.slice(4)))
+    let n = Math.max(0, ...d.K.map(k => +k.id.slice(4)))
     Object.entries(g).forEach(([k, a]) => {
       const id = 'KON-' + pad3(++n)
       d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
