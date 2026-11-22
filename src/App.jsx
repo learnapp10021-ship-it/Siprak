@@ -11,7 +11,7 @@ import { VDash } from './views/DashboardView'
 const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh }
 
 export function Shell() {
-  const { db, sel, ui, setUi, me, toastS } = useApp()
+  const { db, sel, ui, setUi, me, toastS, sync } = useApp()
   const tabs = TABS[me.role]
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : tabs[0][0]
   const View = VIEWS[tab]
@@ -46,7 +46,7 @@ export function Shell() {
           <button className="ham" onClick={() => setUi({ menu: true })} aria-label="Buka menu">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h16M3 11h16M3 16h16" /></svg>
           </button>
-          <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role} {me.dept}</small></div>
+          <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role} {me.dept}{sync.pending ? ' · menyimpan…' : sync.err ? ' · offline' : ''}</small></div>
           <button className="ham" onClick={() => setUi({ help: true, menu: false })} aria-label="Cara pakai" style={{ margin: '0 -8px 0 0', fontSize: 20, fontWeight: 700 }}>?</button>
         </header>
         {ui.menu && <Drawer cnt={cnt} />}
