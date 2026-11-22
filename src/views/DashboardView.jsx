@@ -165,7 +165,7 @@ export function VDash() {
                     <td>{D(x.a)}</td>
                     <td><Pill t={agePill(x.w)}>{x.w} hari</Pill></td>
                     <td>
-                      {l ? <>{x.rm.length} kali<br /><small className="mut">{D(l.at)}, {l.by}</small></> : <Pill t={x.w >= 3 ? 't-bad' : 't-gray'}>Belum</Pill>}
+                      {l ? <>{x.rm.length} kali<br /><small className="mut">{D(l.at)}, {sel.nm(l.by)}</small></> : <Pill t={x.w >= 3 ? 't-bad' : 't-gray'}>Belum</Pill>}
                     </td>
                     <td>{x.i.pakai ? D(x.i.pakai) : '-'}</td>
                   </tr>
@@ -266,7 +266,7 @@ export function VDash() {
           <thead><Th a={['Admin', 'Kedatangan dicatat', 'Pengingat terkirim']} /></thead>
           <tbody>
             {adm.map(u => (
-              <tr key={u.id}><td>{u.n}</td><td>{kd.filter(d => d.by == u.n).length}</td><td>{rmP.filter(x => x.by == u.n).length}</td></tr>
+              <tr key={u.id}><td>{u.n}</td><td>{kd.filter(d => d.by == u.id).length}</td><td>{rmP.filter(x => x.by == u.id).length}</td></tr>
             ))}
           </tbody>
         </table>

@@ -96,7 +96,7 @@ export function VPool() {
   )
 }
 
-const TH = { 'Validasi Warehouse': ['t-warn', 'Menunggu validasi Warehouse'], Dikeluarkan: ['t-gray', 'Semua barang dikeluarkan'], Konsolidasi: ['t-vio', 'Konsolidasi'] }
+const TH = { 'Validasi Warehouse': ['t-warn', 'Menunggu validasi Warehouse'], Dikeluarkan: ['t-gray', 'Semua barang dikeluarkan'] }
 
 function KonCard({ k }) {
   const { db, sel, act } = useApp()
@@ -114,7 +114,7 @@ function KonCard({ k }) {
         <div><b>{m.n}</b> <small>{k.id}</small></div>
         <Pill t={tone}>{tl}</Pill>
       </div>
-      <small className="mut">{peminta.length} request, total {t} {m.sat}{k.srl ? ', ' + k.srl : ''}{k.by ? ', dibuat ' + k.by : ''}</small><br />
+      <small className="mut">{peminta.length} request, total {t} {m.sat}{k.srl ? ', ' + k.srl : ''}{k.by ? ', dibuat ' + sel.nm(k.by) : ''}</small><br />
       <small className="mut">Peminta: {peminta.map(i => sel.nm(sel.RQ(i.req).by).split(' ')[0] + ' ' + i.qty).join(', ')}</small>
       {jalan ? (
         <>

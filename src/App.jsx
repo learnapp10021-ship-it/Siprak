@@ -23,7 +23,7 @@ export function Shell() {
   const cnt = {
     appr: db.R.filter(r => r.st == 'Menunggu Approval' && sel.user(r.by)?.boss == me.id).length,
     pool: ad ? sel.poolOf(me.dept).length : 0,
-    kon: ad ? db.K.filter(k => k.dept == me.dept && k.tahap == 'Konsolidasi').length : 0,
+    kon: ad ? new Set(db.K.filter(k => k.dept == me.dept && k.tahap == 'Validasi Warehouse').map(k => k.srl)).size : 0,
     val: aw ? new Set(db.K.filter(k => k.tahap == 'Validasi Warehouse').map(k => k.srl)).size : 0,
     dtg: aw ? db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0).length : 0,
     srh: aw ? db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).length : 0,

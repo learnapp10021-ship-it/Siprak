@@ -4,7 +4,9 @@ import { D, TODAY, addDays, cleanMaster, nowStr, sum, wa } from './utils'
 // `d` adalah draft immer (boleh dimutasi), `sel` selector atas draft yang sama.
 // Jika mengembalikan { err }, perubahan dibuang oleh store.
 
-const pad3 = n => String(n).padStart(3, '0')
+// ID berikutnya = angka terbesar yang ada + 1 (aman bila ada baris dihapus/urutan tidak rapat, dan saat tabel masih kosong)
+const nextId = (rows, prefix) =>
+  prefix + String(rows.reduce((m, r) => Math.max(m, parseInt(String(r.id).slice(prefix.length), 10) || 0), 0) + 1).padStart(3, '0')
 const setR = (d, id, s) => {
   d.R.find(r => r.id == id).st = s
   d.I.filter(i => i.req == id).forEach(i => {
@@ -58,11 +60,11 @@ export const actions = {
       if (m.buf == '0' && !x.pakai) return { err: `${m.n}: tgl pakai wajib untuk barang non buffer.` }
       if (x.pakai && x.pakai < x.datang) return { err: `${m.n}: tgl pakai tidak boleh sebelum tgl datang.` }
     }
-    const id = 'RQ-' + pad3(d.R.length + 1)
+    const id = nextId(d.R, 'RQ-')
     d.R.push({ id, by: me.id, tgl: TODAY, st: status, cat: '' })
     lines.forEach(x =>
       d.I.push({
-        id: 'ITM-' + pad3(d.I.length + 1), req: id, kode: x.kode, qty: x.qty, datang: x.datang,
+        id: nextId(d.I, 'ITM-'), req: id, kode: x.kode, qty: x.qty, datang: x.datang,
         pakai: x.pakai, status, appr: '', kon: '', tahan: '', alasan: '',
       })
     )
@@ -135,10 +137,9 @@ export const actions = {
     d.L.push({ no, dept, est })
     const g = {}
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
-    let n = Math.max(...d.K.map(k => +k.id.slice(4)))
     Object.entries(g).forEach(([k, a]) => {
-      const id = 'KON-' + pad3(++n)
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      const id = nextId(d.K, 'KON-')
+      d.K.push({ id, dept, by: me.id, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
         i.status = 'Validasi Warehouse'
         i.kon = id
@@ -176,7 +177,7 @@ export const actions = {
     const i = d.I.find(x => x.id == id)
     const mx = sel.siap(i)
     if (!(q > 0) || q > mx) return { err: 'Qty harus antara 1 dan ' + mx + '.' }
-    d.SR.push({ item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY })
+    d.SR.push({ item: id, qty: String(q), to: sel.RQ(i.req).by, tgl: TODAY })
     return { ok: 'Diserahkan.' }
   },
 
@@ -259,12 +260,12 @@ export const actions = {
       const i = d.I.find(x => x.id == id)
       const q = i ? sel.siap(i) : 0
       if (!(q > 0)) return
-      to = sel.nm(sel.RQ(i.req).by)
+      to = sel.RQ(i.req).by
       d.SR.push({ item: id, qty: String(q), to, tgl: TODAY })
       n++
     })
     if (!n) return { err: 'Tidak ada barang yang siap diserahkan.' }
-    return { ok: n + ' barang diserahkan ke ' + to + '.' }
+    return { ok: n + ' barang diserahkan ke ' + sel.nm(to) + '.' }
   },
 
   ingat(sel, d, id, by) {

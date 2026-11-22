@@ -5,7 +5,7 @@ Spreadsheet menjadi database. Aplikasi React membaca/menulis lewat Web App Apps 
 ## Pasang (sekitar 5 menit)
 
 1. Buat Google Spreadsheet baru (nama bebas, mis. `SIPRAK DB`).
-2. Menu **Extensions → Apps Script**. Buat file `Code.gs` dan `Seed.gs`, tempel isi dari folder ini.
+2. Menu **Extensions → Apps Script**. Buat satu file untuk tiap file `.gs` di folder ini (`Code`, `Schema`, `Db`, `Mutate`, `Validate`, `Migrate`, `Seed`) lalu tempel isinya. Urutan file tidak penting.
    (Opsional: Project Settings → centang "Show appsscript.json" lalu tempel `appsscript.json`.)
 3. Pilih fungsi `setup` → **Run** → setujui izin. Ini membuat 9 sheet beserta header.
 4. Pilih fungsi `seedDemo` → **Run**. Mengisi data contoh. **Menghapus isi sheet data**, jadi hanya untuk pertama kali.
@@ -19,11 +19,25 @@ Spreadsheet menjadi database. Aplikasi React membaca/menulis lewat Web App Apps 
 
 Setelah mengubah kode Apps Script, buat **New deployment / Manage deployments → Edit → New version**; URL `/exec` tetap sama.
 
+## Memperbarui dari versi lama
+
+Dulu kolom pengguna di `Konsolidasi.by`, `Kedatangan.by`, `SerahTerima.to`, dan `Pengingat.by` berisi **nama**; sekarang semua berisi **ID** pengguna.
+Setelah menempel kode baru dan membuat versi deployment baru, jalankan **`migrate`** sekali, lalu **`audit`** untuk memastikan hasilnya bersih.
+Sebelum `migrate`, perubahan pada baris lama akan ditolak server dengan pesan yang menyebutkan kolom yang salah.
+
+## Relasi dan validasi
+
+Setiap perubahan dari aplikasi diperiksa server sebelum ditulis (atomik: satu salah, semua dibatalkan). Yang diperiksa:
+format ID, tanggal, angka, nilai status yang diperbolehkan, kunci asing (`Item.req → Request`, `Item.kode → Master`, `Konsolidasi.srl → SRL`, dst),
+kesesuaian status barang dengan tahap SRL-nya, departemen Konsolidasi dengan SRL-nya, serta jumlah:
+barang datang + ditutup tidak boleh melebihi total request, dan serah terima tidak boleh melebihi yang sudah datang.
+Diagram relasi ada di komentar `Schema.gs`. Fungsi **`audit`** memeriksa seluruh database (berguna setelah edit manual di sheet) tanpa mengubah data.
+
 ## Sheet
 
 | Sheet | Isi | Kunci |
 |---|---|---|
-| Users | id (email), n, dept, role, boss, hp, off (`Y` = nonaktif) | id |
+| Users | id, n, dept, role, boss, hp, off (`Y` = nonaktif) | id |
 | Master | k, n, sat, buf, kons, lead | k |
 | Request | id, by, tgl, st, cat | id |
 | Item | id, req, kode, qty, datang, pakai, status, appr, kon, tahan, alasan | id |
@@ -48,3 +62,9 @@ trigger `onEdit` otomatis membuang cache, dan aplikasi mengambil data baru pada 
   (pemilihan pengguna masih menu "Lihat sebagai"). Untuk produksi, batasi ke akun Google perusahaan atau tambahkan autentikasi.
 - Apps Script punya kuota harian dan latensi ±0,3–1,5 detik untuk penulisan; cocok untuk puluhan pengguna, bukan ribuan.
 - Dua orang membuat request di detik yang sama: yang kedua ditolak dengan pesan jelas dan data dimuat ulang, lalu ia tinggal mengulang.
+
+## Pengujian tanpa Google
+
+`npm run test:gs` menjalankan semua file `.gs` di VM dengan Spreadsheet/Cache/Lock palsu, mengirim alur nyata aplikasi
+(buat request sampai serah terima) ke server, membandingkan isi sheet dengan data aplikasi, memastikan pelanggaran relasi ditolak,
+dan menguji `migrate`. Setelah mengubah `src/data/seed.js`, jalankan `npm run gen:seed` untuk memperbarui `Seed.gs`.

@@ -48,7 +48,7 @@ export function ItemCard({ it }) {
       <div className={`lbl ${t}`}>{l}</div>
       <small className="mut">Datang {D(it.datang)}{it.pakai ? ', dipakai ' + D(it.pakai) : ''}</small>
       {ss.map((s, n) => (
-        <div key={n}><small className="mut">Diambil {s.qty} oleh {s.to}</small></div>
+        <div key={n}><small className="mut">Diambil {s.qty} oleh {sel.nm(s.to)}</small></div>
       ))}
     </div>
   )
