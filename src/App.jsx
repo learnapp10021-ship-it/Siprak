@@ -20,9 +20,6 @@ export function Shell() {
   const tabs = TABS[me.role]
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : tabs[0][0]
   const View = VIEWS[tab]
-  const bottom = BOTTOM[me.role]
-  const hidden = k => (bottom && !bottom.includes(k) ? 'nv-x' : undefined)
-  const hamCnt = bottom ? tabs.filter(t => !bottom.includes(t[0])).reduce((a, t) => a + (cnt[t[0]] || 0), 0) : 0
 
   const ad = me.role == 'Admin Dept'
   const aw = me.role == 'Admin Warehouse'
@@ -34,6 +31,10 @@ export function Shell() {
     dtg: aw ? db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0).length : 0,
     srh: aw ? db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).length : 0,
   }
+
+  const bottom = BOTTOM[me.role]
+  const hidden = k => (bottom && !bottom.includes(k) ? 'nv-x' : undefined)
+  const hamCnt = bottom ? tabs.filter(t => !bottom.includes(t[0])).reduce((a, t) => a + (cnt[t[0]] || 0), 0) : 0
 
   // Pindah tab -> kembali ke atas. Esc menutup overlay.
   useEffect(() => { window.scrollTo(0, 0) }, [tab, ui.me])
