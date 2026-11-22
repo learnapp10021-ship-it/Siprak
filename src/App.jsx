@@ -38,15 +38,14 @@ export function Shell() {
     return () => document.removeEventListener('keydown', h)
   }, [ui.di, ui.menu, ui.eu, ui.help, ui.dpic, setUi])
 
-  const mob = ['User', 'Admin Warehouse'].includes(me.role)
   return (
     <>
-      <div id="app" className={mob ? 'mob' : 'wide'}>
+      <div id="app">
         <header>
           <button className="ham" onClick={() => setUi({ menu: true })} aria-label="Buka menu">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h16M3 11h16M3 16h16" /></svg>
           </button>
-          <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role} {me.dept}{sync.pending ? ' · menyimpan…' : sync.err ? ' · offline' : ''}</small></div>
+          <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role}{me.role.endsWith(me.dept) ? '' : ' ' + me.dept}{sync.pending ? ' · menyimpan…' : sync.err ? ' · offline' : ''}</small></div>
           <button className="ham" onClick={() => setUi({ help: true, menu: false })} aria-label="Cara pakai" style={{ margin: '0 -8px 0 0', fontSize: 20, fontWeight: 700 }}>?</button>
         </header>
         {ui.menu && <Drawer cnt={cnt} />}
@@ -54,7 +53,7 @@ export function Shell() {
         {ui.help && <HelpSheet />}
         {ui.dpic && <PicSheet />}
         {ui.di && <DetailSheet />}
-        <main><View /></main>
+        <main className={'v-' + tab}><View /></main>
         {tab == 'req' && me.role == 'User' && (
           <div className="fabw"><button className="btn fab" onClick={() => setUi({ tab: 'new' })}>+ Buat request</button></div>
         )}

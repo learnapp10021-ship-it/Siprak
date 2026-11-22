@@ -141,8 +141,11 @@ export function useSrlPick(g, sel) {
 export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'barang' }) {
   if (!total) return null
   const vis = list.slice(0, f.lim)
+  const filt = total > 5 // SRL sedikit: cukup daftar saja, tanpa cari & filter
   return (
-    <div className="f" style={{ gridColumn: '1/-1' }}>
+    <div className="f srlpick" style={{ gridColumn: '1/-1' }}>
+      {filt && (
+        <>
       <label>Cari SRL
         <input type="search" value={f.q} placeholder="No. SRL, departemen, atau nama barang" onChange={e => set({ q: e.target.value })} />
       </label>
@@ -159,8 +162,10 @@ export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'bara
           </select>
         </label>
       </div>
+        </>
+      )}
       <div className="chips" style={{ marginTop: 0, alignItems: 'center' }}>
-        {lateN > 0 && (
+        {filt && lateN > 0 && (
           <button className={'btn ' + (f.late ? '' : 'alt')} style={{ minHeight: 34, padding: '4px 12px' }} onClick={() => set({ late: !f.late })}>
             Terlambat ({lateN})
           </button>
