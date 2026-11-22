@@ -64,6 +64,10 @@ export function makeSel(db) {
       const a = diambil(it)
       if (a >= +it.qty) return [4, 't-ok', 'Sudah diambil semua']
       if (b - a > 0) return [4, 't-ok', `Siap diambil ${b - a} dari ${it.qty} ${sat}`]
+      // Tidak ada lagi yang akan datang (sisa ditutup): jangan menunggu selamanya
+      const kk = KN(it.kon)
+      if (kk && sisa(kk) == 0 && +kk.tutup > 0)
+        return [4, 't-warn', `Sisa ditutup${kk.alasan ? ': ' + kk.alasan : ''}. Diambil ${a} dari ${it.qty} ${sat}`]
       const srl = SRLof(KN(it.kon)?.srl)
       return [
         3,

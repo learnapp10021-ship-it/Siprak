@@ -12,6 +12,27 @@ const setR = (d, id, s) => {
   })
 }
 
+// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat atau ''.
+const checkLines = (sel, lines) => {
+  for (const x of lines) {
+    const m = x.kode && sel.mi(x.kode)
+    if (!m) return 'Pilih barang di setiap baris.'
+    if (!(+x.qty > 0)) return 'Jumlah harus lebih dari 0.'
+    if (!x.datang || x.datang < addDays(TODAY, +m.lead))
+      return `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
+    if (m.buf == '0' && !x.pakai) return `${m.n}: tgl pakai wajib untuk barang non buffer.`
+    if (x.pakai && x.pakai < x.datang) return `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+  }
+  return ''
+}
+
+// Pastikan request masih di salah satu status yang diizinkan (layar bisa usang saat dua orang bekerja bersamaan).
+const reqIn = (d, id, ...sts) => {
+  const r = d.R.find(x => x.id == id)
+  return r && sts.includes(r.st) ? r : null
+}
+const STALE = 'Status request sudah berubah. Muat ulang halaman.'
+
 export const actions = {
   saveUser(sel, d, f) {
     const { mode, self, id, n, rawWa, email, role, boss, dept, active, me } = f
@@ -45,19 +66,12 @@ export const actions = {
   },
 
   saveRequest(sel, d, { status, lines, me }) {
-    const { mi } = sel
     if (me.off) return { err: 'Akun nonaktif tidak bisa membuat request.' }
+    if (!lines.length) return { err: 'Tambahkan minimal satu barang.' }
     if (status == 'Menunggu Approval' && !me.boss)
       return { err: 'Akun Anda belum punya atasan. Simpan sebagai draft dan hubungi admin departemen.' }
-    for (const x of lines) {
-      const m = x.kode && mi(x.kode)
-      if (!m) return { err: 'Pilih barang di setiap baris.' }
-      if (!(+x.qty > 0)) return { err: 'Jumlah harus lebih dari 0.' }
-      if (!x.datang || x.datang < addDays(TODAY, +m.lead))
-        return { err: `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.` }
-      if (m.buf == '0' && !x.pakai) return { err: `${m.n}: tgl pakai wajib untuk barang non buffer.` }
-      if (x.pakai && x.pakai < x.datang) return { err: `${m.n}: tgl pakai tidak boleh sebelum tgl datang.` }
-    }
+    const bad = checkLines(sel, lines)
+    if (bad) return { err: bad }
     const id = 'RQ-' + pad3(d.R.length + 1)
     d.R.push({ id, by: me.id, tgl: TODAY, st: status, cat: '' })
     lines.forEach(x =>
@@ -70,16 +84,25 @@ export const actions = {
   },
 
   ajukan(sel, d, id) {
+    const r = reqIn(d, id, 'Draft')
+    if (!r) return { err: STALE }
+    const u = sel.user(r.by)
+    if (!u?.boss)
+      return { err: 'Akun Anda belum punya atasan. Hubungi admin departemen agar atasan diisi.' }
+    const bad = checkLines(sel, d.I.filter(i => i.req == id))
+    if (bad) return { err: bad + ' Buat ulang request dengan tanggal yang baru.' }
     setR(d, id, 'Menunggu Approval')
     return { ok: 'Diajukan ke atasan.' }
   },
   batal(sel, d, id) {
+    if (!reqIn(d, id, 'Draft', 'Menunggu Approval')) return { err: STALE }
     setR(d, id, 'Dibatalkan')
     return { ok: 'Request dibatalkan.' }
   },
 
   setuju(sel, d, id) {
-    const r = d.R.find(x => x.id == id)
+    const r = reqIn(d, id, 'Menunggu Approval')
+    if (!r) return { err: STALE }
     r.st = 'Disetujui'
     d.I.filter(i => i.req == id).forEach(i => {
       i.status = 'Approved'
@@ -107,7 +130,9 @@ export const actions = {
   },
   tolak(sel, d, id, catatan) {
     if (!catatan) return { err: 'Isi catatan sebelum menolak.' }
-    d.R.find(x => x.id == id).cat = catatan
+    const r = reqIn(d, id, 'Menunggu Approval')
+    if (!r) return { err: STALE }
+    r.cat = catatan
     setR(d, id, 'Ditolak')
     return { ok: 'Ditolak.' }
   },
@@ -115,12 +140,14 @@ export const actions = {
   tahan(sel, d, id, alasan) {
     if (!alasan) return { err: 'Isi alasan menahan.' }
     const i = d.I.find(x => x.id == id)
+    if (!i || i.status != 'Approved' || i.kon) return { err: 'Barang sudah diproses, tidak bisa ditahan. Muat ulang halaman.' }
     i.tahan = 'Y'
     i.alasan = alasan
     return { ok: 'Ditahan.' }
   },
   lepas(sel, d, id) {
     const i = d.I.find(x => x.id == id)
+    if (!i || i.status != 'Approved' || i.kon) return { err: 'Barang sudah diproses. Muat ulang halaman.' }
     i.tahan = ''
     i.alasan = ''
     return { ok: 'Tahan dilepas.' }
@@ -151,7 +178,9 @@ export const actions = {
   tutup(sel, d, id, alasan) {
     if (!alasan) return { err: 'Isi alasan menutup sisa.' }
     const k = d.K.find(x => x.id == id)
+    if (!k || k.tahap != 'Sudah di ERO') return { err: 'Konsolidasi ini belum/tidak aktif di ERO. Muat ulang halaman.' }
     const s = sel.sisa(k)
+    if (!(s > 0)) return { err: 'Tidak ada sisa untuk ditutup.' }
     k.alasan = alasan
     k.tutup = String(+k.tutup + s)
     return { ok: 'Sisa ditutup.' }
@@ -159,6 +188,8 @@ export const actions = {
 
   datang(sel, d, { id, q, l, cat, by }) {
     const k = sel.KN(id)
+    if (!k || k.tahap != 'Sudah di ERO') return { err: 'SRL ini belum divalidasi. Kedatangan belum bisa dicatat.' }
+    if (q < 0 || l < 0) return { err: 'Jumlah tidak boleh negatif.' }
     if (!(q > 0) && !(l > 0)) return { err: 'Isi Qty datang.' }
     if (q > sel.sisa(k)) return { err: 'Qty datang melebihi sisa (' + sel.sisa(k) + ').' }
     if (l > 0 && !cat) return { err: 'Isi catatan untuk kelebihan.' }
