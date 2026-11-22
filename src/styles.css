@@ -378,3 +378,4 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   main.v-pool .row .item{display:grid;grid-template-columns:1fr auto;gap:2px 16px;align-items:center}
   main.v-pool .row .item .between{grid-column:1/-1}
 }
+.login-sub{margin:-22px 0 24px;font-size:15px;color:#666;text-align:center}

@@ -24,7 +24,8 @@ export function Login({ users, onPick }) {
 
   return (
     <div className="login">
-      <h1 className="login-t">SIPRAK</h1>
+      <h1 className="login-t">NRB</h1>
+      <p className="login-sub">Nota Request Barang</p>
       <form className="login-card" onSubmit={submit} noValidate>
         {err ? <div className="login-err" role="alert">{err}</div> : null}
         <select
