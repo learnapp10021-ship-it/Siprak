@@ -7,52 +7,52 @@
 /* ---------- 1. Token ---------- */
 :root{
   /* permukaan */
-  --shell:#0F2A4A;--sh:#fff;--shm:#B7C6DA;
-  --bg:#F3F5F8;--paper:#fff;
+  --shell:#263746;--sh:#fff;--shm:#D9DEE3;
+  --bg:#F1F3F5;--paper:#FFFFFF;
   /* teks & garis */
-  --ink:#1B2430;--mut:#5A6676;--line:#E1E6ED;--bd:#B6C0CC;
+  --ink:#303A43;--mut:#78838D;--line:#D9DEE3;--bd:#D9DEE3;
   /* aksi */
-  --brand:#1F5FBF;--onb:#fff;--soft:#EAF1FB;--ring:rgba(31,95,191,.26);
+  --brand:#263746;--onb:#fff;--soft:#E5EBEF;--ring:rgba(82,125,149,.3);
   /* status */
-  --info:#1F5FBF;--infobg:#EAF1FB;
+  --info:#527D95;--infobg:#E5EBEF;
   --ok:#1E6B3A;--okbg:#E6F4EA;
   --warn:#8A5300;--warnbg:#FFF3D6;
   --bad:#B3261E;--badbg:#FDECEA;
-  --vio:#5B3FA6;--viobg:#EFEAFB;
-  --gray:#475263;--graybg:#EDF0F4;
+  --vio:#456477;--viobg:#E3E8EB;
+  --gray:#78838D;--graybg:#F1F3F5;
   /* bentuk */
   --r:4px;--r2:6px;
   --sh1:none;
-  --sh2:0 8px 28px rgba(15,31,52,.18);
+  --sh2:0 8px 28px rgba(38,55,70,.18);
   /* ukuran struktur (dipakai sticky & layout) */
   --hh:64px;--side:248px;
   color-scheme:light;box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --shell:#0B1626;--sh:#fff;--shm:#A9B9CE;
-  --bg:#0D131B;--paper:#151D27;
-  --ink:#E8EDF3;--mut:#93A2B5;--line:#263241;--bd:#3B4A5C;
-  --brand:#5B9BF0;--onb:#07162B;--soft:#192A41;--ring:rgba(91,155,240,.4);
-  --info:#8AB4F8;--infobg:#172B47;
+  --shell:#1F2A33;--sh:#fff;--shm:#C3CDD5;
+  --bg:#12191F;--paper:#1A232B;
+  --ink:#E3E8EC;--mut:#93A0AB;--line:#2F3C47;--bd:#44525E;
+  --brand:#8FB1C6;--onb:#12202A;--soft:#22313C;--ring:rgba(143,177,198,.4);
+  --info:#8FB1C6;--infobg:#1F2D38;
   --ok:#6FCF97;--okbg:#11301E;
   --warn:#F2B84B;--warnbg:#3A2C10;
   --bad:#F28B82;--badbg:#3B1816;
-  --vio:#B9A5F0;--viobg:#2A2148;
-  --gray:#A3AFBF;--graybg:#232D3A;
+  --vio:#A9BFCC;--viobg:#26333D;
+  --gray:#93A0AB;--graybg:#26313A;
   --sh1:none;--sh2:0 8px 28px rgba(0,0,0,.55);
   color-scheme:dark}}
 :root[data-theme="dark"]{
-  --shell:#0B1626;--sh:#fff;--shm:#A9B9CE;
-  --bg:#0D131B;--paper:#151D27;
-  --ink:#E8EDF3;--mut:#93A2B5;--line:#263241;--bd:#3B4A5C;
-  --brand:#5B9BF0;--onb:#07162B;--soft:#192A41;--ring:rgba(91,155,240,.4);
-  --info:#8AB4F8;--infobg:#172B47;
+  --shell:#1F2A33;--sh:#fff;--shm:#C3CDD5;
+  --bg:#12191F;--paper:#1A232B;
+  --ink:#E3E8EC;--mut:#93A0AB;--line:#2F3C47;--bd:#44525E;
+  --brand:#8FB1C6;--onb:#12202A;--soft:#22313C;--ring:rgba(143,177,198,.4);
+  --info:#8FB1C6;--infobg:#1F2D38;
   --ok:#6FCF97;--okbg:#11301E;
   --warn:#F2B84B;--warnbg:#3A2C10;
   --bad:#F28B82;--badbg:#3B1816;
-  --vio:#B9A5F0;--viobg:#2A2148;
-  --gray:#A3AFBF;--graybg:#232D3A;
+  --vio:#A9BFCC;--viobg:#26333D;
+  --gray:#93A0AB;--graybg:#26313A;
   --sh1:none;--sh2:0 8px 28px rgba(0,0,0,.55);
   color-scheme:dark}
 
@@ -141,18 +141,18 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .lnk{font:inherit;font-size:13px;font-weight:600;color:var(--brand);background:none;border:0;padding:8px 0;min-height:40px;cursor:pointer;text-align:left}
 .lnk:hover{text-decoration:underline}
 .fabw{position:sticky;bottom:84px;height:0;text-align:right;padding-right:16px;z-index:4}
-.fab{transform:translateY(-100%);border-radius:24px;padding:0 22px;min-height:48px;box-shadow:0 4px 12px rgba(15,31,52,.3)}
+.fab{transform:translateY(-100%);border-radius:24px;padding:0 22px;min-height:48px;box-shadow:0 4px 12px rgba(38,55,70,.3)}
 .ham{background:none;border:0;color:var(--sh);width:44px;height:44px;margin-left:-8px;cursor:pointer;border-radius:var(--r);display:grid;place-items:center}
 .ham:hover{background:rgba(255,255,255,.12)}.ham:active{background:rgba(255,255,255,.2)}
 
 /* ---------- 8. Navigasi ---------- */
 nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;background:var(--paper);
-  border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5;box-shadow:0 -2px 8px rgba(15,31,52,.05)}
+  border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5;box-shadow:0 -2px 8px rgba(38,55,70,.05)}
 nav button{flex:1;font:inherit;font-weight:600;font-size:14px;line-height:1.25;min-height:56px;background:none;border:0;padding:14px 4px;
   color:var(--mut);cursor:pointer;border-top:3px solid transparent;margin-top:-1px}
 nav button:hover{background:var(--soft)}
 nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
-.scrim{position:fixed;inset:0;background:rgba(10,20,34,.5);z-index:30}
+.scrim{position:fixed;inset:0;background:rgba(38,55,70,.5);z-index:30}
 .drawer{position:fixed;top:0;bottom:0;left:0;width:min(300px,85vw);background:var(--paper);z-index:31;overflow:auto;
   padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:4px 0 24px rgba(0,0,0,.3)}
 .dh{background:var(--shell);color:var(--sh);padding:calc(env(safe-area-inset-top,0px) + 20px) 16px 16px;display:grid;gap:2px}
@@ -165,7 +165,7 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
 
 /* ---------- 9. Dialog (sheet), baris pengguna, toast ---------- */
 .sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:520px;max-height:90vh;overflow:auto;background:var(--paper);z-index:31;
-  border-radius:12px 12px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 28px rgba(15,31,52,.25)}
+  border-radius:12px 12px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 28px rgba(38,55,70,.25)}
 .sheet::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--bd);margin:-4px auto 12px;opacity:.6}
 .sheet h2{font-size:18px;margin-bottom:8px}
 .sheet h3{font-size:14px;font-weight:600;color:var(--ink);margin:16px 0 4px}
@@ -302,16 +302,16 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
    Mode gelap tidak terpengaruh: token gelap punya spesifisitas lebih tinggi. */
 @media(max-width:1023px){
   :root{
-    --shell:#3A6EA5;--sh:#fff;--shm:#EEF3F9;
-    --bg:#F3F3F3;--paper:#fff;
-    --ink:#333;--mut:#666;--line:#D9D9D9;--bd:#B5B5B5;
-    --brand:#3A6EA5;--soft:#E4ECF6;--ring:rgba(58,110,165,.25);
-    --info:#2F5F95;--infobg:#E4ECF6;
+    --shell:#263746;--sh:#fff;--shm:#D9DEE3;
+    --bg:#F1F3F5;--paper:#FFFFFF;
+    --ink:#303A43;--mut:#78838D;--line:#D9DEE3;--bd:#D9DEE3;
+    --brand:#263746;--soft:#E5EBEF;--ring:rgba(82,125,149,.3);
+    --info:#527D95;--infobg:#E5EBEF;
     --ok:#2E6B34;--okbg:#E7F0E6;
     --warn:#82560A;--warnbg:#F6EEDA;
     --bad:#A93226;--badbg:#F5E2DF;
-    --vio:#5B4A8A;--viobg:#ECE8F3;
-    --gray:#505050;--graybg:#ECECEC;
+    --vio:#456477;--viobg:#E3E8EB;
+    --gray:#78838D;--graybg:#F1F3F5;
   }
   #app{background:var(--paper)}
   header{box-shadow:none}
