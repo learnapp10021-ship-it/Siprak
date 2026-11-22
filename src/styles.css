@@ -297,6 +297,50 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
     max-height:calc(100vh - var(--hh) - 32px);overflow:auto;padding-right:4px}
 }
 
+/* ---------- 14b. Tema HP & tablet (ala AppSheet): datar, header biru baja, daftar putih bergaris ----------
+   Hanya di bawah 1024 px. Desktop (>=1024 px) memakai desain enterprise di atas.
+   Mode gelap tidak terpengaruh: token gelap punya spesifisitas lebih tinggi. */
+@media(max-width:1023px){
+  :root{
+    --shell:#3A6EA5;--sh:#fff;--shm:#EEF3F9;
+    --bg:#F3F3F3;--paper:#fff;
+    --ink:#333;--mut:#666;--line:#D9D9D9;--bd:#B5B5B5;
+    --brand:#3A6EA5;--soft:#E4ECF6;--ring:rgba(58,110,165,.25);
+    --info:#2F5F95;--infobg:#E4ECF6;
+    --ok:#2E6B34;--okbg:#E7F0E6;
+    --warn:#82560A;--warnbg:#F6EEDA;
+    --bad:#A93226;--badbg:#F5E2DF;
+    --vio:#5B4A8A;--viobg:#ECE8F3;
+    --gray:#505050;--graybg:#ECECEC;
+  }
+  #app{background:var(--paper)}
+  header{box-shadow:none}
+  .row{background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;padding:14px 0;margin:0}
+  .item{margin:10px 0 0;padding:0 0 0 12px;border:0;border-left:3px solid var(--line);border-radius:0;background:none}
+  .row>.item:first-of-type{margin-top:10px}
+  .steps{margin:6px 0 4px}.steps i{height:5px;border-radius:3px}
+  .pill{border-radius:3px;padding:2px 8px}.pill::before{display:none}
+  .btn,select,input,textarea{border-radius:4px}
+  .btn.alt{background:none;border-color:var(--brand)}
+  .btn.alt:hover{background:var(--soft)}
+  .fab{box-shadow:0 2px 5px rgba(0,0,0,.3)}
+  nav{box-shadow:none}
+  .empty{margin:0;padding:36px 8px;border:0;border-radius:0;background:none}
+  .srlhd{background:var(--soft);border:1px solid var(--line);border-radius:10px;box-shadow:none}
+  .kpi,.tw{box-shadow:none}
+  .tbl th{background:none;font-size:13px;letter-spacing:0;text-transform:none}
+  .sheet{box-shadow:0 -4px 16px rgba(0,0,0,.2)}
+  .sheet h3{font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink);margin:16px 0 4px}
+  .drawer{box-shadow:4px 0 16px rgba(0,0,0,.25)}
+  .login-hd h1{font-size:24px}
+  .login-err{border:0;border-radius:8px}
+}
+@media(min-width:700px) and (max-width:1023px){
+  /* tablet: kartu mengalir dalam kolom, tetap datar */
+  main>.row{border:1px solid var(--line);border-radius:12px;padding:16px;margin:0 0 16px;background:var(--paper)}
+  .sheet{box-shadow:0 12px 40px rgba(0,0,0,.3)}
+}
+
 /* ---------- 15. Cetak ---------- */
 @media print{
   header,nav,.fabw,.acts,.scrim,.grid,#toast{display:none!important}
