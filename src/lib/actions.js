@@ -138,13 +138,14 @@ export const actions = {
     let n = Math.max(...d.K.map(k => +k.id.slice(4)))
     Object.entries(g).forEach(([k, a]) => {
       const id = 'KON-' + pad3(++n)
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Sudah di ERO', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
-        i.status = 'Sudah di ERO'
+        i.status = 'Validasi Warehouse'
         i.kon = id
+        i.alasan = ''
       })
     })
-    return { ok: `${p.length} request masuk ${no}. Status otomatis Sudah di ERO.` }
+    return { ok: `${p.length} request masuk ${no}. Menunggu validasi Admin Warehouse.` }
   },
 
   tutup(sel, d, id, alasan) {
@@ -204,6 +205,51 @@ export const actions = {
       if (ex) { Object.assign(ex, row); ubah++ } else { d.M.push(row); baru++ }
     })
     return { ok: `${baru} item baru, ${ubah} item diperbarui.` }
+  },
+
+  // Admin Warehouse memeriksa SRL dari Admin Dept: barang yang tidak sesuai dikeluarkan (kembali ke Pool), sisanya divalidasi.
+  keluarkan(sel, d, { ids, alasan, by }) {
+    if (!alasan) return { err: 'Isi alasan mengeluarkan barang.' }
+    const kons = new Set()
+    let n = 0
+    let srl = ''
+    ids.forEach(id => {
+      const i = d.I.find(x => x.id == id)
+      if (!i || i.status != 'Validasi Warehouse') return
+      const k = d.K.find(x => x.id == i.kon)
+      srl = k?.srl || srl
+      kons.add(i.kon)
+      i.status = 'Approved'
+      i.kon = ''
+      i.tahan = ''
+      i.alasan = `Dikeluarkan Warehouse (${by}) dari ${srl}: ${alasan}`
+      n++
+    })
+    if (!n) return { err: 'Barang tidak ditemukan atau sudah divalidasi.' }
+    kons.forEach(kid => {
+      const k = d.K.find(x => x.id == kid)
+      const rest = d.I.filter(x => x.kon == kid && x.status == 'Validasi Warehouse')
+      if (rest.length) k.ero = String(sum(rest, x => x.qty))
+      else {
+        k.tahap = 'Dikeluarkan'
+        k.ero = '0'
+        k.alasan = alasan
+      }
+    })
+    return { ok: `${n} barang dikeluarkan dari ${srl} dan dikembalikan ke Pool Admin Dept.` }
+  },
+  validasiSrl(sel, d, no) {
+    const ks = d.K.filter(k => k.srl == no && k.tahap == 'Validasi Warehouse')
+    if (!ks.length) return { err: 'SRL ini tidak sedang menunggu validasi.' }
+    let n = 0
+    ks.forEach(k => {
+      k.tahap = 'Sudah di ERO'
+      d.I.filter(i => i.kon == k.id && i.status == 'Validasi Warehouse').forEach(i => {
+        i.status = 'Sudah di ERO'
+        n++
+      })
+    })
+    return { ok: `${no} divalidasi: ${n} barang menunggu kedatangan.` }
   },
 
   serahAll(sel, d, ids) {

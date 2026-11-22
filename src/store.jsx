@@ -17,7 +17,7 @@ export const TABS = {
   User: [['req', 'Request saya'], ['new', 'Buat request']],
   Atasan: [['appr', 'Persetujuan'], ['tim', 'Tim saya']],
   'Admin Dept': [['pool', 'Buat ERO'], ['kon', 'SRL'], ['allr', 'Semua request'], ['usr', 'Pengguna']],
-  'Admin Warehouse': [['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['mst', 'Master item'], ['usr', 'Pengguna']],
+  'Admin Warehouse': [['val', 'Validasi SRL'], ['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['mst', 'Master item'], ['usr', 'Pengguna']],
   'Spv Warehouse': [['dash', 'Dashboard']],
 }
 

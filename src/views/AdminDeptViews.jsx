@@ -15,10 +15,13 @@ function HoldRow({ i, m }) {
           <div className="acts"><button className="btn alt" onClick={() => act('lepas', i.id)}>Lepas tahan</button></div>
         </>
       ) : (
+        <>
+        {i.alasan ? <div className="lbl t-warn">{i.alasan}</div> : null}
         <div className="acts">
           <input value={a} onChange={e => setA(e.target.value)} placeholder="Alasan menahan" style={{ flex: 1 }} />
           <button className="btn alt" onClick={() => act('tahan', i.id, a.trim())}>Tahan</button>
         </div>
+        </>
       )}
     </div>
   )
@@ -47,7 +50,7 @@ export function VPool() {
       {groups.length > 0 && (
         <div className="row" style={{ gridColumn: '1/-1' }}>
           <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
-          <small className="mut">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Status barang otomatis menjadi Sudah di ERO.</small>
+          <small className="mut">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
           <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
           <div className="grid">
             <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
@@ -93,6 +96,8 @@ export function VPool() {
   )
 }
 
+const TH = { 'Validasi Warehouse': ['t-warn', 'Menunggu validasi Warehouse'], Dikeluarkan: ['t-gray', 'Semua barang dikeluarkan'], Konsolidasi: ['t-vio', 'Konsolidasi'] }
+
 function KonCard({ k }) {
   const { db, sel, act } = useApp()
   const [alasan, setAlasan] = useState('')
@@ -101,19 +106,25 @@ function KonCard({ k }) {
   const dt = sel.datang(k)
   const s = sel.sisa(k)
   const peminta = db.I.filter(i => i.kon == k.id && sel.live(i))
+  const [tone, tl] = TH[k.tahap] || ['t-ok', k.tahap]
+  const jalan = k.tahap == 'Sudah di ERO'
   return (
     <div className="row">
       <div className="between">
         <div><b>{m.n}</b> <small>{k.id}</small></div>
-        <Pill t={k.tahap == 'Konsolidasi' ? 't-vio' : 't-ok'}>{k.tahap}</Pill>
+        <Pill t={tone}>{tl}</Pill>
       </div>
       <small className="mut">{peminta.length} request, total {t} {m.sat}{k.srl ? ', ' + k.srl : ''}{k.by ? ', dibuat ' + k.by : ''}</small><br />
       <small className="mut">Peminta: {peminta.map(i => sel.nm(sel.RQ(i.req).by).split(' ')[0] + ' ' + i.qty).join(', ')}</small>
-      <div className="bar"><b style={{ width: (t ? Math.min(100, (dt / t) * 100) : 0) + '%' }} /></div>
-      <small className="mut">
-        Datang {dt} dari {t}{k.tutup > 0 ? ', ditutup ' + k.tutup + ' (' + k.alasan + ')' : ''}{s > 0 ? ', sisa ' + s : ''}
-      </small>
-      {s > 0 && (
+      {jalan ? (
+        <>
+          <div className="bar"><b style={{ width: (t ? Math.min(100, (dt / t) * 100) : 0) + '%' }} /></div>
+          <small className="mut">
+            Datang {dt} dari {t}{k.tutup > 0 ? ', ditutup ' + k.tutup + ' (' + k.alasan + ')' : ''}{s > 0 ? ', sisa ' + s : ''}
+          </small>
+        </>
+      ) : k.tahap == 'Dikeluarkan' ? <small className="mut">Alasan: {k.alasan}</small> : null}
+      {jalan && s > 0 && (
         <div className="acts">
           <input value={alasan} onChange={e => setAlasan(e.target.value)} placeholder="Alasan menutup sisa" style={{ flex: 1 }} />
           <button className="btn alt" onClick={() => { if (act('tutup', k.id, alasan.trim())) setAlasan('') }}>Tutup sisa</button>
