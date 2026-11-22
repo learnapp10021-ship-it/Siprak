@@ -249,7 +249,10 @@ function mutate_(ops) {
     Object.keys(byT).forEach(function (t) {
       var S = SCHEMA[t], w = S.cols.length, kIdx = S.key ? S.cols.indexOf(S.key) : -1;
       var rows = readTable_(ss, t).map(function (r) { return S.cols.map(function (c) { return r[c]; }); });
-      var base = rows.length, index = {}, rewrite = false;
+      // Baris fisik di sheet. Bila berbeda dari jumlah baris valid (ada baris kosong di tengah akibat edit manual),
+      // tulis ulang seluruh tabel secara rapat supaya 'add' tidak menimpa baris lain.
+      var physical = Math.max(0, sheet_(ss, t).getLastRow() - 1);
+      var base = rows.length, index = {}, rewrite = physical !== rows.length;
       if (kIdx >= 0) rows.forEach(function (r, i) { index[r[kIdx]] = i; });
 
       byT[t].forEach(function (o) {
@@ -268,7 +271,7 @@ function mutate_(ops) {
           rewrite = true;
         }
       });
-      plan.push({ t: t, w: w, rows: rows, base: base, rewrite: rewrite });
+      plan.push({ t: t, w: w, rows: rows, base: base, rewrite: rewrite, physical: physical });
     });
 
     // Tahap 2: tulis. Hanya-tambah => tulis ekor saja; ada perubahan => tulis ulang tabel (kecil, 1 panggilan).
@@ -277,6 +280,8 @@ function mutate_(ops) {
       var sh = sheet_(ss, p.t);
       var from = p.rewrite ? 0 : p.base;
       var chunk = p.rows.slice(from);
+      // Tulis ulang: kosongkan dulu area lama agar tidak tersisa baris basi di bawah data baru.
+      if (p.rewrite && p.physical > 0) sh.getRange(2, 1, p.physical, p.w).clearContent();
       if (!chunk.length) return;
       var need = 1 + from + chunk.length;
       if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows() + 200);
