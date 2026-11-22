@@ -125,6 +125,9 @@ nav button{line-height:1.25;min-height:56px}nav button:hover{background:var(--so
   .sheet{animation:mIn .18s ease-out}
 }
 
+@media(max-width:1023px){nav .nv-x{display:none}}
+.ham-bdg{position:absolute;top:2px;right:0;margin:0}
+
 /* Desktop: menu samping tetap, konten di tengah area sisa */
 @media(min-width:1024px){
   #app{max-width:none;border-inline:0;padding-bottom:24px}

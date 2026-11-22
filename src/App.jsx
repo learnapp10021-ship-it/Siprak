@@ -12,11 +12,17 @@ import { VDash } from './views/DashboardView'
 
 const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }
 
+// Menu bawah (HP/tablet) hanya untuk pekerjaan harian; menu lain ada di menu samping (hamburger). Desktop tetap menampilkan semua.
+const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'] }
+
 export function Shell() {
   const { db, sel, ui, setUi, me, toastS, sync } = useApp()
   const tabs = TABS[me.role]
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : tabs[0][0]
   const View = VIEWS[tab]
+  const bottom = BOTTOM[me.role]
+  const hidden = k => (bottom && !bottom.includes(k) ? 'nv-x' : undefined)
+  const hamCnt = bottom ? tabs.filter(t => !bottom.includes(t[0])).reduce((a, t) => a + (cnt[t[0]] || 0), 0) : 0
 
   const ad = me.role == 'Admin Dept'
   const aw = me.role == 'Admin Warehouse'
@@ -45,8 +51,9 @@ export function Shell() {
     <>
       <div id="app">
         <header>
-          <button className="ham" onClick={() => setUi({ menu: true })} aria-label="Buka menu">
+          <button className="ham" onClick={() => setUi({ menu: true })} aria-label={hamCnt ? 'Buka menu, ' + hamCnt + ' menunggu' : 'Buka menu'} style={{ position: 'relative' }}>
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h16M3 11h16M3 16h16" /></svg>
+            {hamCnt ? <span className="bdg ham-bdg">{hamCnt}</span> : null}
           </button>
           <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role}{me.role.endsWith(me.dept) ? '' : ' ' + me.dept}{sync.pending ? ' · menyimpan…' : sync.err ? ' · offline' : ''}</small></div>
           <button className="ham" onClick={() => setUi({ help: true, menu: false })} aria-label="Cara pakai" style={{ margin: '0 -8px 0 0', fontSize: 20, fontWeight: 700 }}>?</button>
@@ -62,7 +69,7 @@ export function Shell() {
         )}
         <nav aria-label="Menu utama">
           {tabs.map(t => (
-            <button key={t[0]} aria-current={t[0] == tab ? 'true' : undefined} onClick={() => setUi({ tab: t[0], menu: false, eu: null })}>
+            <button key={t[0]} className={hidden(t[0])} aria-current={t[0] == tab ? 'true' : undefined} onClick={() => setUi({ tab: t[0], menu: false, eu: null })}>
               {t[1]}{cnt[t[0]] ? <span className="bdg" aria-label={cnt[t[0]] + ' menunggu'}>{cnt[t[0]]}</span> : null}
             </button>
           ))}
