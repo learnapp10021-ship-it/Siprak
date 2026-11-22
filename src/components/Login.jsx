@@ -1,19 +1,26 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 const ORDER = ['User', 'Atasan', 'Admin Dept', 'Admin Warehouse', 'Spv Warehouse']
-const initials = n => n.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
 
-// Masuk sementara tanpa kata sandi: cukup pilih salah satu pengguna yang sudah terdaftar.
+// Masuk: pilih pengguna + kata sandi. Untuk uji coba kata sandi belum diperiksa, boleh dikosongkan.
 export function Login({ users, onPick }) {
-  const [q, setQ] = useState('')
-  const key = q.trim().toLowerCase()
-  const groups = useMemo(() => {
-    const l = users.filter(u => !key || (u.n + ' ' + u.dept + ' ' + u.role + ' ' + u.id).toLowerCase().includes(key))
-    const roles = [...new Set([...ORDER, ...l.map(u => u.role)])]
-    return roles
-      .map(r => [r, l.filter(u => u.role == r).sort((a, b) => a.n.localeCompare(b.n))])
-      .filter(([, a]) => a.length)
-  }, [users, key])
+  const [uid, setUid] = useState('')
+  const [pw, setPw] = useState('')
+  const [show, setShow] = useState(false)
+  const [err, setErr] = useState('')
+
+  const roles = [...new Set([...ORDER, ...users.map(u => u.role)])]
+    .map(r => [r, users.filter(u => u.role == r).sort((a, b) => a.n.localeCompare(b.n))])
+    .filter(([, a]) => a.length)
+
+  const submit = e => {
+    e.preventDefault()
+    if (!uid) {
+      setErr('Pilih pengguna terlebih dahulu.')
+      return
+    }
+    onPick(uid)
+  }
 
   return (
     <div className="login">
@@ -22,26 +29,28 @@ export function Login({ users, onPick }) {
         <h1>SIPRAK</h1>
         <p>Request barang</p>
       </div>
-      <div className="login-body">
+      <form className="login-body" onSubmit={submit} noValidate>
         <h2>Masuk</h2>
-        <p className="mut">Pilih nama Anda. Sementara belum memakai kata sandi.</p>
-        {users.length > 6 ? (
-          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Cari nama, departemen, atau peran" aria-label="Cari pengguna" />
-        ) : null}
-        {groups.map(([role, a]) => (
-          <section key={role} aria-label={role}>
-            <div className="login-role">{role}</div>
-            {a.map(u => (
-              <button key={u.id} className="login-u" disabled={!!u.off} onClick={() => onPick(u.id)}>
-                <span className="login-av" aria-hidden="true">{initials(u.n)}</span>
-                <span className="login-t"><b>{u.n}</b><small>{u.dept}{u.off ? ', nonaktif' : ''}</small></span>
-                <span className="login-go" aria-hidden="true">›</span>
-              </button>
+        <label className="login-f">Pengguna
+          <select value={uid} onChange={e => { setUid(e.target.value); setErr('') }} aria-invalid={err ? 'true' : undefined}>
+            <option value="">Pilih pengguna</option>
+            {roles.map(([r, a]) => (
+              <optgroup key={r} label={r}>
+                {a.map(u => <option key={u.id} value={u.id} disabled={!!u.off}>{u.n} ({u.dept}){u.off ? ', nonaktif' : ''}</option>)}
+              </optgroup>
             ))}
-          </section>
-        ))}
-        {key && !groups.length ? <p className="mut">Tidak ada pengguna yang cocok dengan "{q.trim()}".</p> : null}
-      </div>
+          </select>
+        </label>
+        <label className="login-f">Kata sandi
+          <span className="login-pw">
+            <input type={show ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password" placeholder="Kata sandi" />
+            <button type="button" className="login-eye" onClick={() => setShow(s => !s)} aria-label={show ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}>{show ? 'Sembunyikan' : 'Lihat'}</button>
+          </span>
+        </label>
+        {err ? <div className="login-err" role="alert">{err}</div> : null}
+        <button type="submit" className="btn login-btn">Masuk</button>
+        <p className="login-note">Mode uji coba: kata sandi belum diperiksa, boleh dikosongkan.</p>
+      </form>
     </div>
   )
 }
