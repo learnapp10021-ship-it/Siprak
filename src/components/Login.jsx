@@ -25,7 +25,6 @@ export function Login({ users, onPick }) {
   return (
     <div className="login">
       <div className="login-hd">
-        <div className="login-logo" aria-hidden="true">S</div>
         <h1>SIPRAK</h1>
         <p>Request barang</p>
       </div>

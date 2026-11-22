@@ -176,35 +176,27 @@ header{min-height:var(--hh)}
 /* desktop: daftar SRL selalu tampil di kiri, kartu ringkas disembunyikan */
 @media(min-width:1024px){.pk-cur{display:none}}
 
-/* ===== Tema ramah pengguna ala AppSheet: header berwarna, kartu putih di atas latar abu, chip status jelas, tombol besar ===== */
-:root{--shell:#1967D2;--sh:#fff;--shm:#E8F0FE;--bg:#F1F3F4;--brand:#1967D2;--soft:#E8F0FE;--info:#1967D2;--infobg:#E8F0FE;--ok:#0B7A3E;--okbg:#E6F4EA;--warn:#9A5700;--warnbg:#FEF0CD;--bad:#C5221F;--badbg:#FCE8E6;--vio:#7B2CBF;--viobg:#F3E8FD;--gray:#4F5458;--graybg:#EEF0F2}
-#app{background:var(--bg)}
-header{border-bottom:0;box-shadow:0 2px 6px rgba(0,0,0,.18)}
-header h1{font-size:18px;letter-spacing:0}
+/* ===== Tema datar dan kalem (mirip aplikasi AppSheet bawaan): header biru baja, daftar putih bergaris, warna status redup, tanpa bayangan ===== */
+:root{--shell:#3A6EA5;--sh:#fff;--shm:#EEF3F9;--bg:#F3F3F3;--paper:#fff;--ink:#333;--mut:#666;--line:#D9D9D9;--brand:#3A6EA5;--soft:#E4ECF6;--info:#2F5F95;--infobg:#E4ECF6;--ok:#2E6B34;--okbg:#E7F0E6;--warn:#82560A;--warnbg:#F6EEDA;--bad:#A93226;--badbg:#F5E2DF;--vio:#5B4A8A;--viobg:#ECE8F3;--gray:#505050;--graybg:#ECECEC}
+header{border-bottom:0}
+header h1{font-size:17px;font-weight:600}
 header small{color:var(--shm)}
-.ham:active{background:rgba(255,255,255,.18)}
-main .row{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-main .row:last-child{border-bottom:1px solid var(--line)}
-.pill,.lbl{border-radius:999px}
-.pill{padding:3px 10px;font-size:12px}
-.item{border-left-width:4px;border-radius:2px}
-.btn{border-radius:8px;min-height:44px;padding:8px 18px;font-size:15px;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.ham:active{background:rgba(255,255,255,.15)}
+.pill{border-radius:3px;padding:2px 8px;font-size:12px;font-weight:600}
+.btn{border-radius:4px;min-height:44px;padding:8px 16px;font-size:15px}
 .btn:active{filter:brightness(.92)}
-select,input,textarea{border-radius:8px;border-color:#9AA0A6}
-select:focus,input:focus,textarea:focus{border-color:var(--brand);outline:2px solid var(--soft);outline-offset:0}
-.fab{border-radius:28px;min-height:52px;font-size:16px;box-shadow:0 4px 12px rgba(25,103,210,.45)}
-nav{box-shadow:0 -2px 8px rgba(0,0,0,.1)}
-nav button{font-size:15px;padding:14px 4px}
-nav button[aria-current=true]{background:var(--soft)}
+select,input,textarea{border-radius:4px;border-color:#B5B5B5}
+select:focus,input:focus,textarea:focus{border-color:var(--brand);outline:1px solid var(--brand);outline-offset:0}
+.fab{border-radius:26px;min-height:48px;font-size:15px;box-shadow:0 2px 5px rgba(0,0,0,.3)}
+nav{border-top:1px solid var(--line)}
+nav button{font-size:14px;padding:14px 4px}
 .bdg{background:var(--bad);color:#fff}
-.drawer .mi[aria-current=true]{background:var(--soft);color:var(--brand);font-weight:700}
-@media(min-width:1024px){nav{box-shadow:2px 0 6px rgba(0,0,0,.06)}}
+.drawer .mi[aria-current=true]{background:var(--soft);color:var(--brand);font-weight:600}
 
 /* ===== Layar masuk ===== */
-.login{max-width:520px;margin:0 auto;min-height:100vh;background:var(--bg)}
+.login{max-width:520px;margin:0 auto;min-height:100vh;background:var(--paper)}
 .login-hd{background:var(--shell);color:var(--sh);text-align:center;padding:calc(env(safe-area-inset-top,0px) + 36px) 16px 28px}
-.login-hd h1{font-size:26px;letter-spacing:.04em;margin:10px 0 0}.login-hd p{margin:2px 0 0;color:var(--shm)}
-.login-logo{width:56px;height:56px;margin:0 auto;border-radius:16px;background:#fff;color:var(--shell);font-size:28px;font-weight:800;display:grid;place-items:center}
+.login-hd h1{font-size:24px;font-weight:600;margin:0}.login-hd p{margin:2px 0 0;color:var(--shm)}
 .login-body{padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px));display:grid;gap:8px}
 .login-body h2{font-size:20px;margin:4px 0 0}.login-body p{margin:0}
 .login-body input{margin-top:6px}
@@ -216,4 +208,4 @@ nav button[aria-current=true]{background:var(--soft)}
 .login-err{color:var(--bad);background:var(--badbg);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;margin-top:4px}
 .login-note{text-align:center;color:var(--mut);font-size:12px;margin-top:10px}
 .mi-out{color:var(--bad);font-weight:600;border-top:1px solid var(--line);margin-top:8px}
-@media(min-width:1024px){.login{max-width:480px;margin-top:6vh;min-height:0;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.15)}.login-hd{padding-top:36px}}
+@media(min-width:1024px){.login{max-width:480px;margin-top:6vh;min-height:0;border-radius:16px;overflow:hidden;border:1px solid var(--line)}.login-hd{padding-top:36px}}
