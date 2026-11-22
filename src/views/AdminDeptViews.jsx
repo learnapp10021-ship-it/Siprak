@@ -8,7 +8,8 @@ function HoldRow({ i, m }) {
   const [a, setA] = useState('')
   return (
     <div className="item">
-      <div className="between"><span>{sel.nm(sel.RQ(i.req).by)}, {i.qty} {m.sat}</span><small>{i.req}</small></div>
+      <div className="between"><span><b className="dsk-b">{sel.nm(sel.RQ(i.req).by)}</b><span className="dsk-x">{sel.nm(sel.RQ(i.req).by)}, </span> {i.qty} {m.sat}</span><small>{i.req}</small></div>
+      {i.datang ? <small className="mut dsk">Dibutuhkan {D(i.datang)}{i.datang < TODAY && !i.tahan ? ' (terlewat)' : ''}, disetujui {days(i.appr)} hari lalu</small> : null}
       {i.tahan ? (
         <>
           <div className="lbl t-warn">Ditahan: {i.alasan}</div>
@@ -44,27 +45,50 @@ export function VPool() {
     ready.forEach(i => (t[i.kode] = (t[i.kode] || 0) + +i.qty))
     copyText(Object.entries(t).map(([k, q]) => k + '\t' + q).join('\n'), toast)
   }
+  const tot = {}
+  ready.forEach(i => (tot[i.kode] = (tot[i.kode] || 0) + +i.qty))
+  const held = p.length - ready.length
+  const lateN = ready.filter(i => i.datang < TODAY).length
+  const oldest = ready.length ? Math.max(...ready.map(i => days(i.appr))) : 0
   return (
     <>
       <Hd t={'Pool ' + d} s="Request disetujui yang belum dibuat di ERO. Paling mendesak di atas." />
       {groups.length > 0 && (
+        <div className="pool-kpi dsk" aria-label="Ringkasan pool">
+          <div><b>{ready.length}</b><span>Siap dibuat di ERO</span></div>
+          <div className={held ? 'w' : ''}><b>{held}</b><span>Ditahan</span></div>
+          <div className={lateN ? 'x' : ''}><b>{lateN}</b><span>Tanggal datang terlewat</span></div>
+          <div><b>{oldest}<small> hari</small></b><span>Menunggu terlama</span></div>
+        </div>
+      )}
+      {groups.length > 0 && (
         <div className="row eropanel">
           <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
-          <small className="mut">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
-          <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
+          <small className="mut dsk-x">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
+          <div className="dsk">
+            <div className="stp"><i>1</i><b>Salin daftar barang</b></div>
+            {ready.length ? (
+              <table className="pool-sum"><tbody>
+                {Object.entries(tot).map(([k, q]) => <tr key={k}><td>{sel.mi(k).n}</td><td>{q} {sel.mi(k).sat}</td></tr>)}
+              </tbody></table>
+            ) : <small className="mut">Belum ada barang siap. Lepas tahan dulu bila perlu.</small>}
+          </div>
+          <div className="acts"><button className="btn alt grow" onClick={copyAll} disabled={!ready.length}>Salin semua (article dan qty)</button></div>
+          <div className="dsk stp"><i>2</i><b>Buat SRL di ERO, lalu isi nomornya</b></div>
           <div className="grid">
             <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
             <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
           </div>
           <div className="acts">
             <button
-              className="btn grow"
+              className="btn grow" disabled={!ready.length}
               onClick={async () => {
                 // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
                 if (await act('simpanSrl', { no: no.trim(), est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst('') }
               }}
             >Simpan SRL</button>
           </div>
+          <small className="mut dsk">Langkah 3: Simpan SRL. Admin Warehouse akan memvalidasi; barang tidak sesuai kembali ke Pool.</small>
         </div>
       )}
       {groups.length ? (
