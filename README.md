@@ -25,5 +25,5 @@ src/
   styles.css            CSS asli, tidak diubah
 ```
 
-Peran: User, Atasan, Admin Dept, Admin Warehouse, Spv Warehouse. Menu "Lihat sebagai (demo)" di drawer
-untuk berpindah peran. Data masih di memori (hilang saat refresh).
+Peran: User, Atasan, Admin Dept, Admin Warehouse, Spv Warehouse. Layar masuk sementara tanpa kata sandi: pilih salah satu
+pengguna yang terdaftar (sesi diingat di perangkat). Untuk berpindah pengguna, pakai tombol "Keluar" di menu samping. Data masih di memori (hilang saat refresh).

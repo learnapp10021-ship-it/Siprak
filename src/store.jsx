@@ -6,6 +6,7 @@ import { actions } from './lib/actions'
 import { api, apiOn } from './lib/api'
 import { diffDb, emptyDb } from './lib/diff'
 import { POLL_MS } from './config'
+import { Login } from './components/Login'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -22,7 +23,7 @@ export const TABS = {
 }
 
 const initialUi = {
-  me: 'andi.prod', tab: 'req', draft: [emptyLine()],
+  me: '', tab: 'req', draft: [emptyLine()],
   menu: false, eu: null, self: false, help: false, dpic: null, di: null,
   uq: '', ud: '', q: '', sf: '', df: '', dp: 'w0',
 }
@@ -35,6 +36,23 @@ const readCache = () => {
     return c?.db?.U ? c : null
   } catch {
     return null
+  }
+}
+// Sesi masuk (sementara tanpa kata sandi): id pengguna diingat di perangkat ini.
+const SESSION_KEY = 'siprak.me'
+const readSession = () => {
+  try {
+    return localStorage.getItem(SESSION_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+const writeSession = id => {
+  try {
+    if (id) localStorage.setItem(SESSION_KEY, id)
+    else localStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* mode privat: abaikan */
   }
 }
 const writeCache = (db, ver) => {
@@ -57,7 +75,7 @@ export function AppProvider({ children, initialUi: init }) {
   const verRef = useRef(boot.current.ver)
   const [ready, setReady] = useState(boot.current.ready)
   const [sync, setSync] = useState({ pending: 0, err: '' })
-  const [ui, setUiState] = useState({ ...initialUi, ...init })
+  const [ui, setUiState] = useState({ ...initialUi, me: readSession(), ...init })
   const [toastS, setToastS] = useState({ text: '', bad: false, show: false })
   const timer = useRef()
 
@@ -72,7 +90,7 @@ export function AppProvider({ children, initialUi: init }) {
   const sel = useMemo(() => makeSel(db), [db])
 
   // Pengguna aktif: bila id awal tidak ada di data (mis. data dari spreadsheet), pakai pengguna pertama.
-  const meId = sel.user(ui.me) ? ui.me : db.U[0]?.id
+  const meId = sel.user(ui.me) && !sel.user(ui.me).off ? ui.me : ''
   const me = sel.user(meId)
   const uiEff = useMemo(() => (meId === ui.me ? ui : { ...ui, me: meId }), [ui, meId])
 
@@ -186,6 +204,18 @@ export function AppProvider({ children, initialUi: init }) {
     [toast, save]
   )
 
+  const login = useCallback(
+    id => {
+      writeSession(id)
+      setUi({ me: id, tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
+    },
+    [setUi]
+  )
+  const logout = useCallback(() => {
+    writeSession('')
+    setUi({ me: '', tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
+  }, [setUi])
+
   // Layar penuh hanya saat benar-benar belum ada data untuk ditampilkan
   if (!ready) {
     return (
@@ -194,6 +224,7 @@ export function AppProvider({ children, initialUi: init }) {
       </div>
     )
   }
+  if (!me && db.U.length) return <Login users={db.U} onPick={login} />
   if (!me) {
     return (
       <div style={{ padding: 24, font: '14px/1.6 system-ui', color: '#202124', maxWidth: 480, margin: '0 auto' }}>
@@ -208,6 +239,6 @@ export function AppProvider({ children, initialUi: init }) {
     )
   }
 
-  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, sync }
+  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, sync, logout }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

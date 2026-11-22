@@ -6,7 +6,7 @@ import { D, TODAY, days, dayDiff, disp } from '../lib/utils'
 const age = w => (w >= 7 ? 't-bad' : w >= 3 ? 't-warn' : 't-gray')
 
 export function Drawer({ cnt }) {
-  const { db, ui, setUi, me } = useApp()
+  const { ui, setUi, me, logout } = useApp()
   const tabs = TABS[me.role]
   const close = () => setUi({ menu: false })
   return (
@@ -21,13 +21,7 @@ export function Drawer({ cnt }) {
         ))}
         <button className="mi" onClick={() => setUi({ help: true, menu: false })}>Cara pakai</button>
         <button className="mi" onClick={() => setUi({ eu: me.id, self: true, menu: false })}>Profil saya</button>
-        <div className="dm">
-          <label>Lihat sebagai (demo)
-            <select value={ui.me} onChange={e => setUi({ me: e.target.value, tab: 'x', menu: false, eu: null })}>
-              {db.U.map(u => <option key={u.id} value={u.id}>{u.n} ({u.role})</option>)}
-            </select>
-          </label>
-        </div>
+        <button className="mi mi-out" onClick={logout}>Keluar</button>
       </aside>
     </>
   )
