@@ -18,7 +18,7 @@ const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'] }
 export function Shell() {
   const { db, sel, ui, setUi, me, toastS, sync } = useApp()
   const tabs = TABS[me.role]
-  const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : tabs[0][0]
+  const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : BOTTOM[me.role]?.[0] || tabs[0][0]
   const View = VIEWS[tab]
 
   const ad = me.role == 'Admin Dept'

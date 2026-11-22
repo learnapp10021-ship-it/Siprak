@@ -87,7 +87,7 @@ export function VVal() {
           {pk.cur ? <ValSrl key={pk.cur} no={pk.cur} items={g[pk.cur]} /> : null}
         </>
       ) : (
-        <Empty>Tidak ada SRL yang menunggu validasi.</Empty>
+        <Empty>Tidak ada SRL yang menunggu validasi. SRL baru dari Admin Dept akan muncul di sini, dan angkanya tampil di ikon menu (☰).</Empty>
       )}
     </>
   )
