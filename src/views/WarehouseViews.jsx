@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { useApp } from '../store'
-import { Hd, Empty, Pill, Confirm } from '../components/ui'
+import { Hd, Empty, Pill, Confirm, SrlPicker, useSrlPick } from '../components/ui'
 import { D, TODAY, days } from '../lib/utils'
 
 function DatangCard({ k }) {
@@ -35,22 +35,27 @@ export function VDtg() {
   const l = db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0)
   const g = {}
   l.forEach(k => (g[k.srl] = g[k.srl] || []).push(k))
+  const pk = useSrlPick(g, sel)
   return (
     <>
-      <Hd t="Kedatangan barang" s="Catat barang yang tiba per nomor SRL." />
+      <Hd t="Kedatangan barang" s="Pilih nomor SRL, lalu catat barang yang tiba." />
       {l.length ? (
-        Object.entries(g).map(([n, a]) => {
-          const s = sel.SRLof(n)
-          return (
-            <Fragment key={n}>
-              <div className="srl between" style={{ alignItems: 'center' }}>
-                <span>{n} <small className="mut">{s?.dept}, estimasi {D(s?.est)}</small></span>
-                <Confirm className="btn alt" onConfirm={() => act('datangAll', n, me.n)}>Semua datang sesuai jumlah</Confirm>
-              </div>
-              {a.map(k => <DatangCard key={k.id} k={k} />)}
-            </Fragment>
-          )
-        })
+        <>
+          <SrlPicker g={g} sel={sel} {...pk} />
+          {pk.shown.map(n => {
+            const a = g[n]
+            const s = sel.SRLof(n)
+            return (
+              <Fragment key={n}>
+                <div className="srl between" style={{ alignItems: 'center' }}>
+                  <span>{n} <small className="mut">{s?.dept}, estimasi {D(s?.est)}</small></span>
+                  <Confirm className="btn alt" onConfirm={() => act('datangAll', n, me.n)}>Semua datang sesuai jumlah</Confirm>
+                </div>
+                {a.map(k => <DatangCard key={k.id} k={k} />)}
+              </Fragment>
+            )
+          })}
+        </>
       ) : (
         <Empty>Semua barang di ERO sudah tiba.</Empty>
       )}
@@ -93,10 +98,31 @@ function SerahCard({ i }) {
 export function VSrh() {
   const { db, sel } = useApp()
   const l = db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).sort(sel.ord)
+  const g = {}
+  l.forEach(i => {
+    const no = sel.KN(i.kon)?.srl || '-'
+    ;(g[no] = g[no] || []).push(i)
+  })
+  const pk = useSrlPick(g, sel)
   return (
     <>
-      <Hd t="Serah terima" s="Urutan mengikuti kebutuhan paling dekat." />
-      {l.length ? l.map(i => <SerahCard key={i.id} i={i} />) : <Empty>Belum ada barang yang siap diserahkan.</Empty>}
+      <Hd t="Serah terima" s="Pilih nomor SRL. Urutan mengikuti kebutuhan paling dekat." />
+      {l.length ? (
+        <>
+          <SrlPicker g={g} sel={sel} {...pk} />
+          {pk.shown.map(n => {
+            const s = sel.SRLof(n)
+            return (
+              <Fragment key={n}>
+                <div className="srl">{n}{s ? <small className="mut"> {s.dept}, estimasi {D(s.est)}</small> : null}</div>
+                {g[n].map(i => <SerahCard key={i.id} i={i} />)}
+              </Fragment>
+            )
+          })}
+        </>
+      ) : (
+        <Empty>Belum ada barang yang siap diserahkan.</Empty>
+      )}
     </>
   )
 }

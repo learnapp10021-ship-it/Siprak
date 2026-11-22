@@ -105,3 +105,35 @@ export function copyText(t, toast) {
   }
   try { navigator.clipboard.writeText(t).then(ok, fb) } catch { fb() }
 }
+
+// Pemilih SRL: grup = { [noSRL]: [item, ...] }. Default SRL pertama (estimasi terdekat), bisa "Semua SRL".
+const ALL = '*'
+export function useSrlPick(g, sel) {
+  const [pick, setPick] = useState('')
+  const nos = Object.keys(g).sort((a, b) => {
+    const ea = sel.SRLof(a)?.est || '9'
+    const eb = sel.SRLof(b)?.est || '9'
+    return ea < eb ? -1 : ea > eb ? 1 : a < b ? -1 : 1
+  })
+  const cur = pick == ALL ? ALL : g[pick] ? pick : nos[0]
+  const shown = cur == ALL ? nos : cur ? [cur] : []
+  return { nos, cur, shown, setPick }
+}
+
+export function SrlPicker({ g, sel, nos, cur, setPick, unit = 'barang' }) {
+  if (!nos.length) return null
+  const all = nos.reduce((n, no) => n + g[no].length, 0)
+  return (
+    <div className="f" style={{ gridColumn: '1/-1' }}>
+      <label>Pilih SRL
+        <select value={cur} onChange={e => setPick(e.target.value)}>
+          {nos.map(no => {
+            const s = sel.SRLof(no)
+            return <option key={no} value={no}>{no}{s?.dept ? ' · ' + s.dept : ''} · {g[no].length} {unit}</option>
+          })}
+          {nos.length > 1 && <option value={ALL}>Semua SRL · {all} {unit}</option>}
+        </select>
+      </label>
+    </div>
+  )
+}
