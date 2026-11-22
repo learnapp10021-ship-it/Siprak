@@ -7,7 +7,7 @@ Spreadsheet menjadi database. Aplikasi React membaca/menulis lewat Web App Apps 
 1. Buat Google Spreadsheet baru (nama bebas, mis. `SIPRAK DB`).
 2. Menu **Extensions → Apps Script**. Buat file `Code.gs` dan `Seed.gs`, tempel isi dari folder ini.
    (Opsional: Project Settings → centang "Show appsscript.json" lalu tempel `appsscript.json`.)
-3. Pilih fungsi `setup` → **Run** → setujui izin. Ini membuat 9 sheet beserta header.
+3. Pilih fungsi `setup` → **Run** → setujui izin. Ini membuat 10 sheet beserta header.
 4. Pilih fungsi `seedDemo` → **Run**. Mengisi data contoh. **Menghapus isi sheet data**, jadi hanya untuk pertama kali.
    Untuk data sungguhan, lewati langkah ini dan isi sheet `Users` serta `Master` sendiri.
 5. **Deploy → New deployment → Web app**: Execute as **Me**, Who has access **Anyone**. Salin URL yang berakhiran `/exec`.
@@ -29,7 +29,7 @@ Setelah mengubah kode Apps Script, buat **New deployment / Manage deployments �
 | Item | id, req, kode, qty, datang, pakai, status, appr, kon, tahan, alasan | id |
 | Konsolidasi | id, dept, by, kode, tahap, srl, ero, tutup, alasan | id |
 | SRL | no, dept, est | no |
-| Kedatangan, SerahTerima, Pengingat | log, hanya bertambah | — |
+| Kedatangan, SerahTerima, Pengingat, Riwayat | log, hanya bertambah. `Riwayat` mencatat barang yang dikeluarkan Warehouse dari SRL dan pengingatnya | — |
 
 Semua kolom berformat teks agar `2026-11-16` tidak berubah menjadi tanggal. Edit manual di sheet boleh;
 trigger `onEdit` otomatis membuang cache, dan aplikasi mengambil data baru pada pengecekan berikutnya (±15 detik).
@@ -48,3 +48,9 @@ trigger `onEdit` otomatis membuang cache, dan aplikasi mengambil data baru pada 
   (pemilihan pengguna masih menu "Lihat sebagai"). Untuk produksi, batasi ke akun Google perusahaan atau tambahkan autentikasi.
 - Apps Script punya kuota harian dan latensi ±0,3–1,5 detik untuk penulisan; cocok untuk puluhan pengguna, bukan ribuan.
 - Dua orang membuat request di detik yang sama: yang kedua ditolak dengan pesan jelas dan data dimuat ulang, lalu ia tinggal mengulang.
+
+## Memperbarui kode
+
+Setiap kali `Code.gs` diganti dengan versi baru, tempel ulang lalu jalankan `setup` sekali lagi.
+`setup` aman diulang: hanya menambah sheet/kolom baru (mis. sheet `Riwayat`, kolom `off` di `Master`,
+kolom `cek` di `SRL`) dan **tidak mengubah data**. Lalu buat versi baru di Deploy → Manage deployments → Edit → New version.

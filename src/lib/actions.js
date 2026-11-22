@@ -182,4 +182,70 @@ export const actions = {
   ingat(sel, d, id, by) {
     d.RM.push({ item: id, by, at: nowStr() })
   },
+
+  // ---- Cek SRL oleh Admin Warehouse ----
+  cekSrl(sel, d, no, by) {
+    const l = d.L.find(x => x.no == no)
+    if (!l) return { err: 'SRL tidak ditemukan.' }
+    l.cek = 'Y'
+    l.cekby = by
+    l.cekat = nowStr()
+    return { ok: no + ' ditandai selesai dicek.' }
+  },
+
+  // Barang di SRL yang ternyata tidak bisa diorder: keluarkan, kembalikan request ke Admin Dept (ditahan) + riwayat.
+  keluarkan(sel, d, { kon, alasan, by }) {
+    const k = d.K.find(x => x.id == kon)
+    if (!k || k.tahap != 'Sudah di ERO') return { err: 'Barang ini tidak ada di SRL aktif.' }
+    if (!alasan) return { err: 'Isi alasan barang dikeluarkan.' }
+    if (sel.datang(k) > 0) return { err: 'Barang ini sudah ada yang datang. Gunakan "Tutup sisa" oleh Admin Dept.' }
+    const items = d.I.filter(i => i.kon == k.id && sel.live(i))
+    const qty = sum(items, i => i.qty)
+    items.forEach(i => {
+      i.status = 'Approved'
+      i.kon = ''
+      i.tahan = 'Y'
+      i.alasan = `Dikeluarkan dari ${k.srl} oleh Warehouse: ${alasan}`
+    })
+    k.tahap = 'Dikeluarkan'
+    k.alasan = alasan
+    k.tutup = '0'
+    d.H = d.H || []
+    d.H.push({ at: nowStr(), jenis: 'Dikeluarkan', srl: k.srl, kon: k.id, kode: k.kode, qty: String(qty), by, alasan, item: items.map(i => i.id).join(',') })
+    return { ok: `${sel.mi(k.kode).n} dikeluarkan dari ${k.srl}. ${items.length} request kembali ke Admin ${k.dept}.` }
+  },
+
+  // Catat pengingat ke Admin Dept untuk barang yang dikeluarkan
+  ingatKeluar(sel, d, { kon, by }) {
+    const o = (d.H || []).find(h => h.jenis == 'Dikeluarkan' && h.kon == kon)
+    if (!o) return { err: 'Riwayat tidak ditemukan.' }
+    d.H.push({ at: nowStr(), jenis: 'Diingatkan', srl: o.srl, kon, kode: o.kode, qty: o.qty, by, alasan: '', item: o.item })
+  },
+
+  // ---- Master item (Admin Warehouse) ----
+  simpanMaster(sel, d, { mode, k, n, sat, buf, kons, lead }) {
+    const kode = String(k || '').trim().toUpperCase().replace(/\s+/g, '-')
+    n = String(n || '').trim()
+    sat = String(sat || '').trim()
+    if (!kode) return { err: 'Isi kode barang.' }
+    if (!n) return { err: 'Isi nama barang.' }
+    if (!sat) return { err: 'Isi satuan.' }
+    if (!/^\d+$/.test(String(lead).trim())) return { err: 'Lead time harus angka hari (0 atau lebih).' }
+    const row = { k: kode, n, sat, buf: buf ? '1' : '0', kons: kons ? '1' : '0', lead: String(+lead) }
+    if (mode == 'new') {
+      if (d.M.find(x => x.k.toUpperCase() == kode)) return { err: 'Kode ' + kode + ' sudah dipakai.' }
+      d.M.push({ ...row, off: '' })
+      return { ok: n + ' ditambahkan ke master.' }
+    }
+    const m = d.M.find(x => x.k == k)
+    if (!m) return { err: 'Barang tidak ditemukan.' }
+    Object.assign(m, { n, sat, buf: row.buf, kons: row.kons, lead: row.lead })
+    return { ok: 'Perubahan ' + n + ' disimpan.' }
+  },
+  masterOff(sel, d, k, off) {
+    const m = d.M.find(x => x.k == k)
+    if (!m) return { err: 'Barang tidak ditemukan.' }
+    m.off = off ? 'Y' : ''
+    return { ok: m.n + (off ? ' dinonaktifkan. Tidak muncul di request baru.' : ' diaktifkan lagi.') }
+  },
 }

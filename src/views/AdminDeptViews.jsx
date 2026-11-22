@@ -105,10 +105,11 @@ function KonCard({ k }) {
     <div className="row">
       <div className="between">
         <div><b>{m.n}</b> <small>{k.id}</small></div>
-        <Pill t={k.tahap == 'Konsolidasi' ? 't-vio' : 't-ok'}>{k.tahap}</Pill>
+        <Pill t={k.tahap == 'Konsolidasi' ? 't-vio' : k.tahap == 'Dikeluarkan' ? 't-bad' : 't-ok'}>{k.tahap}</Pill>
       </div>
       <small className="mut">{peminta.length} request, total {t} {m.sat}{k.srl ? ', ' + k.srl : ''}{k.by ? ', dibuat ' + k.by : ''}</small><br />
       <small className="mut">Peminta: {peminta.map(i => sel.nm(sel.RQ(i.req).by).split(' ')[0] + ' ' + i.qty).join(', ')}</small>
+      {k.tahap == 'Dikeluarkan' && <div className="lbl t-bad">Dikeluarkan Warehouse: {k.alasan}. Requestnya kembali ke Pool (ditahan).</div>}
       <div className="bar"><b style={{ width: (t ? Math.min(100, (dt / t) * 100) : 0) + '%' }} /></div>
       <small className="mut">
         Datang {dt} dari {t}{k.tutup > 0 ? ', ditutup ' + k.tutup + ' (' + k.alasan + ')' : ''}{s > 0 ? ', sisa ' + s : ''}

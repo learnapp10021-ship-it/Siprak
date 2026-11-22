@@ -43,7 +43,7 @@ export function VNew() {
               <label>Barang
                 <select value={x.kode} onChange={e => set(i, 'kode', e.target.value)}>
                   <option value="">Pilih barang</option>
-                  {db.M.map(o => <option key={o.k} value={o.k}>{o.n} ({o.k})</option>)}
+                  {db.M.filter(o => o.off != 'Y' || o.k == x.kode).map(o => <option key={o.k} value={o.k}>{o.n} ({o.k})</option>)}
                 </select>
               </label>
               {m && (

@@ -17,7 +17,7 @@ export const TABS = {
   User: [['req', 'Request saya'], ['new', 'Buat request']],
   Atasan: [['appr', 'Persetujuan'], ['tim', 'Tim saya']],
   'Admin Dept': [['pool', 'Buat ERO'], ['kon', 'SRL'], ['allr', 'Semua request'], ['usr', 'Pengguna']],
-  'Admin Warehouse': [['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['usr', 'Pengguna']],
+  'Admin Warehouse': [['cek', 'Cek SRL'], ['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['mst', 'Master'], ['usr', 'Pengguna']],
   'Spv Warehouse': [['dash', 'Dashboard']],
 }
 
@@ -32,7 +32,7 @@ const CACHE_KEY = 'siprak.cache.v1'
 const readCache = () => {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE_KEY))
-    return c?.db?.U ? c : null
+    return c?.db?.U ? { ...c, db: { ...emptyDb(), ...c.db } } : null
   } catch {
     return null
   }
@@ -87,6 +87,7 @@ export function AppProvider({ children, initialUi: init }) {
   }
 
   const apply = useCallback((next, ver) => {
+    next = { ...emptyDb(), ...next } // server/cache lama bisa belum punya tabel baru
     dbRef.current = next
     verRef.current = ver
     setDb(next)

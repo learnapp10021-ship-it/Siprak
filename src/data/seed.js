@@ -136,7 +136,9 @@ ITM-002|20|Andi Saputra`,
   K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
 
-  const db = { U, HP, M, R, I, K, L, KD, SR, RM: [] }
+  // SRL lama dianggap sudah dicek; SRL-2611-003 sengaja belum, untuk contoh alur Cek SRL
+  L.forEach(l => { if (l.no != 'SRL-2611-003') Object.assign(l, { cek: 'Y', cekby: 'Wati Handayani', cekat: l.est + 'T08:00' }) })
+  const db = { U, HP, M, R, I, K, L, KD, SR, RM: [], H: [] }
   // Contoh riwayat pengingat
   const sel = makeSel(db)
   db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).forEach((i, n) => {

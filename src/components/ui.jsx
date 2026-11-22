@@ -111,7 +111,7 @@ export function copyText(t, toast) {
 const PAGE = 8
 const SORTS = { est: 'Estimasi terdekat', new: 'SRL terbaru', big: 'Barang terbanyak' }
 
-export function useSrlPick(g, sel) {
+export function useSrlPick(g, sel, prio) {
   const [f, setF] = useState({ pick: '', q: '', dept: '', late: false, sort: 'est', lim: PAGE })
   // ganti pilihan / tampilkan lagi tidak mereset panjang daftar; ubah filter mereset
   const set = p => setF(x => ({ ...x, ...('pick' in p || 'lim' in p ? {} : { lim: PAGE }), ...p }))
@@ -129,16 +129,17 @@ export function useSrlPick(g, sel) {
     new: (a, b) => (a.no < b.no ? 1 : -1),
     big: (a, b) => b.n - a.n || (a.no < b.no ? -1 : 1),
   }[f.sort]
+  // prio(no): angka kecil tampil lebih dulu (mis. SRL yang belum dicek)
   const list = Object.values(meta)
     .filter(m => (!q || m.hay.includes(q)) && (!f.dept || m.dept == f.dept) && (!f.late || m.late))
-    .sort(cmp)
+    .sort((a, b) => (prio ? prio(a.no) - prio(b.no) : 0) || cmp(a, b))
   const nos = list.map(m => m.no)
   const cur = nos.includes(f.pick) ? f.pick : nos[0]
   const lateN = Object.values(meta).filter(m => m.late).length
   return { list, nos, cur, shown: cur ? [cur] : [], f, set, depts, lateN, total: Object.keys(g).length }
 }
 
-export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'barang' }) {
+export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'barang', tag }) {
   if (!total) return null
   const vis = list.slice(0, f.lim)
   const filt = total > 5 // SRL sedikit: cukup daftar saja, tanpa cari & filter
@@ -166,7 +167,7 @@ export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'bara
       )}
       <div className="chips" style={{ marginTop: 0, alignItems: 'center' }}>
         {filt && lateN > 0 && (
-          <button className={'btn ' + (f.late ? '' : 'alt')} style={{ minHeight: 34, padding: '4px 12px' }} onClick={() => set({ late: !f.late })}>
+          <button className={'btn ' + (f.late ? '' : 'alt')} style={{ minHeight: 40, padding: '4px 12px' }} onClick={() => set({ late: !f.late })}>
             Terlambat ({lateN})
           </button>
         )}
@@ -187,7 +188,7 @@ export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'bara
             >
               <span><b>{m.no}</b><br /><small className="mut">{m.dept || '-'}, est. {D(m.est)}</small></span>
               <span style={{ textAlign: 'right' }}>
-                {m.late ? <Pill t="t-bad">Terlambat</Pill> : null}<br /><small className="mut">{m.n} {unit}</small>
+                {tag ? tag(m.no) : null}{m.late ? <Pill t="t-bad">Terlambat</Pill> : null}<br /><small className="mut">{m.n} {unit}</small>
               </span>
             </button>
           ))}

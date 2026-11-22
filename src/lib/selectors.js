@@ -4,6 +4,7 @@ import { D, sum } from './utils'
 // Dipakai di render (db biasa) maupun di dalam aksi (draft immer).
 export function makeSel(db) {
   const { U, M, R, I, K, L, KD, SR, RM } = db
+  const H = db.H || []
 
   const user = id => U.find(u => u.id == id)
   const nm = id => user(id)?.n || id
@@ -72,12 +73,19 @@ export function makeSel(db) {
     return [-1, s == 'Ditolak' ? 't-bad' : 't-gray', s]
   }
 
+  // SRL perlu dicek Warehouse sampai ditandai "Selesai dicek"
+  const needCek = no => {
+    const l = SRLof(no)
+    return !!l && l.cek != 'Y'
+  }
+  const hOf = kon => H.filter(h => h.kon == kon)
+
   const poolAll = d => I.filter(i => i.status == 'Approved' && !i.kon && RQ(i.req) && deptOf(i) == d)
   const poolOf = d => poolAll(d).filter(i => !i.tahan)
 
   return {
     user, nm, mi, KN, RQ, SRLof, live, total, datang, sisa, ord, berhak, diambil, siap,
-    deptOf, lastArrival, firstArrival, st, poolAll, poolOf,
+    deptOf, lastArrival, firstArrival, st, poolAll, poolOf, needCek, hOf, H,
     reminders: itemId => RM.filter(x => x.item == itemId),
   }
 }

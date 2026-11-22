@@ -5,10 +5,12 @@ import { VReq, VNew } from './views/UserViews'
 import { VAppr, VTim } from './views/AtasanViews'
 import { VPool, VKon, VAll } from './views/AdminDeptViews'
 import { VDtg, VSrh } from './views/WarehouseViews'
+import { VCek, VMst } from './views/CekViews'
 import { VUsr } from './views/UsersView'
 import { VDash } from './views/DashboardView'
+import { apiOn } from './lib/api'
 
-const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh }
+const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, cek: VCek, mst: VMst }
 
 export function Shell() {
   const { db, sel, ui, setUi, me, toastS, sync } = useApp()
@@ -22,6 +24,7 @@ export function Shell() {
     appr: db.R.filter(r => r.st == 'Menunggu Approval' && sel.user(r.by)?.boss == me.id).length,
     pool: ad ? sel.poolOf(me.dept).length : 0,
     kon: ad ? db.K.filter(k => k.dept == me.dept && k.tahap == 'Konsolidasi').length : 0,
+    cek: aw ? [...new Set(db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0).map(k => k.srl))].filter(sel.needCek).length : 0,
     dtg: aw ? db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0).length : 0,
     srh: aw ? db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).length : 0,
   }
@@ -48,6 +51,7 @@ export function Shell() {
           <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role}{me.role.endsWith(me.dept) ? '' : ' ' + me.dept}{sync.pending ? ' · menyimpan…' : sync.err ? ' · offline' : ''}</small></div>
           <button className="ham" onClick={() => setUi({ help: true, menu: false })} aria-label="Cara pakai" style={{ margin: '0 -8px 0 0', fontSize: 20, fontWeight: 700 }}>?</button>
         </header>
+        {!apiOn && <aside className="demo" aria-label="Mode demo">Mode demo: data tidak tersimpan dan kembali semula saat halaman dimuat ulang.</aside>}
         {ui.menu && <Drawer cnt={cnt} />}
         {ui.eu && <UserSheet key={ui.eu + ui.self} />}
         {ui.help && <HelpSheet />}

@@ -53,8 +53,9 @@ export function VDash() {
       .filter(x => x && x.v >= 0)
     const pkP = pk.filter(x => inP(x.t))
 
-    const sl = [...new Set(db.K.filter(k => k.srl).map(k => k.srl))].sort().reverse().map(no => {
-      const ks = db.K.filter(k => k.srl == no)
+    let sl = [...new Set(db.K.filter(k => k.srl).map(k => k.srl))].sort().reverse().map(no => {
+      const ks = db.K.filter(k => k.srl == no && k.tahap != 'Dikeluarkan')
+      if (!ks.length) return null
       const ids = ks.map(k => k.id)
       const ap = db.I.filter(i => ids.includes(i.kon) && sel.live(i) && i.appr).map(i => i.appr.slice(0, 10)).sort()[0]
       const ds = db.KD.filter(d => ids.includes(d.kon)).map(d => d.tgl).sort()
@@ -68,17 +69,20 @@ export function VDash() {
         late: !!est && (first ? first > est : est < TODAY),
       }
     })
+    sl = sl.filter(Boolean)
+    const ho = (db.H || []).filter(h => h.jenis == 'Dikeluarkan' && inP(h.at))
     const slP = sl.filter(x => inP(x.first))
     return {
       ps, pe, inP, w, kd, sr, rmP, pkP, slP,
       slT: sl.filter(x => inP(x.first) || x.open),
       ot: slP.filter(x => x.est),
+      ho,
       deps: [...new Set(db.U.filter(u => u.dept != 'Warehouse').map(u => u.dept))],
       adm: db.U.filter(u => u.role == 'Admin Warehouse' && !u.off),
     }
   }, [db, sel, pr])
 
-  const { ps, pe, inP, w, kd, sr, rmP, pkP, slP, slT, ot, deps, adm } = m
+  const { ps, pe, inP, w, kd, sr, rmP, pkP, slP, slT, ot, deps, adm, ho } = m
   const qq = qs.trim().toLowerCase()
   const lw = w
     .filter(x => (f == 'late' ? x.w >= 3 : f == 'none' ? !x.rm.length : true))
@@ -133,6 +137,7 @@ export function VDash() {
         <Kpi l="Lead time pengambilan" v={f1(avg(pkP.map(x => x.v))) + (pkP.length ? ' hari' : '')} s="datang sampai diserahkan" />
         <Kpi l="SRL tepat waktu" v={ot.length ? Math.round((ot.filter(x => !x.late).length / ot.length) * 100) + '%' : '-'} s={ot.length ? ot.filter(x => !x.late).length + ' dari ' + ot.length + ' SRL' : 'belum ada SRL datang'} />
         <Kpi l="Pengingat terkirim" v={rmP.length} s="oleh admin warehouse" />
+        <Kpi l="Dikeluarkan dari SRL" v={ho.length} s="barang tidak bisa diorder" />
       </div>
 
       <Srl>Sudah sampai, belum diambil</Srl>
@@ -150,7 +155,7 @@ export function VDash() {
       </div>
       <p className="mut" style={{ gridColumn: '1/-1', margin: '0 0 6px' }}>{lw.length} barang. Ketuk kartu di atas untuk menyaring, atau ketuk baris untuk melihat detail barang.</p>
       {lw.length ? (
-        <div className="tw">
+        <div className="tw" tabIndex={0} role="region" aria-label="Barang sudah sampai belum diambil">
           <table className="tbl">
             <thead><Th a={['Barang', 'Qty', 'Peminta', 'Datang', 'Di gudang', 'Pengingat', 'Dipakai']} /></thead>
             <tbody>
@@ -181,7 +186,7 @@ export function VDash() {
 
       <Srl>PIC yang belum mengambil ({pics.length} orang)</Srl>
       {pics.length ? (
-        <div className="tw">
+        <div className="tw" tabIndex={0} role="region" aria-label="PIC yang belum mengambil">
           <table className="tbl">
             <thead><Th a={['PIC', 'Barang', 'Isi', 'Terlama', 'Pengingat']} /></thead>
             <tbody>
@@ -212,7 +217,7 @@ export function VDash() {
 
       <Srl>Lead time kedatangan per SRL</Srl>
       {slT.length ? (
-        <div className="tw">
+        <div className="tw" tabIndex={0} role="region" aria-label="Lead time kedatangan per SRL">
           <table className="tbl">
             <thead><Th a={['SRL', 'Dept', 'Disetujui', 'Datang pertama', 'Lead time', 'Estimasi', 'Status', 'Datang']} /></thead>
             <tbody>
@@ -240,7 +245,7 @@ export function VDash() {
       {slMore}
 
       <Srl>Per departemen</Srl>
-      <div className="tw">
+      <div className="tw" tabIndex={0} role="region" aria-label="Ringkasan per departemen">
         <table className="tbl">
           <thead><Th a={['Dept', 'Belum diambil', 'Rata-rata menunggu', 'Pengingat (periode)', 'Lead time pengambilan (periode)']} /></thead>
           <tbody>
@@ -261,7 +266,7 @@ export function VDash() {
       </div>
 
       <Srl>Aktivitas admin warehouse (periode)</Srl>
-      <div className="tw">
+      <div className="tw" tabIndex={0} role="region" aria-label="Aktivitas admin warehouse">
         <table className="tbl">
           <thead><Th a={['Admin', 'Kedatangan dicatat', 'Pengingat terkirim']} /></thead>
           <tbody>

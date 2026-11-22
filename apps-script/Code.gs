@@ -18,14 +18,15 @@
 
 var SCHEMA = {
   U:  { sheet: 'Users',       key: 'id',  cols: ['id', 'n', 'dept', 'role', 'boss', 'hp', 'off'] },
-  M:  { sheet: 'Master',      key: 'k',   cols: ['k', 'n', 'sat', 'buf', 'kons', 'lead'] },
+  M:  { sheet: 'Master',      key: 'k',   cols: ['k', 'n', 'sat', 'buf', 'kons', 'lead', 'off'] },
   R:  { sheet: 'Request',     key: 'id',  cols: ['id', 'by', 'tgl', 'st', 'cat'] },
   I:  { sheet: 'Item',        key: 'id',  cols: ['id', 'req', 'kode', 'qty', 'datang', 'pakai', 'status', 'appr', 'kon', 'tahan', 'alasan'] },
   K:  { sheet: 'Konsolidasi', key: 'id',  cols: ['id', 'dept', 'by', 'kode', 'tahap', 'srl', 'ero', 'tutup', 'alasan'] },
-  L:  { sheet: 'SRL',         key: 'no',  cols: ['no', 'dept', 'est'] },
+  L:  { sheet: 'SRL',         key: 'no',  cols: ['no', 'dept', 'est', 'cek', 'cekby', 'cekat'] },
   KD: { sheet: 'Kedatangan',  key: null,  cols: ['kon', 'qty', 'lebih', 'by', 'cat', 'tgl'] },
   SR: { sheet: 'SerahTerima', key: null,  cols: ['item', 'qty', 'to', 'tgl'] },
-  RM: { sheet: 'Pengingat',   key: null,  cols: ['item', 'by', 'at'] }
+  RM: { sheet: 'Pengingat',   key: null,  cols: ['item', 'by', 'at'] },
+  H:  { sheet: 'Riwayat',     key: null,  cols: ['at', 'jenis', 'srl', 'kon', 'kode', 'qty', 'by', 'alasan', 'item'] }
 };
 var TABLES = Object.keys(SCHEMA);
 var CACHE_TTL = 21600;   // 6 jam
@@ -90,10 +91,22 @@ function sheet_(ss, t) {
   return sh;
 }
 
-/** Jalankan sekali dari editor: membuat semua sheet + header. */
+/** Pastikan header & jumlah kolom sheet sesuai SCHEMA (aman dijalankan ulang setelah update kode; data tidak diubah). */
+function migrate_(ss, t) {
+  var S = SCHEMA[t], sh = sheet_(ss, t), w = S.cols.length;
+  if (sh.getMaxColumns() < w) sh.insertColumnsAfter(sh.getMaxColumns(), w - sh.getMaxColumns());
+  var cur = sh.getRange(1, 1, 1, w).getValues()[0];
+  if (cur.join('|') !== S.cols.join('|')) {
+    sh.getRange(1, 1, sh.getMaxRows(), w).setNumberFormat('@');
+    sh.getRange(1, 1, 1, w).setValues([S.cols]).setFontWeight('bold').setBackground('#E8F0FE');
+    sh.setFrozenRows(1);
+  }
+}
+
+/** Jalankan sekali dari editor (dan ulang setiap kode diperbarui): membuat sheet + header, menambah kolom baru. */
 function setup() {
   var ss = ss_();
-  TABLES.forEach(function (t) { sheet_(ss, t); });
+  TABLES.forEach(function (t) { migrate_(ss, t); });
   var def = ss.getSheetByName('Sheet1');
   if (def && ss.getSheets().length > 1 && def.getLastRow() === 0) ss.deleteSheet(def);
   if (!PropertiesService.getScriptProperties().getProperty('VER')) bump_(TABLES);
@@ -217,7 +230,7 @@ function toClient_(tb) {
     if (u.off) o.off = true;
     return o;
   });
-  return { U: U, HP: HP, M: tb.M, R: tb.R, I: tb.I, K: tb.K, L: tb.L, KD: tb.KD, SR: tb.SR, RM: tb.RM };
+  return { U: U, HP: HP, M: tb.M, R: tb.R, I: tb.I, K: tb.K, L: tb.L, KD: tb.KD, SR: tb.SR, RM: tb.RM, H: tb.H };
 }
 
 /* ------------------------------------------------------------------ Tulis */
@@ -303,7 +316,7 @@ function writeAll_(db) {
   lock.waitLock(25000);
   try {
     var U = db.U.map(function (u) { return { id: u.id, n: u.n, dept: u.dept, role: u.role, boss: u.boss || '', hp: (db.HP || {})[u.id] || '', off: u.off ? 'Y' : '' }; });
-    var src = { U: U, M: db.M, R: db.R, I: db.I, K: db.K, L: db.L, KD: db.KD, SR: db.SR, RM: db.RM };
+    var src = { U: U, M: db.M, R: db.R, I: db.I, K: db.K, L: db.L, KD: db.KD, SR: db.SR, RM: db.RM, H: db.H };
     TABLES.forEach(function (t) {
       var S = SCHEMA[t], sh = sheet_(ss, t), rows = src[t] || [], w = S.cols.length;
       var last = sh.getLastRow();
