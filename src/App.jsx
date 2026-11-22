@@ -13,7 +13,7 @@ import { VDash } from './views/DashboardView'
 const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }
 
 // Menu bawah (HP/tablet) hanya untuk pekerjaan harian; menu lain ada di menu samping (hamburger). Desktop tetap menampilkan semua.
-const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'] }
+const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'], 'Admin Dept': ['pool', 'kon'] }
 
 export function Shell() {
   const { db, sel, ui, setUi, me, toastS, sync } = useApp()
