@@ -1,8 +1,9 @@
-import { T, addDays, TODAY } from '../lib/utils'
-import { makeSel } from '../lib/selectors'
+import { T, addDays, pad } from './util.js'
+import { makeSel } from './selectors.js'
+import { emptyState } from './schema.js'
 
-// Data contoh (sama dengan versi HTML). Ganti dengan API/backend saat produksi.
-export function buildSeed() {
+// Data contoh (demo). Untuk produksi pakai setupKosong() di Apps Script lalu isi Master & Users.
+export function buildSeed(today) {
   const U = T(
     `hendra.mgr|Hendra Wijaya|Produksi|Atasan|
 budi.spv|Budi Hartono|Produksi|Atasan|hendra.mgr
@@ -26,6 +27,10 @@ agus.spv|Agus Prasetyo|Warehouse|Spv Warehouse|`,
     'yani.admin': '6281234560010', 'wati.wh': '6281234560011', 'joko.wh': '6281234560012',
     'agus.spv': '6281234560013',
   }
+  U.forEach(u => {
+    u.wa = HP[u.id] || ''
+    u.off = false
+  })
   const M = T(
     `SRG-001|Sarung Tangan Kain|Pasang|0|0|3
 SRG-002|Masker KN95|Box|1|0|3
@@ -111,37 +116,38 @@ ITM-002|20|Andi Saputra`,
     L.push({ no, dept: 'Produksi', est: '2026-11-24' })
     A.forEach(([k, nama, sat, buf], i) => {
       M.push({ k, n: nama, sat, buf: String(buf), kons: '0', lead: String(3 + (i % 4)) })
-      const kid = 'KON-' + String(5 + i).padStart(3, '0')
+      const kid = 'KON-' + pad(5 + i, 3)
       const rs = i % 2 ? [i % 3] : [i % 3, (i + 1) % 3]
       const dt = addDays('2026-11-20', i % 6)
       let tot = 0
       rs.forEach((r, j) => {
         const q = j ? ((i * 5) % 6) + 1 : ((i * 7) % 9) + 2
-        const id = 'ITM-' + String(I.length + 1).padStart(3, '0')
+        const id = 'ITM-' + pad(I.length + 1, 3)
         tot += q
         I.push({
           id, req: 'RQ-0' + (12 + r + (i < 10 ? 0 : 3)), kode: k, qty: String(q), datang: dt,
           pakai: buf ? '' : addDays(dt, 3 + (i % 5)), status: 'Sudah di ERO',
-          appr: '2026-11-16T08:' + String(10 + i).padStart(2, '0'), kon: kid, tahan: '', alasan: '',
+          appr: '2026-11-16T08:' + pad(10 + i), kon: kid, tahan: '', alasan: '',
         })
         if (i < 3 && !j) SR.push({ item: id, qty: String(q), to: nmOf(P[r]) })
       })
       K.push({ id: kid, dept: 'Produksi', kode: k, tahap: 'Sudah di ERO', srl: no, ero: String(tot), tutup: '0', alasan: '' })
-      if (i < 6)
-        KD.push({ kon: kid, qty: String(tot), lebih: '0', by: 'Wati Handayani', cat: '', tgl: '2026-11-18' })
-      else if (i < 12)
-        KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'Joko Susilo', cat: '', tgl: '2026-11-21' })
+      if (i < 6) KD.push({ kon: kid, qty: String(tot), lebih: '0', by: 'Wati Handayani', cat: '', tgl: '2026-11-18' })
+      else if (i < 12) KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'Joko Susilo', cat: '', tgl: '2026-11-21' })
     })
   }
   K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
+  KD.forEach((r, n) => (r.id = 'KDG-' + pad(n + 1, 6)))
+  SR.forEach((r, n) => (r.id = 'SRH-' + pad(n + 1, 6)))
 
-  const db = { U, HP, M, R, I, K, L, KD, SR, RM: [] }
+  const db = { ...emptyState(), U, M, R, I, K, L, KD, SR, RM: [] }
   // Contoh riwayat pengingat
   const sel = makeSel(db)
+  let rn = 0
   db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).forEach((i, n) => {
     for (let c = 0; c < n % 4; c++)
-      db.RM.push({ item: i.id, by: 'Wati Handayani', at: addDays(TODAY, -((n % 4) - c)) + 'T09:00' })
+      db.RM.push({ id: 'RMD-' + pad(++rn, 6), item: i.id, by: 'Wati Handayani', at: addDays(today, -((n % 4) - c)) + 'T09:00:00' })
   })
   return db
 }

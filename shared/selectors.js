@@ -1,4 +1,4 @@
-import { D, sum } from './utils'
+import { D, sum } from './util.js'
 
 // Semua turunan data (jatah, sisa, status) dihitung dari snapshot db.
 // Dipakai di render (db biasa) maupun di dalam aksi (draft immer).
