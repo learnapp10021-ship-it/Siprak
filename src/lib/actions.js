@@ -1,4 +1,4 @@
-import { D, TODAY, addDays, nowStr, sum, wa, nextId, minsAgo } from './utils'
+import { D, TODAY, addDays, nowStr, sum, wa, nextId, minsAgo, cleanMaster } from './utils'
 
 // Setiap aksi: (sel, d, ...args) => { err } | { ok } | undefined
 // `d` adalah draft immer / salinan data (boleh dimutasi), `sel` selector atas data yang sama.
@@ -18,6 +18,20 @@ const setR = (d, id, s) => {
 
 // Dua entri identik dalam rentang ini dianggap input ganda (klik ulang, dua admin menginput hal yang sama)
 const DUP_MENIT = 2
+
+// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat atau ''.
+const checkLines = (sel, lines) => {
+  for (const x of lines) {
+    const m = x.kode && sel.mi(x.kode)
+    if (!m) return 'Pilih barang di setiap baris.'
+    if (!(+x.qty > 0) || !isFinite(+x.qty)) return 'Jumlah harus lebih dari 0.'
+    if (!x.datang || x.datang < addDays(TODAY, +m.lead))
+      return `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
+    if (m.buf == '0' && !x.pakai) return `${m.n}: tgl pakai wajib untuk barang non buffer.`
+    if (x.pakai && x.pakai < x.datang) return `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+  }
+  return ''
+}
 
 const sidik = ls => ls.map(x => [x.kode, +x.qty, x.datang, x.pakai || ''].join('~')).sort().join('|')
 
@@ -59,22 +73,14 @@ export const actions = {
   },
 
   saveRequest(sel, d, { status, lines, me }) {
-    const { mi } = sel
     if (!['Draft', 'Menunggu Approval'].includes(status)) return { err: 'Status request tidak valid.' }
     if (!Array.isArray(lines) || !lines.length) return { err: 'Tambahkan minimal satu barang.' }
     if (lines.length > 50) return { err: 'Maksimal 50 barang per request.' }
     if (me.off) return { err: 'Akun nonaktif tidak bisa membuat request.' }
     if (status == 'Menunggu Approval' && !me.boss)
       return { err: 'Akun Anda belum punya atasan. Simpan sebagai draft dan hubungi admin departemen.' }
-    for (const x of lines) {
-      const m = x.kode && mi(x.kode)
-      if (!m) return { err: 'Pilih barang di setiap baris.' }
-      if (!(+x.qty > 0) || !isFinite(+x.qty)) return { err: 'Jumlah harus lebih dari 0.' }
-      if (!x.datang || x.datang < addDays(TODAY, +m.lead))
-        return { err: `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.` }
-      if (m.buf == '0' && !x.pakai) return { err: `${m.n}: tgl pakai wajib untuk barang non buffer.` }
-      if (x.pakai && x.pakai < x.datang) return { err: `${m.n}: tgl pakai tidak boleh sebelum tgl datang.` }
-    }
+    const bad = checkLines(sel, lines)
+    if (bad) return { err: bad }
     // Penjaga duplikat: request identik dari orang yang sama dalam beberapa menit terakhir
     const fp = sidik(lines)
     const kembar = d.R.find(
@@ -98,6 +104,8 @@ export const actions = {
     if (!r) return { err: 'Request tidak ditemukan.' }
     if (r.st != 'Draft') return { err: `Request ${id} sudah tidak berstatus draft (sekarang: ${r.st}).` }
     if (!sel.user(r.by)?.boss) return { err: 'Akun Anda belum punya atasan. Hubungi admin departemen.' }
+    const bad = checkLines(sel, d.I.filter(i => i.req == id))
+    if (bad) return { err: bad + ' Buat ulang request dengan tanggal yang baru.' }
     setR(d, id, 'Menunggu Approval')
     return { ok: 'Diajukan ke atasan.' }
   },
@@ -166,6 +174,7 @@ export const actions = {
   lepas(sel, d, id) {
     const i = d.I.find(x => x.id == id)
     if (!i) return { err: 'Barang tidak ditemukan.' }
+    if (i.status != 'Approved' || i.kon) return { err: 'Barang sudah diproses ke ERO. Muat ulang halaman.' }
     if (!i.tahan) return { err: 'Barang ini sudah tidak ditahan.' }
     i.tahan = ''
     i.alasan = ''
@@ -192,19 +201,21 @@ export const actions = {
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
     Object.entries(g).forEach(([k, a]) => {
       const id = nextId(d.K, 'KON-')
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Sudah di ERO', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
-        i.status = 'Sudah di ERO'
+        i.status = 'Validasi Warehouse'
         i.kon = id
+        i.alasan = ''
       })
     })
-    return { ok: `${p.length} request masuk ${no}. Status otomatis Sudah di ERO.` }
+    return { ok: `${p.length} request masuk ${no}. Menunggu validasi Admin Warehouse.` }
   },
 
   tutup(sel, d, id, alasan) {
     if (!alasan) return { err: 'Isi alasan menutup sisa.' }
     const k = d.K.find(x => x.id == id)
     if (!k) return { err: 'Konsolidasi tidak ditemukan.' }
+    if (k.tahap != 'Sudah di ERO') return { err: 'Konsolidasi ini belum/tidak aktif di ERO. Muat ulang halaman.' }
     const s = sel.sisa(k)
     if (!(s > 0)) return { err: 'Tidak ada sisa untuk ditutup (sudah datang semua atau sudah ditutup).' }
     k.alasan = alasan
@@ -215,7 +226,7 @@ export const actions = {
   datang(sel, d, { id, q, l, cat, by }) {
     const k = sel.KN(id)
     if (!k) return { err: 'Konsolidasi tidak ditemukan.' }
-    if (k.tahap != 'Sudah di ERO') return { err: 'Konsolidasi ini belum/tidak menerima kedatangan.' }
+    if (k.tahap != 'Sudah di ERO') return { err: 'SRL ini belum divalidasi. Kedatangan belum bisa dicatat.' }
     if (!(q > 0) && !(l > 0)) return { err: 'Isi Qty datang.' }
     if (q < 0 || l < 0) return { err: 'Qty tidak boleh negatif.' }
     if (q > sel.sisa(k)) return { err: 'Qty datang melebihi sisa (' + sel.sisa(k) + ').' }
@@ -246,6 +257,94 @@ export const actions = {
     if (kembar) return { err: 'Serah terima yang sama baru saja dicatat. Tidak dicatat ganda.' }
     d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY, at: nowStr() })
     return { ok: 'Diserahkan.' }
+  },
+
+  saveMaster(sel, d, { mode, f }) {
+    const r = cleanMaster(f)
+    if (r.err) return { err: r.err + '.' }
+    const { err, ...row } = r
+    const ex = d.M.find(m => m.k == row.k)
+    if (mode == 'new') {
+      if (ex) return { err: 'Kode ' + row.k + ' sudah ada.' }
+      d.M.push(row)
+      return { ok: 'Item ditambahkan.' }
+    }
+    if (!ex) return { err: 'Item tidak ditemukan.' }
+    Object.assign(ex, row)
+    return { ok: 'Item disimpan.' }
+  },
+  importMaster(sel, d, rows) {
+    if (!Array.isArray(rows) || rows.length > 3000) return { err: 'Impor maksimal 3000 baris sekali jalan.' }
+    const ok = rows.map(cleanMaster).filter(r => !r.err) // dibersihkan ulang di server
+    if (!ok.length) return { err: 'Tidak ada baris yang valid.' }
+    let baru = 0
+    let ubah = 0
+    ok.forEach(r => {
+      const { err, ...row } = r
+      const ex = d.M.find(m => m.k == row.k)
+      if (ex) { Object.assign(ex, row); ubah++ } else { d.M.push(row); baru++ }
+    })
+    return { ok: `${baru} item baru, ${ubah} item diperbarui.` }
+  },
+
+  // Admin Warehouse memeriksa SRL dari Admin Dept: barang yang tidak sesuai dikeluarkan (kembali ke Pool), sisanya divalidasi.
+  keluarkan(sel, d, { ids, alasan, by }) {
+    if (!alasan) return { err: 'Isi alasan mengeluarkan barang.' }
+    const kons = new Set()
+    let n = 0
+    let srl = ''
+    ;(ids || []).forEach(id => {
+      const i = d.I.find(x => x.id == id)
+      if (!i || i.status != 'Validasi Warehouse') return
+      const k = d.K.find(x => x.id == i.kon)
+      srl = k?.srl || srl
+      kons.add(i.kon)
+      i.status = 'Approved'
+      i.kon = ''
+      i.tahan = ''
+      i.alasan = `Dikeluarkan Warehouse (${by}) dari ${srl}: ${alasan}`
+      n++
+    })
+    if (!n) return { err: 'Barang tidak ditemukan atau sudah divalidasi.' }
+    kons.forEach(kid => {
+      const k = d.K.find(x => x.id == kid)
+      const rest = d.I.filter(x => x.kon == kid && x.status == 'Validasi Warehouse')
+      if (rest.length) k.ero = String(sum(rest, x => x.qty))
+      else {
+        k.tahap = 'Dikeluarkan'
+        k.ero = '0'
+        k.alasan = alasan
+      }
+    })
+    return { ok: `${n} barang dikeluarkan dari ${srl} dan dikembalikan ke Pool Admin Dept.` }
+  },
+  validasiSrl(sel, d, no) {
+    const ks = d.K.filter(k => k.srl == no && k.tahap == 'Validasi Warehouse')
+    if (!ks.length) return { err: 'SRL ini tidak sedang menunggu validasi (mungkin sudah divalidasi admin lain).' }
+    let n = 0
+    ks.forEach(k => {
+      k.tahap = 'Sudah di ERO'
+      d.I.filter(i => i.kon == k.id && i.status == 'Validasi Warehouse').forEach(i => {
+        i.status = 'Sudah di ERO'
+        n++
+      })
+    })
+    return { ok: `${no} divalidasi: ${n} barang menunggu kedatangan.` }
+  },
+
+  serahAll(sel, d, ids) {
+    let n = 0
+    let to = ''
+    ;(ids || []).forEach(id => {
+      const i = d.I.find(x => x.id == id)
+      const q = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      if (!(q > 0)) return
+      to = sel.nm(sel.RQ(i.req).by)
+      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to, tgl: TODAY, at: nowStr() })
+      n++
+    })
+    if (!n) return { err: 'Tidak ada barang yang siap diserahkan (mungkin sudah diserahkan admin lain).' }
+    return { ok: n + ' barang diserahkan ke ' + to + '.' }
   },
 
   ingat(sel, d, id, by) {

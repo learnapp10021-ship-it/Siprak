@@ -64,13 +64,13 @@ beforeEach(() => {
 describe('klien SIPRAK + backend Google Sheets', () => {
   it('memuat data dari server', async () => {
     await mount()
-    expect(app.db.R.length).toBe(rows('Requests').length)
+    expect(app.db.R.length).toBe(rows('Request').length)
     expect(app.me.id).toBe('andi.prod')
   })
 
   it('tombol ditekan 6x: hanya 1 pengiriman dan 1 baris tersimpan', async () => {
     await mount()
-    const before = rows('Requests').length
+    const before = rows('Request').length
     const args = draftArgs(21)
     let results
     await rtlAct(async () => {
@@ -78,24 +78,24 @@ describe('klien SIPRAK + backend Google Sheets', () => {
     })
     expect(results.every(x => x === true)).toBe(true)
     expect(net.posts).toBe(1)
-    expect(rows('Requests').length).toBe(before + 1)
+    expect(rows('Request').length).toBe(before + 1)
     expect(app.db.R.length).toBe(before + 1) // layar sudah memuat data terverifikasi dari server
     expect(app.saving).toBe(null)
   })
 
   it('respons hilang setelah server menyimpan: gagal ditampilkan, Coba lagi tidak membuat data ganda', async () => {
     await mount()
-    const before = rows('Requests').length
+    const before = rows('Request').length
     net.dropResponses = 1
     let done
     await rtlAct(async () => { done = app.act('saveRequest', ...draftArgs(22)) })
     await waitFor(() => expect(app.saving?.phase).toBe('failed'))
     expect(app.saving.unknown).toBe(true)
-    expect(rows('Requests').length).toBe(before + 1) // server memang sudah menyimpan
+    expect(rows('Request').length).toBe(before + 1) // server memang sudah menyimpan
     expect(outboxSize()).toBe(1) // tercatat di perangkat agar retry memakai tx yang sama
     await rtlAct(async () => { app.retry(); await done })
     expect(await done).toBe(true)
-    expect(rows('Requests').length).toBe(before + 1) // TETAP 1: tidak ganda
+    expect(rows('Request').length).toBe(before + 1) // TETAP 1: tidak ganda
     expect(net.posts).toBe(2)
     const tx = rows('Tx').filter(t => t.action === 'saveRequest').slice(-1)[0]
     expect(tx.status).toBe('OK')
@@ -104,37 +104,37 @@ describe('klien SIPRAK + backend Google Sheets', () => {
 
   it('klik ulang saat gagal lalu "Nanti", lalu klik lagi: tetap tidak ganda (tx dipakai ulang)', async () => {
     await mount()
-    const before = rows('Requests').length
+    const before = rows('Request').length
     net.dropResponses = 1
     let p1
     await rtlAct(async () => { p1 = app.act('saveRequest', ...draftArgs(23)) })
     await waitFor(() => expect(app.saving?.phase).toBe('failed'))
     await rtlAct(async () => { app.skip(); await p1 })
     expect(await p1).toBe(false)
-    expect(rows('Requests').length).toBe(before + 1)
+    expect(rows('Request').length).toBe(before + 1)
     let p2
     await rtlAct(async () => { p2 = await app.act('saveRequest', ...draftArgs(23)) })
     expect(p2).toBe(true)
-    expect(rows('Requests').length).toBe(before + 1) // pengguna menekan tombol lagi: tetap 1
+    expect(rows('Request').length).toBe(before + 1) // pengguna menekan tombol lagi: tetap 1
   })
 
   it('server mati total lalu pulih: data tidak hilang, tersimpan sekali', async () => {
     await mount()
-    const before = rows('Requests').length
+    const before = rows('Request').length
     net.down = true
     let p
     await rtlAct(async () => { p = app.act('saveRequest', ...draftArgs(24)) })
     await waitFor(() => expect(app.saving?.phase).toBe('failed'))
-    expect(rows('Requests').length).toBe(before)
+    expect(rows('Request').length).toBe(before)
     net.down = false
     await rtlAct(async () => { app.retry(); await p })
     expect(await p).toBe(true)
-    expect(rows('Requests').length).toBe(before + 1)
+    expect(rows('Request').length).toBe(before + 1)
   })
 
   it('transaksi tertunda diselesaikan otomatis setelah halaman dimuat ulang', async () => {
     await mount()
-    const before = rows('Requests').length
+    const before = rows('Request').length
     net.dropResponses = 1
     let p
     await rtlAct(async () => { p = app.act('saveRequest', ...draftArgs(25)) })
@@ -142,23 +142,23 @@ describe('klien SIPRAK + backend Google Sheets', () => {
     cleanup() // "tutup tab" -- outbox tetap di localStorage
     await mount() // buka lagi
     await waitFor(() => expect(outboxSize()).toBe(0))
-    expect(rows('Requests').length).toBe(before + 1) // tidak hilang, tidak ganda
+    expect(rows('Request').length).toBe(before + 1) // tidak hilang, tidak ganda
   })
 
   it('ditolak server (sudah diproses orang lain): false + pesan, tidak ada yang tertulis', async () => {
     await mount()
     // atasan lain sudah memproses lebih dulu
     const r = await rtlAct(async () => app.act('saveRequest', ...draftArgs(26)))
-    const rid = rows('Requests').slice(-1)[0].id
+    const rid = rows('Request').slice(-1)[0].id
     be.ctx.doPost({ postData: { contents: JSON.stringify({ tx: 'TX-manual-0001-aaaa', name: 'ajukan', me: 'andi.prod', args: [rid] }) } })
     be.ctx.doPost({ postData: { contents: JSON.stringify({ tx: 'TX-manual-0002-bbbb', name: 'setuju', me: 'budi.spv', args: [rid] }) } })
-    const before = rows('Requests').length
+    const before = rows('Request').length
     let ok
     await rtlAct(async () => { ok = await app.act('batal', rid) }) // klien masih mengira Draft
     expect(ok).toBe(false)
     expect(app.toastS.bad).toBe(true)
-    expect(rows('Requests').find(x => x.id === rid).st).toBe('Disetujui')
-    expect(rows('Requests').length).toBe(before)
+    expect(rows('Request').find(x => x.id === rid).st).toBe('Disetujui')
+    expect(rows('Request').length).toBe(before)
     expect(outboxSize()).toBe(0)
     expect(app.saving).toBe(null)
     expect(app.db.R.find(x => x.id === rid).st).toBe('Disetujui') // layar disegarkan dari respons penolakan

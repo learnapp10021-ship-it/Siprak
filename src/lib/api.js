@@ -1,8 +1,9 @@
 // Klien untuk backend Google Apps Script (lihat backend/).
 // Tanpa VITE_API_URL aplikasi berjalan dalam mode demo lokal (data di memori), seperti sebelumnya.
-const URL_ = import.meta.env.VITE_API_URL || ''
+import { API_URL as URL_ } from '../config'
 const KEY = import.meta.env.VITE_API_KEY || ''
 export const REMOTE = !!URL_
+export const apiOn = REMOTE
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 

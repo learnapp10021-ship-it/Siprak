@@ -61,6 +61,30 @@ const minsAgo = at => {
   return isNaN(t) ? Infinity : (Date.parse(nowStr()) - t) / 6e4
 }
 
+// Master item: normalisasi dan parser tempel dari Excel/CSV.
+const flag = v => (/^(1|y|ya|yes|true|buffer|konsinyasi)$/i.test(String(v ?? '').trim()) ? '1' : '0')
+function cleanMaster(r) {
+  const k = String(r.k || '').trim().toUpperCase().replace(/\s+/g, '-')
+  const n = String(r.n || '').trim()
+  const sat = String(r.sat || '').trim()
+  const lead = r.lead === '' || r.lead == null ? '3' : String(r.lead).trim()
+  let err = ''
+  if (!k) err = 'Kode kosong'
+  else if (!n) err = 'Nama kosong'
+  else if (!sat) err = 'Satuan kosong'
+  else if (!/^\d+$/.test(lead)) err = 'Lead time harus angka hari'
+  return { k, n, sat, buf: flag(r.buf), kons: flag(r.kons), lead, err }
+}
+// Urutan kolom: Kode | Nama | Satuan | Buffer | Konsinyasi | Lead time (hari). Pemisah: tab, ; | atau koma.
+function parseMaster(text) {
+  const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  if (!lines.length) return []
+  const sep = [/\t/, /;/, /\|/, /,/].find(re => re.test(lines[0])) || /\t/
+  const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, '')))
+  if (/^(kode|code|item)/i.test(rows[0][0]) && !/^[A-Z]{2,}-?\d/.test(rows[0][0])) rows.shift()
+  return rows.map(c => cleanMaster({ k: c[0], n: c[1], sat: c[2], buf: c[3], kons: c[4], lead: c[5] }))
+}
+
 
 // ---------- src/lib/selectors.js ----------
 
@@ -119,13 +143,20 @@ function makeSel(db) {
     if (s == 'Approved')
       return it.tahan
         ? [1, 't-warn', 'Ditahan: ' + it.alasan]
+        : it.alasan
+        ? [1, 't-warn', it.alasan]
         : [1, 't-info', 'Disetujui, menunggu diproses ke ERO']
+    if (s == 'Validasi Warehouse') return [2, 't-warn', 'SRL ' + (KN(it.kon)?.srl || '') + ' menunggu validasi Warehouse']
     if (s == 'Masuk Konsolidasi') return [2, 't-vio', 'Dikonsolidasi, belum masuk ERO']
     if (s == 'Sudah di ERO') {
       const b = berhak(it)
       const a = diambil(it)
       if (a >= +it.qty) return [4, 't-ok', 'Sudah diambil semua']
       if (b - a > 0) return [4, 't-ok', `Siap diambil ${b - a} dari ${it.qty} ${sat}`]
+      // Tidak ada lagi yang akan datang (sisa ditutup): jangan menunggu selamanya
+      const kk = KN(it.kon)
+      if (kk && sisa(kk) == 0 && +kk.tutup > 0)
+        return [4, 't-warn', `Sisa ditutup${kk.alasan ? ': ' + kk.alasan : ''}. Diambil ${a} dari ${it.qty} ${sat}`]
       const srl = SRLof(KN(it.kon)?.srl)
       return [
         3,
@@ -170,6 +201,20 @@ const setR = (d, id, s) => {
 // Dua entri identik dalam rentang ini dianggap input ganda (klik ulang, dua admin menginput hal yang sama)
 const DUP_MENIT = 2
 
+// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat atau ''.
+const checkLines = (sel, lines) => {
+  for (const x of lines) {
+    const m = x.kode && sel.mi(x.kode)
+    if (!m) return 'Pilih barang di setiap baris.'
+    if (!(+x.qty > 0) || !isFinite(+x.qty)) return 'Jumlah harus lebih dari 0.'
+    if (!x.datang || x.datang < addDays(TODAY, +m.lead))
+      return `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
+    if (m.buf == '0' && !x.pakai) return `${m.n}: tgl pakai wajib untuk barang non buffer.`
+    if (x.pakai && x.pakai < x.datang) return `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+  }
+  return ''
+}
+
 const sidik = ls => ls.map(x => [x.kode, +x.qty, x.datang, x.pakai || ''].join('~')).sort().join('|')
 
 const actions = {
@@ -210,22 +255,14 @@ const actions = {
   },
 
   saveRequest(sel, d, { status, lines, me }) {
-    const { mi } = sel
     if (!['Draft', 'Menunggu Approval'].includes(status)) return { err: 'Status request tidak valid.' }
     if (!Array.isArray(lines) || !lines.length) return { err: 'Tambahkan minimal satu barang.' }
     if (lines.length > 50) return { err: 'Maksimal 50 barang per request.' }
     if (me.off) return { err: 'Akun nonaktif tidak bisa membuat request.' }
     if (status == 'Menunggu Approval' && !me.boss)
       return { err: 'Akun Anda belum punya atasan. Simpan sebagai draft dan hubungi admin departemen.' }
-    for (const x of lines) {
-      const m = x.kode && mi(x.kode)
-      if (!m) return { err: 'Pilih barang di setiap baris.' }
-      if (!(+x.qty > 0) || !isFinite(+x.qty)) return { err: 'Jumlah harus lebih dari 0.' }
-      if (!x.datang || x.datang < addDays(TODAY, +m.lead))
-        return { err: `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.` }
-      if (m.buf == '0' && !x.pakai) return { err: `${m.n}: tgl pakai wajib untuk barang non buffer.` }
-      if (x.pakai && x.pakai < x.datang) return { err: `${m.n}: tgl pakai tidak boleh sebelum tgl datang.` }
-    }
+    const bad = checkLines(sel, lines)
+    if (bad) return { err: bad }
     // Penjaga duplikat: request identik dari orang yang sama dalam beberapa menit terakhir
     const fp = sidik(lines)
     const kembar = d.R.find(
@@ -249,6 +286,8 @@ const actions = {
     if (!r) return { err: 'Request tidak ditemukan.' }
     if (r.st != 'Draft') return { err: `Request ${id} sudah tidak berstatus draft (sekarang: ${r.st}).` }
     if (!sel.user(r.by)?.boss) return { err: 'Akun Anda belum punya atasan. Hubungi admin departemen.' }
+    const bad = checkLines(sel, d.I.filter(i => i.req == id))
+    if (bad) return { err: bad + ' Buat ulang request dengan tanggal yang baru.' }
     setR(d, id, 'Menunggu Approval')
     return { ok: 'Diajukan ke atasan.' }
   },
@@ -317,6 +356,7 @@ const actions = {
   lepas(sel, d, id) {
     const i = d.I.find(x => x.id == id)
     if (!i) return { err: 'Barang tidak ditemukan.' }
+    if (i.status != 'Approved' || i.kon) return { err: 'Barang sudah diproses ke ERO. Muat ulang halaman.' }
     if (!i.tahan) return { err: 'Barang ini sudah tidak ditahan.' }
     i.tahan = ''
     i.alasan = ''
@@ -343,19 +383,21 @@ const actions = {
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
     Object.entries(g).forEach(([k, a]) => {
       const id = nextId(d.K, 'KON-')
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Sudah di ERO', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
-        i.status = 'Sudah di ERO'
+        i.status = 'Validasi Warehouse'
         i.kon = id
+        i.alasan = ''
       })
     })
-    return { ok: `${p.length} request masuk ${no}. Status otomatis Sudah di ERO.` }
+    return { ok: `${p.length} request masuk ${no}. Menunggu validasi Admin Warehouse.` }
   },
 
   tutup(sel, d, id, alasan) {
     if (!alasan) return { err: 'Isi alasan menutup sisa.' }
     const k = d.K.find(x => x.id == id)
     if (!k) return { err: 'Konsolidasi tidak ditemukan.' }
+    if (k.tahap != 'Sudah di ERO') return { err: 'Konsolidasi ini belum/tidak aktif di ERO. Muat ulang halaman.' }
     const s = sel.sisa(k)
     if (!(s > 0)) return { err: 'Tidak ada sisa untuk ditutup (sudah datang semua atau sudah ditutup).' }
     k.alasan = alasan
@@ -366,7 +408,7 @@ const actions = {
   datang(sel, d, { id, q, l, cat, by }) {
     const k = sel.KN(id)
     if (!k) return { err: 'Konsolidasi tidak ditemukan.' }
-    if (k.tahap != 'Sudah di ERO') return { err: 'Konsolidasi ini belum/tidak menerima kedatangan.' }
+    if (k.tahap != 'Sudah di ERO') return { err: 'SRL ini belum divalidasi. Kedatangan belum bisa dicatat.' }
     if (!(q > 0) && !(l > 0)) return { err: 'Isi Qty datang.' }
     if (q < 0 || l < 0) return { err: 'Qty tidak boleh negatif.' }
     if (q > sel.sisa(k)) return { err: 'Qty datang melebihi sisa (' + sel.sisa(k) + ').' }
@@ -397,6 +439,94 @@ const actions = {
     if (kembar) return { err: 'Serah terima yang sama baru saja dicatat. Tidak dicatat ganda.' }
     d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY, at: nowStr() })
     return { ok: 'Diserahkan.' }
+  },
+
+  saveMaster(sel, d, { mode, f }) {
+    const r = cleanMaster(f)
+    if (r.err) return { err: r.err + '.' }
+    const { err, ...row } = r
+    const ex = d.M.find(m => m.k == row.k)
+    if (mode == 'new') {
+      if (ex) return { err: 'Kode ' + row.k + ' sudah ada.' }
+      d.M.push(row)
+      return { ok: 'Item ditambahkan.' }
+    }
+    if (!ex) return { err: 'Item tidak ditemukan.' }
+    Object.assign(ex, row)
+    return { ok: 'Item disimpan.' }
+  },
+  importMaster(sel, d, rows) {
+    if (!Array.isArray(rows) || rows.length > 3000) return { err: 'Impor maksimal 3000 baris sekali jalan.' }
+    const ok = rows.map(cleanMaster).filter(r => !r.err) // dibersihkan ulang di server
+    if (!ok.length) return { err: 'Tidak ada baris yang valid.' }
+    let baru = 0
+    let ubah = 0
+    ok.forEach(r => {
+      const { err, ...row } = r
+      const ex = d.M.find(m => m.k == row.k)
+      if (ex) { Object.assign(ex, row); ubah++ } else { d.M.push(row); baru++ }
+    })
+    return { ok: `${baru} item baru, ${ubah} item diperbarui.` }
+  },
+
+  // Admin Warehouse memeriksa SRL dari Admin Dept: barang yang tidak sesuai dikeluarkan (kembali ke Pool), sisanya divalidasi.
+  keluarkan(sel, d, { ids, alasan, by }) {
+    if (!alasan) return { err: 'Isi alasan mengeluarkan barang.' }
+    const kons = new Set()
+    let n = 0
+    let srl = ''
+    ;(ids || []).forEach(id => {
+      const i = d.I.find(x => x.id == id)
+      if (!i || i.status != 'Validasi Warehouse') return
+      const k = d.K.find(x => x.id == i.kon)
+      srl = k?.srl || srl
+      kons.add(i.kon)
+      i.status = 'Approved'
+      i.kon = ''
+      i.tahan = ''
+      i.alasan = `Dikeluarkan Warehouse (${by}) dari ${srl}: ${alasan}`
+      n++
+    })
+    if (!n) return { err: 'Barang tidak ditemukan atau sudah divalidasi.' }
+    kons.forEach(kid => {
+      const k = d.K.find(x => x.id == kid)
+      const rest = d.I.filter(x => x.kon == kid && x.status == 'Validasi Warehouse')
+      if (rest.length) k.ero = String(sum(rest, x => x.qty))
+      else {
+        k.tahap = 'Dikeluarkan'
+        k.ero = '0'
+        k.alasan = alasan
+      }
+    })
+    return { ok: `${n} barang dikeluarkan dari ${srl} dan dikembalikan ke Pool Admin Dept.` }
+  },
+  validasiSrl(sel, d, no) {
+    const ks = d.K.filter(k => k.srl == no && k.tahap == 'Validasi Warehouse')
+    if (!ks.length) return { err: 'SRL ini tidak sedang menunggu validasi (mungkin sudah divalidasi admin lain).' }
+    let n = 0
+    ks.forEach(k => {
+      k.tahap = 'Sudah di ERO'
+      d.I.filter(i => i.kon == k.id && i.status == 'Validasi Warehouse').forEach(i => {
+        i.status = 'Sudah di ERO'
+        n++
+      })
+    })
+    return { ok: `${no} divalidasi: ${n} barang menunggu kedatangan.` }
+  },
+
+  serahAll(sel, d, ids) {
+    let n = 0
+    let to = ''
+    ;(ids || []).forEach(id => {
+      const i = d.I.find(x => x.id == id)
+      const q = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      if (!(q > 0)) return
+      to = sel.nm(sel.RQ(i.req).by)
+      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to, tgl: TODAY, at: nowStr() })
+      n++
+    })
+    if (!n) return { err: 'Tidak ada barang yang siap diserahkan (mungkin sudah diserahkan admin lain).' }
+    return { ok: n + ' barang diserahkan ke ' + to + '.' }
   },
 
   ingat(sel, d, id, by) {
@@ -544,6 +674,44 @@ ITM-002|20|Andi Saputra`,
         KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'Joko Susilo', cat: '', tgl: '2026-11-21' })
     })
   }
+  // Data contoh menu Validasi SRL: dua SRL dari Admin Dept yang menunggu diperiksa Admin Warehouse
+  {
+    const V = [
+      { no: 'SRL-2611-004', dept: 'Maintenance', est: '2026-12-01', lines: [
+        ['APD-007', [['RQ-018', 'maya.mt', 5], ['RQ-019', 'rina.mt', 3]]],
+        ['KBL-005', [['RQ-018', 'maya.mt', 10]]],
+        ['SRG-001', [['RQ-019', 'rina.mt', 12]]],
+      ] },
+      { no: 'SRL-2611-005', dept: 'Produksi', est: '2026-12-03', lines: [
+        ['SRG-002', [['RQ-020', 'andi.prod', 6], ['RQ-021', 'siti.prod', 4]]],
+        ['LAS-021', [['RQ-021', 'siti.prod', 8]]],
+      ] },
+    ]
+    const made = new Set()
+    let kn = Math.max(...K.map(k => +k.id.slice(4)))
+    V.forEach((v, vi) => {
+      L.push({ no: v.no, dept: v.dept, est: v.est })
+      v.lines.forEach(([kode, rs], li) => {
+        const kid = 'KON-' + String(++kn).padStart(3, '0')
+        const buf = M.find(m => m.k == kode).buf == '1'
+        let tot = 0
+        rs.forEach(([rid, by, q], j) => {
+          if (!made.has(rid)) {
+            made.add(rid)
+            R.push({ id: rid, by, tgl: '2026-11-19', st: 'Disetujui', cat: '' })
+          }
+          tot += q
+          I.push({
+            id: 'ITM-' + String(I.length + 1).padStart(3, '0'), req: rid, kode, qty: String(q),
+            datang: addDays('2026-11-27', vi * 2 + li), pakai: buf ? '' : addDays('2026-12-04', vi * 2 + li + j),
+            status: 'Validasi Warehouse', appr: '2026-11-20T08:' + String(10 + vi * 10 + li * 2 + j).padStart(2, '0'),
+            kon: kid, tahan: '', alasan: '',
+          })
+        })
+        K.push({ id: kid, dept: v.dept, kode, tahap: 'Validasi Warehouse', srl: v.no, ero: String(tot), tutup: '0', alasan: '' })
+      })
+    })
+  }
   K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
 
@@ -578,16 +746,19 @@ ITM-002|20|Andi Saputra`,
 // File ini digabung otomatis dengan src/lib/*.js oleh scripts/build-backend.mjs -> backend/dist/Code.gs
 // =====================================================================================
 
+// Nama sheet dan urutan kolom mengikuti backend sebelumnya (data lama tetap terbaca); kolom baru
+// (id, at, _v, tx) ada di AKHIR. Sheet lama dilengkapi dengan migrate().
+//   key = kolom kunci unik; _v = nomor versi baris; tx = ID transaksi terakhir yang menyentuh baris.
 const SCHEMA = {
-  U: { sheet: 'Users', cols: ['id', 'n', 'dept', 'role', 'boss', 'wa', 'off', '_v', 'tx'] },
-  M: { sheet: 'Master', cols: ['k', 'n', 'sat', 'buf', 'kons', 'lead'] },
-  R: { sheet: 'Requests', cols: ['id', 'by', 'tgl', 'st', 'cat', 'at', '_v', 'tx'] },
-  I: { sheet: 'Items', cols: ['id', 'req', 'kode', 'qty', 'datang', 'pakai', 'status', 'appr', 'kon', 'tahan', 'alasan', '_v', 'tx'] },
-  K: { sheet: 'Konsolidasi', cols: ['id', 'dept', 'kode', 'tahap', 'srl', 'ero', 'tutup', 'alasan', 'by', '_v', 'tx'] },
-  L: { sheet: 'SRL', cols: ['no', 'dept', 'est', 'tx'] },
-  KD: { sheet: 'Kedatangan', cols: ['id', 'kon', 'qty', 'lebih', 'by', 'cat', 'tgl', 'at', 'tx'] },
-  SR: { sheet: 'SerahTerima', cols: ['id', 'item', 'qty', 'to', 'tgl', 'at', 'tx'] },
-  RM: { sheet: 'Pengingat', cols: ['id', 'item', 'by', 'at', 'tx'] },
+  U: { sheet: 'Users', key: 'id', cols: ['id', 'n', 'dept', 'role', 'boss', 'hp', 'off', '_v', 'tx'] },
+  M: { sheet: 'Master', key: 'k', cols: ['k', 'n', 'sat', 'buf', 'kons', 'lead', '_v', 'tx'] },
+  R: { sheet: 'Request', key: 'id', cols: ['id', 'by', 'tgl', 'st', 'cat', 'at', '_v', 'tx'] },
+  I: { sheet: 'Item', key: 'id', cols: ['id', 'req', 'kode', 'qty', 'datang', 'pakai', 'status', 'appr', 'kon', 'tahan', 'alasan', '_v', 'tx'] },
+  K: { sheet: 'Konsolidasi', key: 'id', cols: ['id', 'dept', 'by', 'kode', 'tahap', 'srl', 'ero', 'tutup', 'alasan', '_v', 'tx'] },
+  L: { sheet: 'SRL', key: 'no', cols: ['no', 'dept', 'est', 'tx'] },
+  KD: { sheet: 'Kedatangan', key: 'id', cols: ['kon', 'qty', 'lebih', 'by', 'cat', 'tgl', 'id', 'at', 'tx'] },
+  SR: { sheet: 'SerahTerima', key: 'id', cols: ['item', 'qty', 'to', 'tgl', 'id', 'at', 'tx'] },
+  RM: { sheet: 'Pengingat', key: 'id', cols: ['item', 'by', 'at', 'id', 'tx'] },
 }
 const TABLES = Object.keys(SCHEMA)
 const TX_SHEET = 'Tx'
@@ -598,7 +769,7 @@ const JR_COLS = ['tx', 'tabel', 'key', 'lama', 'at']
 const LOCK_WAIT_MS = 20000 // maksimal menunggu giliran; lewat ini klien diminta mencoba lagi
 const CACHE_TTL = 21600 // 6 jam
 const CHUNK = 32000 // karakter per potongan cache (batas CacheService 100 KB per kunci)
-const MAX_BODY = 300000
+const MAX_BODY = 600000
 
 // ---------- util ----------
 let _ss = null
@@ -643,13 +814,16 @@ function readTable_(t) {
   const last = sh.getLastRow()
   const vals = sh.getRange(1, 1, Math.max(last, 1), n).getValues()
   def.cols.forEach((c, i) => {
+    if (String(vals[0][i]) === '' && i >= def.cols.length - 4)
+      throw new Error('Sheet "' + def.sheet + '" belum dimigrasi ke versi baru. Jalankan migrate() sekali di editor Apps Script.')
     if (String(vals[0][i]) !== c)
       throw new Error('Header sheet "' + def.sheet + '" kolom ' + (i + 1) + ' harus "' + c + '" (jangan ubah/urut ulang kolom).')
   })
+  const ki = def.cols.indexOf(def.key)
   const rows = []
   const seen = {}
   for (let i = 1; i < vals.length; i++) {
-    const key = cell_(vals[i][0])
+    const key = cell_(vals[i][ki])
     if (key === '') continue
     if (seen[key])
       throw new Error('Data ganda di sheet "' + def.sheet + '": kunci ' + key + ' muncul lebih dari sekali. Perbaiki manual (lihat auditData()).')
@@ -672,11 +846,11 @@ function snapJson_(all, ver) {
   const HP = {}
   const o = { ver: ver }
   TABLES.forEach(t => {
-    const keep = SCHEMA[t].cols.filter(c => c !== 'tx' && !(t === 'U' && c === 'wa'))
+    const keep = SCHEMA[t].cols.filter(c => c !== 'tx' && !(t === 'U' && c === 'hp'))
     o[t] = all[t].map(r => {
       const x = {}
       keep.forEach(c => (x[c] = r[c]))
-      if (t === 'U' && r.wa) HP[r.id] = r.wa
+      if (t === 'U' && r.hp) HP[r.id] = r.hp
       return x
     })
   })
@@ -782,10 +956,11 @@ function rollbackTx_(txId) {
     const last = sh.getLastRow()
     if (last < 2) return
     const data = sh.getRange(2, 1, last - 1, n).getValues()
+    const ki = def.cols.indexOf(def.key)
     const del = []
     data.forEach((v, i) => {
       if (String(v[n - 1]) !== txId) return
-      const key = String(v[0])
+      const key = String(v[ki])
       if (old[t] && old[t][key]) sh.getRange(i + 2, 1, 1, n).setValues([old[t][key]])
       else del.push(i + 2)
     })
@@ -799,7 +974,7 @@ function diff_(before, after, txId) {
   const ch = {}
   TABLES.forEach(t => {
     const def = SCHEMA[t]
-    const key = def.cols[0]
+    const key = def.key
     const bMap = {}
     before[t].forEach(r => (bMap[r[key]] = r))
     const seen = {}
@@ -817,7 +992,6 @@ function diff_(before, after, txId) {
     before[t].forEach(r => {
       if (!seen[String(r[key])]) throw new Error('Aksi mencoba menghapus data di ' + t)
     })
-    if (t === 'M' && (add.length || upd.length)) throw new Error('Master barang hanya boleh diubah langsung di spreadsheet.')
     const hasV = def.cols.indexOf('_v') >= 0
     add.forEach(r => {
       if (hasV) r._v = '1'
@@ -885,11 +1059,12 @@ function verify_(ch) {
       })
       // setiap ID baru harus muncul tepat satu kali di seluruh sheet
       const last = sh.getLastRow()
-      const keys = sh.getRange(2, 1, Math.max(last - 1, 1), 1).getValues().map(x => cell_(x[0]))
+      const kc = def.cols.indexOf(def.key) + 1
+      const keys = sh.getRange(2, kc, Math.max(last - 1, 1), 1).getValues().map(x => cell_(x[0]))
       const cnt = {}
       keys.forEach(k => (cnt[k] = (cnt[k] || 0) + 1))
       c.add.forEach(r => {
-        if (cnt[String(r[def.cols[0]])] !== 1) throw new Error('Verifikasi gagal: ID ' + r[def.cols[0]] + ' ganda di ' + def.sheet + '.')
+        if (cnt[String(r[def.key])] !== 1) throw new Error('Verifikasi gagal: ID ' + r[def.key] + ' ganda di ' + def.sheet + '.')
       })
     }
   })
@@ -950,6 +1125,11 @@ const PERM = {
     return a.role === 'Admin Dept' && k && k.dept === a.dept ? '' : 'Konsolidasi ini bukan di departemen Anda.'
   },
   datang: a => (a.role === 'Admin Warehouse' ? '' : 'Hanya Admin Warehouse yang boleh mencatat kedatangan.'),
+  saveMaster: a => (a.role === 'Admin Warehouse' ? '' : 'Hanya Admin Warehouse yang boleh mengubah master item.'),
+  importMaster: a => PERM.saveMaster(a),
+  keluarkan: a => PERM.saveMaster(a),
+  validasiSrl: a => PERM.saveMaster(a),
+  serahAll: a => PERM.saveMaster(a),
   datangAll: a => PERM.datang(a),
   serah: a => PERM.datang(a),
   ingat: a => PERM.datang(a),
@@ -962,6 +1142,7 @@ const BIND = {
   simpanSrl: (a, x) => [Object.assign({}, x[0], { me: a })],
   datang: (a, x) => [Object.assign({}, x[0], { by: a.n })],
   datangAll: (a, x) => [x[0], a.n],
+  keluarkan: (a, x) => [Object.assign({}, x[0], { by: a.n })],
   ingat: (a, x) => [x[0], a.n],
   setujuAll: (a, x) => [a.id, x[1]],
 }
@@ -1033,7 +1214,7 @@ function locked_(txId, name, args, actorId, t0) {
   )
   d.HP = {}
   d.U.forEach(u => {
-    if (u.wa) d.HP[u.id] = u.wa
+    if (u.hp) d.HP[u.id] = u.hp
   })
   const sel = makeSel(d)
 
@@ -1048,7 +1229,7 @@ function locked_(txId, name, args, actorId, t0) {
   }
   if (res && res.err) return reject_(res.err, before)
 
-  d.U.forEach(u => (u.wa = d.HP[u.id] || ''))
+  d.U.forEach(u => (u.hp = d.HP[u.id] || ''))
   delete d.HP
   const ch = diff_(before, d, txId)
 
@@ -1058,7 +1239,7 @@ function locked_(txId, name, args, actorId, t0) {
   // --- write-ahead: Journal (nilai lama) + Tx PENDING ---
   const jr = []
   TABLES.forEach(t =>
-    ch[t].upd.forEach(u => jr.push([txId, t, String(u.before[SCHEMA[t].cols[0]]), JSON.stringify(ser_(u.before, SCHEMA[t])), nowStr()]))
+    ch[t].upd.forEach(u => jr.push([txId, t, String(u.before[SCHEMA[t].key]), JSON.stringify(ser_(u.before, SCHEMA[t])), nowStr()]))
   )
   writeJournal_(txId, jr)
   const txRow = putTx_(prior ? prior.row : 0, [txId, name, actorId, nowStr(), 'PENDING', '', ''])
@@ -1153,11 +1334,12 @@ function setup() {
   const make = (name, cols, protect) => {
     let sh = ss.getSheetByName(name)
     if (!sh) sh = ss.insertSheet(name)
+    if (sh.getMaxColumns() < cols.length) sh.insertColumnsAfter(sh.getMaxColumns(), cols.length - sh.getMaxColumns())
     if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, cols.length).setValues([cols])
     sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@')
     sh.getRange(1, 1, 1, cols.length).setFontWeight('bold')
     sh.setFrozenRows(1)
-    if (protect) sh.protect().setWarningOnly(true) // peringatan jika diedit manual
+    if (protect && sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) sh.protect().setWarningOnly(true) // peringatan jika diedit manual
   }
   TABLES.forEach(t => make(SCHEMA[t].sheet, SCHEMA[t].cols, t !== 'M'))
   make(TX_SHEET, TX_COLS, true)
@@ -1168,11 +1350,59 @@ function setup() {
   return 'Sheet siap. Isi sheet Users dan Master, atau jalankan seedDemo() untuk data contoh.'
 }
 
+// Meningkatkan spreadsheet dari backend lama (tanpa kolom id/_v/tx) ke versi ini TANPA kehilangan data.
+// Aman dijalankan berulang. Mengisi: header kolom baru, id untuk Kedatangan/SerahTerima/Pengingat,
+// _v = 1 dan tx = LEGACY untuk baris lama. Data yang sudah ada tidak diubah.
+function migrate() {
+  const lock = LockService.getScriptLock()
+  lock.waitLock(60000)
+  try {
+    setup()
+    const ss = ss_()
+    const log = []
+    TABLES.forEach(t => {
+      const def = SCHEMA[t]
+      const sh = ss.getSheetByName(def.sheet)
+      const n = def.cols.length
+      const last = Math.max(sh.getLastRow(), 1)
+      const vals = sh.getRange(1, 1, last, n).getValues()
+      def.cols.forEach((c, i) => {
+        if (String(vals[0][i]) === '') vals[0][i] = c
+        else if (String(vals[0][i]) !== c) throw new Error('Header "' + def.sheet + '" kolom ' + (i + 1) + ' berisi "' + vals[0][i] + '", seharusnya "' + c + '". Perbaiki manual lalu ulangi.')
+      })
+      const idC = def.cols.indexOf('id')
+      const vC = def.cols.indexOf('_v')
+      const txC = def.cols.indexOf('tx')
+      const pre = { KD: 'KD-', SR: 'SR-', RM: 'RM-' }[t]
+      let maxN = 0
+      if (pre) for (let i = 1; i < vals.length; i++) maxN = Math.max(maxN, parseInt(String(vals[i][idC]).slice(3), 10) || 0)
+      let touched = 0
+      for (let i = 1; i < vals.length; i++) {
+        if (String(vals[i][0]) === '') continue
+        let ch = false
+        if (pre && String(vals[i][idC]) === '') { vals[i][idC] = pre + String(++maxN).padStart(3, '0'); ch = true }
+        if (vC >= 0 && String(vals[i][vC]) === '') { vals[i][vC] = '1'; ch = true }
+        if (String(vals[i][txC]) === '') { vals[i][txC] = 'LEGACY'; ch = true }
+        if (ch) touched++
+      }
+      const rg = sh.getRange(1, 1, last, n)
+      rg.setNumberFormat('@')
+      rg.setValues(vals.map(r => r.map(v => (v == null ? '' : String(v)))))
+      log.push(def.sheet + ': ' + touched + ' baris dilengkapi')
+    })
+    SpreadsheetApp.flush()
+    cacheDrop_()
+    return log.join('\n') + '\nSelesai. Jalankan auditData() untuk memeriksa.'
+  } finally {
+    lock.releaseLock()
+  }
+}
+
 function seedDemo() {
   const empty = TABLES.every(t => readTable_(t).length === 0)
   if (!empty) throw new Error('seedDemo hanya boleh dijalankan saat semua sheet masih kosong.')
   const s = buildSeed()
-  s.U.forEach(u => (u.wa = s.HP[u.id] || ''))
+  s.U.forEach(u => (u.hp = s.HP[u.id] || ''))
   ;['KD', 'SR', 'RM'].forEach(t => {
     const pre = { KD: 'KD-', SR: 'SR-', RM: 'RM-' }[t]
     s[t].forEach((r, i) => {
@@ -1186,7 +1416,7 @@ function seedDemo() {
     const rows = s[t].map(r => {
       const o = Object.assign({}, r)
       if (def.cols.indexOf('_v') >= 0) o._v = '1'
-      if (def.cols[def.cols.length - 1] === 'tx') o.tx = 'SEED'
+      o.tx = 'SEED'
       return ser_(o, def)
     })
     if (!rows.length) return
@@ -1210,7 +1440,7 @@ function auditData() {
   } catch (e) {
     return 'GAGAL BACA: ' + e.message
   }
-  const ids = t => new Set(all[t].map(r => r[SCHEMA[t].cols[0]]))
+  const ids = t => new Set(all[t].map(r => r[SCHEMA[t].key]))
   const R = ids('R'), I = ids('I'), K = ids('K'), U = ids('U'), M = ids('M')
   all.R.forEach(r => { if (!U.has(r.by)) lines.push('Request ' + r.id + ': pemilik ' + r.by + ' tidak ada di Users') })
   all.I.forEach(i => {

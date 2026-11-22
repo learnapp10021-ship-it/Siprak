@@ -5,10 +5,13 @@ import { makeSel } from './lib/selectors'
 import { actions } from './lib/actions'
 import * as api from './lib/api'
 import { outbox } from './lib/outbox'
+import { POLL_MS } from './config'
+import { Login } from './components/Login'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 const REMOTE = api.REMOTE
+const emptyDb = () => ({ U: [], HP: {}, M: [], R: [], I: [], K: [], L: [], KD: [], SR: [], RM: [] })
 
 const emptyLine = () => ({ kode: '', qty: '', datang: '', pakai: '' })
 export const newLine = emptyLine
@@ -17,25 +20,38 @@ export const TABS = {
   User: [['req', 'Request saya'], ['new', 'Buat request']],
   Atasan: [['appr', 'Persetujuan'], ['tim', 'Tim saya']],
   'Admin Dept': [['pool', 'Buat ERO'], ['kon', 'SRL'], ['allr', 'Semua request'], ['usr', 'Pengguna']],
-  'Admin Warehouse': [['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['usr', 'Pengguna']],
+  'Admin Warehouse': [['val', 'Validasi SRL'], ['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['mst', 'Master item'], ['usr', 'Pengguna']],
   'Spv Warehouse': [['dash', 'Dashboard']],
 }
 
-const savedMe = () => {
-  try {
-    return localStorage.getItem('siprak.me') || 'andi.prod'
-  } catch {
-    return 'andi.prod'
-  }
-}
-
 const initialUi = {
-  me: savedMe(), tab: 'req', draft: [emptyLine()],
+  me: '', tab: 'req', draft: [emptyLine()],
   menu: false, eu: null, self: false, help: false, dpic: null, di: null,
   uq: '', ud: '', q: '', sf: '', df: '', dp: 'w0',
 }
 
-const POLL_MS = +import.meta.env.VITE_POLL_MS || 12000
+// Sesi masuk (sementara tanpa kata sandi): id pengguna diingat di perangkat ini.
+const SESSION_KEY = 'siprak.me'
+const readSession = () => {
+  try { return localStorage.getItem(SESSION_KEY) || '' } catch { return '' }
+}
+const writeSession = id => {
+  try {
+    if (id) localStorage.setItem(SESSION_KEY, id)
+    else localStorage.removeItem(SESSION_KEY)
+  } catch { /* mode privat: abaikan */ }
+}
+// Cache lokal: aplikasi langsung tampil dari data terakhir, lalu disegarkan dari server di belakang layar.
+const CACHE_KEY = 'siprak.cache.v2'
+const readCache = () => {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY))
+    return c?.db?.U ? c : null
+  } catch { return null }
+}
+const writeCache = (db, ver) => {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ db, ver })) } catch { /* kuota penuh: abaikan */ }
+}
 
 function Boot({ state, err, retry }) {
   return (
@@ -54,11 +70,18 @@ function Boot({ state, err, retry }) {
 }
 
 export function AppProvider({ children, initialUi: init }) {
-  const [db, setDb] = useState(() => (REMOTE ? null : buildSeed()))
+  // Demo (tanpa API): data contoh. Server: dari cache lokal bila ada (cepat), kalau tidak tunggu data server.
+  const first = useRef(null)
+  if (!first.current) {
+    const c = REMOTE ? readCache() : null
+    first.current = REMOTE ? { db: c?.db || null, ver: c?.ver || 0, cached: !!c } : { db: buildSeed(), ver: 0, cached: false }
+  }
+  const [db, setDb] = useState(first.current.db)
   const dbRef = useRef(db)
-  const verRef = useRef(0)
-  const [boot, setBoot] = useState({ state: REMOTE ? 'loading' : 'ready', err: '' })
-  const [ui, setUiState] = useState({ ...initialUi, ...init })
+  const verRef = useRef(first.current.ver)
+  const trusted = useRef(!first.current.cached) // versi dari cache belum diverifikasi server
+  const [boot, setBoot] = useState({ state: db ? 'ready' : 'loading', err: '' })
+  const [ui, setUiState] = useState({ ...initialUi, me: readSession(), ...init })
   const uiRef = useRef(ui)
   uiRef.current = ui
   const [toastS, setToastS] = useState({ text: '', bad: false, show: false })
@@ -78,13 +101,13 @@ export function AppProvider({ children, initialUi: init }) {
     timer.current = setTimeout(() => setToastS(t => ({ ...t, show: false })), bad ? 6000 : 3200)
   }, [])
 
-  useEffect(() => {
-    try { localStorage.setItem('siprak.me', ui.me) } catch {}
-  }, [ui.me])
-
   // ---------- data dari server ----------
+  // Snapshot pertama dari server selalu diterima (versi dari cache lokal tidak dipercaya);
+  // sesudahnya hanya yang lebih baru, supaya respons lama yang terlambat tidak menimpa yang baru.
   const applySnap = useCallback(s => {
-    if (!s || typeof s.ver !== 'number' || s.ver < verRef.current) return
+    if (!s || typeof s.ver !== 'number') return
+    if (trusted.current && s.ver < verRef.current) return
+    trusted.current = true
     const { ver, ...data } = s
     verRef.current = ver
     dbRef.current = data
@@ -92,23 +115,28 @@ export function AppProvider({ children, initialUi: init }) {
   }, [])
 
   const load = useCallback(async () => {
-    setBoot({ state: 'loading', err: '' })
     try {
-      const r = await api.sync(0)
-      if (!r.ok || !r.snap) throw new Error(r.err || 'Respons server kosong.')
-      if (!r.snap.U?.length) throw new Error('Sheet Users masih kosong. Isi pengguna atau jalankan seedDemo() di Apps Script.')
-      applySnap(r.snap)
-      const u = r.snap.U
-      if (!u.find(x => x.id == uiRef.current.me)) setUiState(s => ({ ...s, me: (u.find(x => !x.off) || u[0]).id }))
+      const r = await api.sync(trusted.current ? verRef.current : 0)
+      if (!r.ok) throw new Error(r.err || 'Respons server kosong.')
+      if (r.snap) applySnap(r.snap)
+      else if (r.same) trusted.current = true
+      setNet({ ok: true })
       setBoot({ state: 'ready', err: '' })
     } catch (e) {
-      setBoot({ state: 'error', err: e.message || String(e) })
+      // dengan cache: tetap tampil dan tandai offline; tanpa cache: tampilkan galat + Coba lagi
+      setNet({ ok: false })
+      setBoot(b => (dbRef.current ? { state: 'ready', err: '' } : { state: 'error', err: e.message || String(e) }))
     }
   }, [applySnap])
 
   useEffect(() => {
     if (REMOTE) load()
   }, [load])
+
+  // Simpan snapshot ke cache lokal setiap data berubah
+  useEffect(() => {
+    if (REMOTE && db?.U?.length) writeCache(db, verRef.current)
+  }, [db])
 
   // Polling ringan: server membalas { same: true } bila tidak ada perubahan (dilayani dari cache)
   useEffect(() => {
@@ -125,9 +153,9 @@ export function AppProvider({ children, initialUi: init }) {
           setNet({ ok: false })
         }
       }
-      if (!stop) t = setTimeout(tick, POLL_MS + Math.random() * 6000) // jitter agar 40 klien tidak serempak
+      if (!stop) t = setTimeout(tick, POLL_MS + Math.random() * POLL_MS * 0.4) // jitter agar 40 klien tidak serempak
     }
-    t = setTimeout(tick, POLL_MS + Math.random() * 6000)
+    t = setTimeout(tick, POLL_MS + Math.random() * POLL_MS * 0.4)
     const vis = () => {
       if (!document.hidden) { clearTimeout(t); tick() }
     }
@@ -135,8 +163,11 @@ export function AppProvider({ children, initialUi: init }) {
     return () => { stop = true; clearTimeout(t); document.removeEventListener('visibilitychange', vis) }
   }, [boot.state, applySnap])
 
-  const sel = useMemo(() => (db ? makeSel(db) : null), [db])
-  const me = db ? sel.user(ui.me) || db.U[0] : null
+  const sel = useMemo(() => makeSel(db || emptyDb()), [db])
+  // Pengguna aktif: id sesi harus ada di data dan aktif, kalau tidak -> layar masuk
+  const meId = sel.user(ui.me) && !sel.user(ui.me).off ? ui.me : ''
+  const me = sel.user(meId)
+  const uiEff = useMemo(() => (meId === ui.me ? ui : { ...ui, me: meId }), [ui, meId])
 
   // Jangan tutup halaman ketika penyimpanan masih berjalan atau belum terkonfirmasi
   useEffect(() => {
@@ -243,8 +274,26 @@ export function AppProvider({ children, initialUi: init }) {
   const retry = useCallback(() => decide.current?.('retry'), [])
   const skip = useCallback(() => decide.current?.('skip'), [])
 
-  if (boot.state != 'ready') return <Boot state={boot.state} err={boot.err} retry={load} />
+  const login = useCallback(
+    id => {
+      writeSession(id)
+      setUi({ me: id, tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
+    },
+    [setUi]
+  )
+  const logout = useCallback(() => {
+    writeSession('')
+    setUi({ me: '', tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
+  }, [setUi])
 
-  const value = { db, sel, ui, setUi, me, act, toast, toastS, saving, net, retry, skip, remote: REMOTE }
+  if (boot.state != 'ready' || !db)
+    return <Boot state={boot.state == 'error' ? 'error' : 'loading'} err={boot.err} retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
+  if (!me && db.U.length) return <Login users={db.U} onPick={login} />
+  if (!me)
+    return <Boot state="error" err="Sheet Users masih kosong. Isi pengguna atau jalankan seedDemo() di Apps Script." retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
+
+  // 'sync' dipertahankan untuk header (teks status kecil di bawah nama)
+  const sync = { pending: saving ? 1 : 0, err: net.ok ? '' : 'offline' }
+  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, saving, net, sync, retry, skip, remote: REMOTE, logout }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

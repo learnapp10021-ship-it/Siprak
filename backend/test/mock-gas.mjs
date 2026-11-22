@@ -72,7 +72,10 @@ export function createBackend(codePath = path.join(root, 'backend/dist/Code.gs')
     getRange(r, c, nr = 1, nc = 1) { return new Range(this, r, c, nr, nc) }
     deleteRow(r) { this.cells.splice(r - 1, 1) }
     setFrozenRows() {}
-    protect() { return { setWarningOnly() {} } }
+    protect() { this._p = (this._p || 0) + 1; return { setWarningOnly() {} } }
+      getProtections() { return Array(this._p || 0) }
+      getMaxColumns() { return 50 }
+      insertColumnsAfter() {}
   }
   const ss = {
     getSheetByName: n => env.sheets.get(n) || null,
@@ -82,8 +85,8 @@ export function createBackend(codePath = path.join(root, 'backend/dist/Code.gs')
   }
   const mocks = {
     console,
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, openById: () => ss, flush() { bump('flush'); if (env.hooks.flush) env.hooks.flush() } },
-    LockService: { getScriptLock: () => ({ tryLock: () => !env.lockBusy, releaseLock() {} }) },
+    SpreadsheetApp: { ProtectionType: { SHEET: 'SHEET' }, getActiveSpreadsheet: () => ss, openById: () => ss, flush() { bump('flush'); if (env.hooks.flush) env.hooks.flush() } },
+    LockService: { getScriptLock: () => ({ tryLock: () => !env.lockBusy, waitLock() { if (env.lockBusy) throw new Error('lock timeout') }, releaseLock() {} }) },
     CacheService: {
       getScriptCache: () => ({
         get: k => (env.cache.has(k) ? env.cache.get(k) : null),

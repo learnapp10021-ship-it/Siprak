@@ -133,6 +133,44 @@ ITM-002|20|Andi Saputra`,
         KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'Joko Susilo', cat: '', tgl: '2026-11-21' })
     })
   }
+  // Data contoh menu Validasi SRL: dua SRL dari Admin Dept yang menunggu diperiksa Admin Warehouse
+  {
+    const V = [
+      { no: 'SRL-2611-004', dept: 'Maintenance', est: '2026-12-01', lines: [
+        ['APD-007', [['RQ-018', 'maya.mt', 5], ['RQ-019', 'rina.mt', 3]]],
+        ['KBL-005', [['RQ-018', 'maya.mt', 10]]],
+        ['SRG-001', [['RQ-019', 'rina.mt', 12]]],
+      ] },
+      { no: 'SRL-2611-005', dept: 'Produksi', est: '2026-12-03', lines: [
+        ['SRG-002', [['RQ-020', 'andi.prod', 6], ['RQ-021', 'siti.prod', 4]]],
+        ['LAS-021', [['RQ-021', 'siti.prod', 8]]],
+      ] },
+    ]
+    const made = new Set()
+    let kn = Math.max(...K.map(k => +k.id.slice(4)))
+    V.forEach((v, vi) => {
+      L.push({ no: v.no, dept: v.dept, est: v.est })
+      v.lines.forEach(([kode, rs], li) => {
+        const kid = 'KON-' + String(++kn).padStart(3, '0')
+        const buf = M.find(m => m.k == kode).buf == '1'
+        let tot = 0
+        rs.forEach(([rid, by, q], j) => {
+          if (!made.has(rid)) {
+            made.add(rid)
+            R.push({ id: rid, by, tgl: '2026-11-19', st: 'Disetujui', cat: '' })
+          }
+          tot += q
+          I.push({
+            id: 'ITM-' + String(I.length + 1).padStart(3, '0'), req: rid, kode, qty: String(q),
+            datang: addDays('2026-11-27', vi * 2 + li), pakai: buf ? '' : addDays('2026-12-04', vi * 2 + li + j),
+            status: 'Validasi Warehouse', appr: '2026-11-20T08:' + String(10 + vi * 10 + li * 2 + j).padStart(2, '0'),
+            kon: kid, tahan: '', alasan: '',
+          })
+        })
+        K.push({ id: kid, dept: v.dept, kode, tahap: 'Validasi Warehouse', srl: v.no, ero: String(tot), tutup: '0', alasan: '' })
+      })
+    })
+  }
   K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
 
