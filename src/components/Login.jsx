@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import logo from '../assets/logo-dbc.png'
 
 const ORDER = ['User', 'Atasan', 'Admin Dept', 'Admin Warehouse', 'Spv Warehouse']
 
@@ -25,6 +26,7 @@ export function Login({ users, onPick }) {
   return (
     <div className="login">
       <div className="login-hd">
+        <img className="login-logo" src={logo} alt="DBC, Inspired to Exceed" width="240" />
         <h1>SIPRAK</h1>
         <p>Request barang</p>
       </div>
