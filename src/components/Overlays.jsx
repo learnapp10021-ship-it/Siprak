@@ -168,7 +168,7 @@ export function DetailSheet() {
         <h3>Riwayat kedatangan SRL</h3>
         <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + d.by])} e="Belum ada barang datang." />
         <h3>Riwayat pengingat</h3>
-        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), x.by])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
+        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), x.by])} e="Belum pernah diingatkan. Pengingat dikirim otomatis lewat WhatsApp atau manual oleh Admin Warehouse." />
         <h3>Riwayat pengambilan</h3>
         <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + x.to])} e="Belum ada yang diambil." />
         <div className="acts"><button className="btn grow" onClick={close}>Tutup</button></div>
@@ -178,7 +178,7 @@ export function DetailSheet() {
 }
 
 const HELP = {
-  'Spv Warehouse': ['<b>Dashboard</b>: pantau barang yang sudah sampai tapi belum diambil, urut dari yang paling lama.', 'Lihat sudah berapa kali diingatkan. Pengingat dikirim oleh Admin Warehouse, bukan Anda.', 'Pilih periode (minggu ini, minggu lalu, 4 minggu) untuk OPR, lalu <b>Cetak atau simpan PDF</b>.'],
+  'Spv Warehouse': ['<b>Dashboard</b>: pantau barang yang sudah sampai tapi belum diambil, urut dari yang paling lama.', 'Lihat sudah berapa kali diingatkan. Pengingat dikirim otomatis lewat WhatsApp atau manual oleh Admin Warehouse, bukan Anda.', 'Pilih periode (minggu ini, minggu lalu, 4 minggu) untuk OPR, lalu <b>Cetak atau simpan PDF</b>.'],
   User: ['Buka <b>Buat request</b>, pilih barang, isi jumlah dan tanggal.', 'Tekan <b>Ajukan ke atasan</b>, atau <b>Simpan draft</b> kalau belum siap.', 'Pantau status tiap barang di <b>Request saya</b>.', 'Saat statusnya <b>Siap diambil</b>, ambil barang di Warehouse.'],
   Atasan: ['Buka <b>Persetujuan</b> untuk melihat request tim Anda.', 'Tekan <b>Setujui</b>, atau <b>Tolak</b> dengan catatan.', 'Banyak request sekaligus? Tekan <b>Setujui semua</b>.', 'Pantau semua request tim di <b>Tim saya</b>.'],
   'Admin Dept': ['<b>Buat ERO</b>: salin daftar barang ke ERO, lalu simpan nomor SRL di sini. SRL lalu divalidasi Admin Warehouse; barang yang dikeluarkan kembali ke Pool.', '<b>SRL</b>: pantau barang yang sudah datang. Tutup sisa jika supplier tidak mengirim.', '<b>Semua request</b>: cari request departemen Anda.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],

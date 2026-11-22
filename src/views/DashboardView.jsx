@@ -95,7 +95,7 @@ export function VDash() {
 
   return (
     <>
-      <Hd t="Dashboard Warehouse" s="Monitoring untuk OPR mingguan. Pengingat dilakukan Admin Warehouse." />
+      <Hd t="Dashboard Warehouse" s="Monitoring untuk OPR mingguan. Pengingat dikirim otomatis lewat WhatsApp dan manual oleh Admin Warehouse." />
       <div className="grid" style={{ gridColumn: '1/-1' }}>
         <label>Periode ({D(ps)} sampai {D(pe)})
           <select value={pr} onChange={e => setUi({ dp: e.target.value })}>
@@ -132,7 +132,7 @@ export function VDash() {
         <Kpi l="Lead time kedatangan" v={f1(avg(slP.map(x => x.lt).filter(v => v != null))) + (slP.length ? ' hari' : '')} s="disetujui sampai datang pertama" />
         <Kpi l="Lead time pengambilan" v={f1(avg(pkP.map(x => x.v))) + (pkP.length ? ' hari' : '')} s="datang sampai diserahkan" />
         <Kpi l="SRL tepat waktu" v={ot.length ? Math.round((ot.filter(x => !x.late).length / ot.length) * 100) + '%' : '-'} s={ot.length ? ot.filter(x => !x.late).length + ' dari ' + ot.length + ' SRL' : 'belum ada SRL datang'} />
-        <Kpi l="Pengingat terkirim" v={rmP.length} s="oleh admin warehouse" />
+        <Kpi l="Pengingat terkirim" v={rmP.length} s="otomatis dan manual" />
       </div>
 
       <Srl>Sudah sampai, belum diambil</Srl>

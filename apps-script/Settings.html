@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root { --b:#1a73e8; --bd:#dadce0; --mut:#5f6368; --ok:#188038; --warn:#b06000; --err:#c5221f; }
+  * { box-sizing: border-box; }
+  body { font: 13px/1.45 system-ui, Arial, sans-serif; color:#202124; margin:0; padding:0 16px 24px; }
+  h2 { font-size:15px; margin:22px 0 6px; }
+  h2:first-child { margin-top:14px; }
+  p.mut, small, .mut { color:var(--mut); }
+  .box { border:1px solid var(--bd); border-radius:8px; padding:10px 12px; margin:8px 0; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--mut); }
+  input, select { font:inherit; padding:6px 8px; border:1px solid var(--bd); border-radius:6px; min-width:0; }
+  input[type=number] { width:76px; }
+  button { font:inherit; padding:7px 12px; border:1px solid var(--b); background:var(--b); color:#fff; border-radius:6px; cursor:pointer; }
+  button.alt { background:#fff; color:var(--b); }
+  button.bad { border-color:var(--err); color:var(--err); background:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; }
+  .p-ok { background:#e6f4ea; color:var(--ok); } .p-no { background:#fce8e6; color:var(--err); } .p-warn { background:#fef7e0; color:var(--warn); }
+  .days label { flex-direction:row; align-items:center; gap:4px; color:#202124; }
+  #msg { position:sticky; top:0; z-index:5; margin:0 -16px; padding:8px 16px; display:none; font-weight:500; }
+  #msg.ok { display:block; background:#e6f4ea; color:var(--ok); } #msg.err { display:block; background:#fce8e6; color:var(--err); }
+  ul.chk { list-style:none; padding:0; margin:8px 0; }
+  ul.chk li { padding:6px 8px; border-radius:6px; margin:4px 0; }
+  li.ok { background:#e6f4ea; } li.warn { background:#fef7e0; } li.err { background:#fce8e6; }
+  .mode label { flex-direction:row; align-items:center; gap:6px; color:#202124; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="msg"></div>
+<div id="ask" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10;align-items:center;justify-content:center">
+  <div class="box" style="background:#fff;max-width:420px;margin:0 16px">
+    <p id="askText" style="margin:4px 0 12px"></p>
+    <div class="row" style="justify-content:flex-end"><button class="alt" id="askNo">Batal</button><button id="askYes">Ya, lanjutkan</button></div>
+  </div>
+</div>
+
+<h2>1. Perangkat WhatsApp (Fonnte) per departemen</h2>
+<p class="mut">Tiap Admin Dept menyambungkan nomor WA-nya di fonnte.com (scan QR), lalu menyalin <b>token perangkat</b> ke sini. Token disimpan aman di server, tidak tampil di sheet maupun di aplikasi.</p>
+<div id="dev"></div>
+
+<h2>2. Aturan pengingat</h2>
+<div class="box">
+  <div class="row mode" style="margin-bottom:8px">
+    <b>Mode:</b>
+    <label><input type="radio" name="mode" value="simulasi"> Simulasi (tidak mengirim, hanya dicatat di LogWA)</label>
+    <label><input type="radio" name="mode" value="live"> LIVE (benar-benar mengirim WA)</label>
+  </div>
+  <div class="row">
+    <label>Jam kirim (WIB)<input type="number" id="jam" min="0" max="23"></label>
+    <label>Barang siap diambil: diingatkan setelah (hari)<input type="number" id="minHariSiap" min="0"></label>
+    <label>Ulangi tiap (hari)<input type="number" id="ulangHari" min="1"></label>
+    <label>Maks pengingat per barang<input type="number" id="maksIngat" min="1"></label>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label>Request menunggu atasan: setelah (hari)<input type="number" id="minHariApproval" min="0"></label>
+    <label>Pool belum ke ERO: setelah (hari)<input type="number" id="minHariPool" min="0"></label>
+    <label>Ulangi pengingat admin/atasan tiap (hari)<input type="number" id="ulangAdmin" min="1"></label>
+  </div>
+  <div class="row days" style="margin-top:8px"><b>Hari kirim:</b>
+    <label><input type="checkbox" value="1"> Sen</label><label><input type="checkbox" value="2"> Sel</label><label><input type="checkbox" value="3"> Rab</label>
+    <label><input type="checkbox" value="4"> Kam</label><label><input type="checkbox" value="5"> Jum</label><label><input type="checkbox" value="6"> Sab</label><label><input type="checkbox" value="7"> Min</label>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label>Jeda antar pesan (detik): dari<input type="number" id="jedaMin" min="0"></label>
+    <label>sampai<input type="number" id="jedaMax" min="0"></label>
+    <label>Maks pesan per sekali jalan<input type="number" id="maksKirim" min="1"></label>
+    <label style="flex:1;min-width:220px">Tautan aplikasi di pesan (opsional)<input id="appUrl" placeholder="https://..."></label>
+  </div>
+  <div class="row" style="margin-top:10px"><button id="saveCfg">Simpan aturan</button></div>
+</div>
+
+<h2>3. Go live</h2>
+<div class="box">
+  <div class="row">
+    <button id="chk" class="alt">Cek kesiapan go live</button>
+    <button id="sched" class="alt">Pasang jadwal harian</button>
+    <button id="unsched" class="alt">Hapus jadwal</button>
+    <button id="runNow">Kirim pengingat sekarang</button>
+  </div>
+  <p class="mut" id="info"></p>
+  <ul class="chk" id="res"></ul>
+</div>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var SAVED_MODE = 'simulasi';
+  var NUM = ['jam','minHariSiap','ulangHari','maksIngat','minHariApproval','minHariPool','ulangAdmin','jedaMin','jedaMax','maksKirim'];
+
+  function say(t, bad) { var m = $('msg'); m.textContent = t; m.className = bad ? 'err' : 'ok'; clearTimeout(say.t); say.t = setTimeout(function () { m.className = ''; }, bad ? 9000 : 5000); }
+  function fail(e) { busy(false); say((e && e.message || String(e)).replace(/^Error:\s*/, ''), true); }
+  function busy(b) { Array.prototype.forEach.call(document.querySelectorAll('button'), function (x) { x.disabled = b; }); }
+  function run(fn, args, done) {
+    busy(true);
+    var r = google.script.run.withSuccessHandler(function (v) { busy(false); if (done) done(v); }).withFailureHandler(fail);
+    r[fn].apply(r, args || []);
+  }
+  function ask(text, yes) {
+    $('askText').textContent = text; $('ask').style.display = 'flex';
+    $('askNo').onclick = function () { $('ask').style.display = 'none'; };
+    $('askYes').onclick = function () { $('ask').style.display = 'none'; yes(); };
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function renderDev(list) {
+    var box = $('dev'); box.textContent = '';
+    list.forEach(function (d) {
+      var c = el('div', 'box');
+      var top = el('div', 'row'); top.style.justifyContent = 'space-between'; top.style.alignItems = 'center';
+      var l = el('div'); l.appendChild(el('b', '', d.dept));
+      l.appendChild(el('small', 'mut', d.admins.length ? '  Admin: ' + d.admins.join(', ') : '  (belum ada admin aktif)'));
+      top.appendChild(l);
+      top.appendChild(el('span', 'pill ' + (d.ada ? 'p-ok' : 'p-no'), d.ada ? 'Tersimpan ' + d.mask : 'Belum ada token'));
+      c.appendChild(top);
+
+      var r = el('div', 'row'); r.style.marginTop = '8px';
+      var lt = el('label'); lt.style.flex = '1'; lt.style.minWidth = '200px'; lt.appendChild(document.createTextNode(d.ada ? 'Token baru (kosongkan bila tidak diganti)' : 'Token Fonnte'));
+      var ti = el('input'); ti.type = 'password'; ti.autocomplete = 'off'; lt.appendChild(ti); r.appendChild(lt);
+      var ln = el('label'); ln.appendChild(document.createTextNode('Nomor WA pengirim (opsional)'));
+      var ni = el('input'); ni.value = d.nomor ? '0' + d.nomor.slice(2) : ''; ni.placeholder = '08xxxxxxxxxx'; ln.appendChild(ni); r.appendChild(ln);
+      var bs = el('button', '', 'Simpan');
+      bs.onclick = function () { run('simpanPerangkat', [d.dept, ti.value, ni.value], function (m) { say(m); load(); }); };
+      r.appendChild(bs);
+      c.appendChild(r);
+
+      if (d.ada) {
+        var t = el('div', 'row'); t.style.marginTop = '8px';
+        var lx = el('label'); lx.appendChild(document.createTextNode('Tes kirim ke nomor'));
+        var xi = el('input'); xi.placeholder = '08xxxxxxxxxx'; xi.value = ni.value; lx.appendChild(xi); t.appendChild(lx);
+        var bt = el('button', 'alt', 'Tes kirim');
+        bt.onclick = function () { run('tesKirimPerangkat', [d.dept, xi.value], function (m) { say(m); }); };
+        t.appendChild(bt);
+        var bd = el('button', 'bad', 'Hapus perangkat');
+        bd.onclick = function () { ask('Hapus token perangkat ' + d.dept + '?', function () { run('hapusPerangkat', [d.dept], function (m) { say(m); load(); }); }); };
+        t.appendChild(bd);
+        c.appendChild(t);
+      }
+      box.appendChild(c);
+    });
+    if (!list.length) box.appendChild(el('p', 'mut', 'Belum ada pengguna. Isi sheet Users dulu.'));
+  }
+
+  function fillCfg(c) {
+    document.querySelectorAll('input[name=mode]').forEach(function (r) { r.checked = r.value === c.mode; });
+    NUM.forEach(function (k) { $(k).value = c[k]; });
+    $('appUrl').value = c.appUrl || '';
+    document.querySelectorAll('.days input').forEach(function (x) { x.checked = c.hari.indexOf(+x.value) >= 0; });
+  }
+  function readCfg() {
+    var o = { mode: document.querySelector('input[name=mode]:checked').value, appUrl: $('appUrl').value, hari: [] };
+    NUM.forEach(function (k) { o[k] = $(k).value; });
+    document.querySelectorAll('.days input').forEach(function (x) { if (x.checked) o.hari.push(+x.value); });
+    return o;
+  }
+
+  function load() {
+    run('getPengaturan', [], function (s) {
+      renderDev(s.perangkat);
+      fillCfg(s.cfg);
+      SAVED_MODE = s.cfg.mode;
+      $('info').textContent = 'Versi kode ' + s.versi + ', zona ' + s.tz + '. Jadwal harian: ' + (s.jadwal ? 'AKTIF' : 'belum dipasang') + '.' + (s.url ? ' URL Web App: ' + s.url : '');
+    });
+  }
+
+  $('saveCfg').onclick = function () {
+    var c = readCfg();
+    var go = function () { run('simpanAturan', [c], function (m) { say(m); load(); }); };
+    if (c.mode === 'live' && SAVED_MODE !== 'live') ask('Mode LIVE: pesan WhatsApp akan benar-benar terkirim ke pengguna. Pastikan tes kirim sudah berhasil.', go);
+    else go();
+  };
+  $('chk').onclick = function () {
+    run('cekKesiapan', [], function (r) {
+      var ul = $('res'); ul.textContent = '';
+      r.hasil.forEach(function (x) { ul.appendChild(el('li', x.lvl, (x.lvl === 'ok' ? 'OK: ' : x.lvl === 'warn' ? 'Perhatian: ' : 'Harus diperbaiki: ') + x.t)); });
+      ul.insertBefore(el('li', r.siap ? 'ok' : 'err', r.siap ? 'Tidak ada yang menghalangi go live. Periksa item "Perhatian".' : 'Belum siap go live: perbaiki item merah.'), ul.firstChild);
+      ul.firstChild.style.fontWeight = '600';
+    });
+  };
+  $('sched').onclick = function () { run('pasangJadwal', [], function (m) { say(m); load(); }); };
+  $('unsched').onclick = function () { run('hapusJadwal', [], function (m) { say(m); load(); }); };
+  $('runNow').onclick = function () {
+    ask(SAVED_MODE === 'live' ? 'Mode LIVE (tersimpan): WA akan benar-benar dikirim sekarang.' : 'Mode SIMULASI (tersimpan): tidak ada WA dikirim, hanya dicatat di sheet LogWA.',
+      function () { run('kirimPengingatSekarang', [], function (m) { say(m); }); });
+  };
+  load();
+</script>
+</body>
+</html>

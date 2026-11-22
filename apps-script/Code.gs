@@ -10,11 +10,19 @@
  * Endpoint (Web App):
  *   GET  ?fn=ver                  -> { ok, ver }
  *   GET  ?fn=all[&ver=N]          -> { ok, ver, same } atau { ok, ver, db }
+ *   GET  ?fn=info                 -> { ok, app, gs, tz, ver }   (cek versi kode yang sedang terpasang)
  *   POST {fn:'mutate', ops:[...]} -> { ok, ver, base }   (body dikirim sebagai text/plain agar tanpa preflight CORS)
  *     op = { t:'R', op:'add'|'set', row:{...} }
  *
+ * Server menegakkan alur proses (lihat "Aturan alur proses" di bawah): status hanya boleh maju sesuai alur,
+ * kolom inti tidak boleh diubah, referensi antar tabel harus ada, dan qty kedatangan/serah terima tidak boleh melebihi jatah.
+ * Pengingat WhatsApp (Fonnte), pengaturan, dan cek kesiapan go live ada di Fonnte.gs + Settings.html.
+ *
  * Cara pasang: lihat apps-script/README.md
  */
+
+var VERSION = '2.1.0';
+var TZ = 'Asia/Jakarta';
 
 var SCHEMA = {
   U:  { sheet: 'Users',       key: 'id',  cols: ['id', 'n', 'dept', 'role', 'boss', 'hp', 'off'] },
@@ -49,6 +57,7 @@ function doPost(e) {
 function run_(fn, params, body) {
   try {
     if (fn === 'ver') return json_({ ok: true, ver: getVer_() });
+    if (fn === 'info') return json_({ ok: true, app: 'SIPRAK', gs: VERSION, tz: TZ, ver: getVer_() });
     if (fn === 'all') {
       var ver = getVer_();
       if (params.ver && String(params.ver) === ver) return json_({ ok: true, ver: ver, same: true });
@@ -167,9 +176,9 @@ function cell_(v) {
 
 function norm_(v) {
   if (v instanceof Date) {
-    var tz = Session.getScriptTimeZone();
-    var midnight = v.getHours() === 0 && v.getMinutes() === 0;
-    return Utilities.formatDate(v, tz, midnight ? 'yyyy-MM-dd' : "yyyy-MM-dd'T'HH:mm");
+    // Selalu zona Asia/Jakarta (bukan zona spreadsheet) supaya tanggal sama dengan yang dilihat pengguna.
+    var hm = Utilities.formatDate(v, TZ, 'HH:mm');
+    return Utilities.formatDate(v, TZ, hm === '00:00' ? 'yyyy-MM-dd' : "yyyy-MM-dd'T'HH:mm");
   }
   return v == null ? '' : String(v);
 }
@@ -224,6 +233,188 @@ function toClient_(tb) {
 
 function conflict_(msg) { return { conflict: true, message: msg }; }
 
+/* ------------------------------------------------------- Aturan alur proses
+ * Cermin dari src/lib/actions.js. Aplikasi sudah memeriksa di layar, tetapi layar bisa usang
+ * (dua orang bekerja bersamaan) atau URL dipanggil langsung. Server adalah penjaga terakhir:
+ * pelanggaran ditolak sebagai "conflict" sehingga aplikasi memuat ulang data dan pengguna mengulang.
+ */
+
+var ROLES = ['User', 'Atasan', 'Admin Dept', 'Admin Warehouse', 'Spv Warehouse'];
+
+// f = kolom status, add = status awal yang sah, to = status tujuan yang sah dari tiap status.
+var FLOW = {
+  // Request: Draft -> Menunggu Approval -> Disetujui | Ditolak; Draft/Menunggu bisa Dibatalkan.
+  R: { f: 'st', add: ['Draft', 'Menunggu Approval'], to: {
+    'Draft': ['Menunggu Approval', 'Dibatalkan'],
+    'Menunggu Approval': ['Disetujui', 'Ditolak', 'Dibatalkan']
+  } },
+  // Barang: ... -> Approved -> Validasi Warehouse -> Sudah di ERO. Warehouse boleh mengeluarkan barang (kembali ke Approved).
+  I: { f: 'status', add: ['Draft', 'Menunggu Approval'], to: {
+    'Draft': ['Menunggu Approval', 'Dibatalkan'],
+    'Menunggu Approval': ['Approved', 'Ditolak', 'Dibatalkan'],
+    'Approved': ['Validasi Warehouse'],
+    'Validasi Warehouse': ['Approved', 'Sudah di ERO']
+  } },
+  // Konsolidasi per SRL: lahir di Validasi Warehouse, lalu divalidasi atau dikeluarkan seluruhnya.
+  K: { f: 'tahap', add: ['Validasi Warehouse'], to: {
+    'Validasi Warehouse': ['Sudah di ERO', 'Dikeluarkan']
+  } }
+};
+
+// Kolom yang tidak boleh berubah setelah baris dibuat.
+var LOCKED = {
+  R: ['by', 'tgl'],
+  I: ['req', 'kode', 'qty', 'datang', 'pakai'],
+  K: ['dept', 'by', 'kode', 'srl'],
+  L: ['dept']
+};
+
+// [kolom, tabel rujukan, boleh kosong]
+var REFS = {
+  R: [['by', 'U']],
+  I: [['req', 'R'], ['kode', 'M'], ['kon', 'K', true]],
+  K: [['srl', 'L'], ['kode', 'M']],
+  KD: [['kon', 'K']],
+  SR: [['item', 'I']],
+  RM: [['item', 'I']]
+};
+
+function objOf_(S, row) {
+  var o = {};
+  S.cols.forEach(function (c, i) { o[c] = row[i]; });
+  return o;
+}
+
+function isNum_(v) { return v !== '' && isFinite(+v); }
+
+function checkAdd_(t, r) {
+  var S = SCHEMA[t], f = FLOW[t], id = S.key ? S.sheet + ' ' + r[S.key] : S.sheet;
+  if (f && f.add.indexOf(r[f.f]) < 0)
+    throw conflict_(id + ': status awal "' + r[f.f] + '" tidak sah.');
+  if (t === 'U' && ROLES.indexOf(r.role) < 0) throw new Error('Peran tidak dikenal: ' + r.role);
+  if (t === 'KD') {
+    var l = r.lebih === '' ? 0 : +r.lebih;
+    if (!isNum_(r.qty) || !isFinite(l) || +r.qty < 0 || l < 0 || +r.qty + l <= 0)
+      throw new Error('Kedatangan: qty tidak valid.');
+  }
+  if (t === 'SR' && !(isNum_(r.qty) && +r.qty > 0)) throw new Error('Serah terima: qty harus lebih dari 0.');
+  if (t === 'RM' && !r.by) throw new Error('Pengingat: pengirim kosong.');
+}
+
+function checkSet_(t, old, nw) {
+  var S = SCHEMA[t], f = FLOW[t], id = S.sheet + ' ' + nw[S.key];
+  (LOCKED[t] || []).forEach(function (c) {
+    if (old[c] !== nw[c]) throw conflict_(id + ': kolom ' + c + ' tidak boleh diubah.');
+  });
+  if (f && old[f.f] !== nw[f.f] && (f.to[old[f.f]] || []).indexOf(nw[f.f]) < 0)
+    throw conflict_(id + ': status "' + old[f.f] + '" tidak bisa menjadi "' + nw[f.f] + '" (kemungkinan sudah diubah pengguna lain).');
+  if (t === 'U' && ROLES.indexOf(nw.role) < 0) throw new Error('Peran tidak dikenal: ' + nw.role);
+}
+
+/**
+ * Periksa keadaan sesudah operasi diterapkan (belum ditulis ke sheet):
+ *  - rujukan antar tabel ada,
+ *  - kedatangan hanya pada SRL yang sudah divalidasi dan tidak melebihi sisa,
+ *  - serah terima tidak melebihi jatah barang yang sudah datang.
+ */
+function checkAfter_(plan) {
+  var tb = readAll_().tables, by = {}, eps = 1e-9;
+  plan.forEach(function (p) {
+    tb[p.t] = p.rows.map(function (r) { return objOf_(SCHEMA[p.t], r); });
+    by[p.t] = p;
+  });
+
+  var keys = {};
+  function has(t, v) {
+    if (!keys[t]) {
+      keys[t] = {};
+      tb[t].forEach(function (x) { keys[t][x[SCHEMA[t].key]] = 1; });
+    }
+    return keys[t][v] === 1;
+  }
+  plan.forEach(function (p) {
+    var S = SCHEMA[p.t];
+    (REFS[p.t] || []).forEach(function (rf) {
+      p.touched.forEach(function (row) {
+        var v = objOf_(S, row)[rf[0]];
+        if (v === '' && rf[2]) return;
+        if (!has(rf[1], v))
+          throw conflict_(S.sheet + ': ' + rf[0] + ' "' + v + '" tidak ada di ' + SCHEMA[rf[1]].sheet + '.');
+      });
+    });
+  });
+
+  var sel = makeSel_(tb), kons = {};
+  if (by.KD) by.KD.touched.forEach(function (row) {
+    var d = objOf_(SCHEMA.KD, row), k = sel.K[d.kon];
+    if (k.tahap !== 'Sudah di ERO') throw conflict_('SRL ' + k.srl + ' belum divalidasi Warehouse, kedatangan belum bisa dicatat.');
+    kons[d.kon] = 1;
+  });
+  if (by.K) by.K.touched.forEach(function (row) { kons[row[0]] = 1; });
+  Object.keys(kons).forEach(function (id) {
+    var k = sel.K[id];
+    if (k && sel.raw(k) < -eps)
+      throw conflict_(id + ' (' + k.srl + '): qty datang melebihi sisa ' + sel.sisa(k) + '. Data dimuat ulang.');
+  });
+  if (by.SR) by.SR.touched.forEach(function (row) {
+    var s = objOf_(SCHEMA.SR, row), it = sel.I[s.item];
+    if (it.status !== 'Sudah di ERO') throw conflict_(s.item + ': barang belum/tidak aktif di ERO, tidak bisa diserahkan.');
+    if (sel.siap(it) < -eps) throw conflict_(s.item + ': qty serah melebihi yang siap diambil (' + (sel.berhak(it) - (sel.diambil(it) - +s.qty)) + ').');
+  });
+}
+
+/**
+ * Port src/lib/selectors.js. Jatah barang yang sudah datang dibagi ke request menurut kebutuhan terdekat.
+ * Dipakai oleh penjaga alur di atas dan oleh mesin pengingat (Fonnte.gs). Harus tetap sama dengan klien.
+ */
+function makeSel_(tb) {
+  var U = {}, M = {}, R = {}, I = {}, K = {}, L = {}, byKon = {}, kdKon = {}, srItem = {};
+  tb.U.forEach(function (x) { U[x.id] = x; });
+  tb.M.forEach(function (x) { M[x.k] = x; });
+  tb.R.forEach(function (x) { R[x.id] = x; });
+  tb.I.forEach(function (x) { I[x.id] = x; if (x.kon) (byKon[x.kon] = byKon[x.kon] || []).push(x); });
+  tb.K.forEach(function (x) { K[x.id] = x; });
+  tb.L.forEach(function (x) { L[x.no] = x; });
+  tb.KD.forEach(function (x) { (kdKon[x.kon] = kdKon[x.kon] || []).push(x); });
+  tb.SR.forEach(function (x) { (srItem[x.item] = srItem[x.item] || []).push(x); });
+
+  function sum(a, f) { var s = 0; a.forEach(function (x) { s += +f(x) || 0; }); return s; }
+  function live(i) { return i.status !== 'Ditolak' && i.status !== 'Dibatalkan'; }
+  function ord(a, b) {
+    var pa = a.pakai || '9', pb = b.pakai || '9';
+    return pa < pb ? -1 : pa > pb ? 1 : a.appr < b.appr ? -1 : 1;
+  }
+  function total(k) { return sum((byKon[k.id] || []).filter(live), function (i) { return i.qty; }); }
+  function datang(k) { return sum(kdKon[k.id] || [], function (d) { return d.qty; }); }
+  function raw(k) { return total(k) - datang(k) - (+k.tutup || 0); }
+  function sisa(k) { return Math.max(0, raw(k)); }
+  function berhak(it) {
+    var k = K[it.kon];
+    if (!k) return 0;
+    var r = datang(k), xs = (byKon[k.id] || []).filter(live).sort(ord);
+    for (var j = 0; j < xs.length; j++) {
+      var g = Math.min(r, +xs[j].qty);
+      if (xs[j].id == it.id) return g;
+      r -= g;
+    }
+    return 0;
+  }
+  function diambil(it) { return sum(srItem[it.id] || [], function (s) { return s.qty; }); }
+  function siap(it) { return berhak(it) - diambil(it); }
+  function deptOf(it) { var r = R[it.req], u = r && U[r.by]; return u ? u.dept : ''; }
+  function lastArrival(kon) {
+    var a = (kdKon[kon] || []).map(function (d) { return d.tgl; }).sort();
+    return a.length ? a[a.length - 1] : undefined;
+  }
+  function poolOf(dept) {
+    return tb.I.filter(function (i) {
+      return i.status === 'Approved' && !i.kon && !i.tahan && R[i.req] && deptOf(i) === dept;
+    });
+  }
+  return { U: U, M: M, R: R, I: I, K: K, L: L, live: live, ord: ord, total: total, datang: datang, raw: raw, sisa: sisa,
+    berhak: berhak, diambil: diambil, siap: siap, deptOf: deptOf, lastArrival: lastArrival, poolOf: poolOf };
+}
+
 /**
  * Terapkan sekumpulan operasi secara atomik per panggilan (satu lock, satu setValues per tabel).
  * 'add' pada tabel berkunci gagal bila kunci sudah ada (mis. dua orang membuat RQ-013 bersamaan);
@@ -252,7 +443,7 @@ function mutate_(ops) {
       // Baris fisik di sheet. Bila berbeda dari jumlah baris valid (ada baris kosong di tengah akibat edit manual),
       // tulis ulang seluruh tabel secara rapat supaya 'add' tidak menimpa baris lain.
       var physical = Math.max(0, sheet_(ss, t).getLastRow() - 1);
-      var base = rows.length, index = {}, rewrite = physical !== rows.length;
+      var base = rows.length, index = {}, rewrite = physical !== rows.length, touched = [];
       if (kIdx >= 0) rows.forEach(function (r, i) { index[r[kIdx]] = i; });
 
       byT[t].forEach(function (o) {
@@ -261,18 +452,24 @@ function mutate_(ops) {
         if (o.op === 'add') {
           if (kIdx >= 0 && Object.prototype.hasOwnProperty.call(index, row[kIdx]))
             throw conflict_(S.sheet + ': ' + row[kIdx] + ' sudah ada (dibuat pengguna lain).');
+          checkAdd_(t, objOf_(S, row));
           rows.push(row);
           if (kIdx >= 0) index[row[kIdx]] = rows.length - 1;
         } else {
           if (kIdx < 0) throw new Error('Tabel ' + t + ' hanya mendukung add.');
           if (!Object.prototype.hasOwnProperty.call(index, row[kIdx]))
             throw conflict_(S.sheet + ': ' + row[kIdx] + ' tidak ditemukan.');
+          checkSet_(t, objOf_(S, rows[index[row[kIdx]]]), objOf_(S, row));
           rows[index[row[kIdx]]] = row;
           rewrite = true;
         }
+        touched.push(row);
       });
-      plan.push({ t: t, w: w, rows: rows, base: base, rewrite: rewrite, physical: physical });
+      plan.push({ t: t, w: w, rows: rows, base: base, rewrite: rewrite, physical: physical, touched: touched });
     });
+
+    // Tahap 1b: konsistensi lintas tabel pada keadaan SESUDAH operasi (referensi, qty datang, qty serah).
+    checkAfter_(plan);
 
     // Tahap 2: tulis. Hanya-tambah => tulis ekor saja; ada perubahan => tulis ulang tabel (kecil, 1 panggilan).
     var base = getVer_();
