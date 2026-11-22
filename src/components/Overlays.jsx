@@ -188,7 +188,7 @@ const HELP = {
   User: ['Buka <b>Buat request</b>, pilih barang, isi jumlah dan tanggal.', 'Tekan <b>Ajukan ke atasan</b>, atau <b>Simpan draft</b> kalau belum siap.', 'Pantau status tiap barang di <b>Request saya</b>.', 'Saat statusnya <b>Siap diambil</b>, ambil barang di Warehouse.'],
   Atasan: ['Buka <b>Persetujuan</b> untuk melihat request tim Anda.', 'Tekan <b>Setujui</b>, atau <b>Tolak</b> dengan catatan.', 'Banyak request sekaligus? Tekan <b>Setujui semua</b>.', 'Pantau semua request tim di <b>Tim saya</b>.'],
   'Admin Dept': ['<b>Buat ERO</b>: salin daftar barang ke ERO, lalu simpan nomor SRL di sini.', '<b>SRL</b>: pantau barang yang sudah datang. Tutup sisa jika supplier tidak mengirim.', '<b>Semua request</b>: cari request departemen Anda.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],
-  'Admin Warehouse': ['<b>Kedatangan</b>: catat barang yang tiba per nomor SRL. Lengkap semua? Tekan <b>Semua datang sesuai jumlah</b>.', '<b>Serah terima</b>: serahkan barang sesuai urutan, lalu kirim pengingat WA.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],
+  'Admin Warehouse': ['<b>Kedatangan</b>: pilih SRL (cari, filter, atau tombol ‹ ›), lalu catat barang yang tiba. Lengkap semua? Tekan <b>Semua datang sesuai jumlah</b>.', '<b>Serah terima</b>: barang dikelompokkan per penerima. Tekan <b>Serahkan semua</b> untuk satu penerima, atau kirim pengingat WA.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],
 }
 
 export function HelpSheet() {

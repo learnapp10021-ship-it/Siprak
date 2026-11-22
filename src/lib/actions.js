@@ -179,6 +179,21 @@ export const actions = {
     return { ok: 'Diserahkan.' }
   },
 
+  serahAll(sel, d, ids) {
+    let n = 0
+    let to = ''
+    ids.forEach(id => {
+      const i = d.I.find(x => x.id == id)
+      const q = i ? sel.siap(i) : 0
+      if (!(q > 0)) return
+      to = sel.nm(sel.RQ(i.req).by)
+      d.SR.push({ item: id, qty: String(q), to, tgl: TODAY })
+      n++
+    })
+    if (!n) return { err: 'Tidak ada barang yang siap diserahkan.' }
+    return { ok: n + ' barang diserahkan ke ' + to + '.' }
+  },
+
   ingat(sel, d, id, by) {
     d.RM.push({ item: id, by, at: nowStr() })
   },

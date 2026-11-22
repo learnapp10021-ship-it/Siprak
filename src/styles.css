@@ -142,4 +142,33 @@ nav button{line-height:1.25;min-height:56px}nav button:hover{background:var(--so
   main.v-dtg>.srlpick,main.v-srh>.srlpick{grid-column:1!important;grid-row:2/span 60;position:sticky;top:calc(var(--hh) + 16px);max-height:calc(100vh - var(--hh) - 32px);overflow:auto;padding-right:4px}
 }
 
-@media(max-width:699px){.srlpick [role=listbox]{max-height:264px;overflow:auto}}
+
+/* ===== Pemilih SRL (puluhan SRL) & detail SRL ===== */
+header{min-height:var(--hh)}
+.srlpick{gap:10px}
+.pk-cur{display:flex;gap:8px;align-items:stretch}
+.pk-nav{flex:0 0 48px;font:inherit;font-size:26px;line-height:1;border:1px solid var(--bd);background:var(--paper);color:var(--brand);border-radius:10px;cursor:pointer}
+.pk-nav:hover:not(:disabled){background:var(--soft)}.pk-nav:disabled{opacity:.4;cursor:not-allowed}
+.pk-main{flex:1;min-width:0;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);background:var(--soft);border:1px solid var(--brand);border-radius:10px;padding:10px 12px;cursor:pointer}
+.pk-main b{font-size:16px}.pk-chg{color:var(--brand);font-size:13px;font-weight:600;margin-top:3px}
+.pk-body{display:grid;gap:10px}
+.pk-row{display:flex;width:100%;justify-content:space-between;align-items:flex-start;gap:10px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;padding:10px 12px;margin-bottom:6px;min-height:56px;border-radius:10px;border:1px solid var(--line);background:var(--paper)}
+.pk-row:hover{border-color:var(--brand)}.pk-row.on{border-color:var(--brand);background:var(--soft);box-shadow:0 0 0 2px var(--ring)}
+.pk-l{display:grid;gap:2px;flex:1;min-width:0}.pk-l .pbar{margin:4px 0 0;height:4px}
+.pk-r{display:grid;gap:2px;justify-items:end;text-align:right;white-space:nowrap}
+.chip{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--bd);background:var(--paper);color:var(--ink);border-radius:999px;padding:6px 14px;min-height:36px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:var(--onb)}
+.srlhd{margin:14px 0 0;padding:10px 12px;background:var(--soft);border:1px solid var(--line);border-radius:10px;scroll-margin-top:calc(env(safe-area-inset-top,0px) + var(--hh) + 8px)}
+.srlhd-t{display:flex;justify-content:space-between;align-items:center;gap:8px}.srlhd b{font-size:16px}
+.srlhd .pbar{height:4px;margin:6px 0 4px;background:var(--line)}
+.srlact{margin-top:8px}.srlact .btn{width:100%}
+.itemq{margin-top:10px}
+.pic{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 0;padding:8px 2px;border-bottom:2px solid var(--line)}
+.pic .btn{min-height:36px;padding:4px 12px}
+@media(max-width:1023px){.pk-hide{display:none}}
+@media(max-width:699px){.srlpick [role=listbox]{max-height:none}}
+/* tempel di atas saat menggulir; tidak dipakai di tablet karena kolom CSS */
+@media(max-width:699px),(min-width:1024px){.srlhd{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hh));z-index:3}}
+@media(min-width:700px){.srlact .btn{width:auto}}
+/* desktop: daftar SRL selalu tampil di kiri, kartu ringkas disembunyikan */
+@media(min-width:1024px){.pk-cur{display:none}}
