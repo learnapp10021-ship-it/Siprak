@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../store'
-import { Hd, Empty, Pill, Srl } from '../components/ui'
+import { Hd, Empty, Pill, Srl, useMore } from '../components/ui'
 import { D, TODAY, addDays, avg, days, dayDiff, f1, sum } from '../lib/utils'
 
 const Kpi = ({ l, v, s }) => (
@@ -24,6 +24,7 @@ export function VDash() {
   const { db, sel, ui, setUi } = useApp()
   const f = ui.df
   const pr = ui.dp
+  const [qs, setQs] = useState('')
 
   const m = useMemo(() => {
     const dayOfWeek = new Date(TODAY + 'T00:00:00Z').getUTCDay()
@@ -78,9 +79,15 @@ export function VDash() {
   }, [db, sel, pr])
 
   const { ps, pe, inP, w, kd, sr, rmP, pkP, slP, slT, ot, deps, adm } = m
-  const lw = w.filter(x => (f == 'late' ? x.w >= 3 : f == 'none' ? !x.rm.length : true))
+  const qq = qs.trim().toLowerCase()
+  const lw = w
+    .filter(x => (f == 'late' ? x.w >= 3 : f == 'none' ? !x.rm.length : true))
+    .filter(x => !qq || (x.m.n + ' ' + x.i.id + ' ' + x.by + ' ' + x.d).toLowerCase().includes(qq))
   const pics = Object.values(lw.reduce((o, x) => ((o[x.u] = o[x.u] || []).push(x), o), {}))
     .sort((p, q) => Math.max(...q.map(x => x.w)) - Math.max(...p.map(x => x.w)))
+  const [lwV, lwMore] = useMore(lw)
+  const [picV, picMore] = useMore(pics)
+  const [slV, slMore] = useMore(slT)
   const a0 = w.filter(x => x.w < 3).length
   const a1 = w.filter(x => x.w >= 3 && x.w < 7).length
   const a2 = w.filter(x => x.w >= 7).length
@@ -137,14 +144,17 @@ export function VDash() {
             <option value="none">Belum pernah diingatkan</option>
           </select>
         </label>
+        <label>Cari
+          <input type="search" value={qs} placeholder="Barang, PIC, departemen" onChange={e => setQs(e.target.value)} />
+        </label>
       </div>
-      <p className="mut" style={{ gridColumn: '1/-1', margin: '0 0 6px' }}>Ketuk kartu di atas untuk menyaring, atau ketuk baris untuk melihat detail barang.</p>
+      <p className="mut" style={{ gridColumn: '1/-1', margin: '0 0 6px' }}>{lw.length} barang. Ketuk kartu di atas untuk menyaring, atau ketuk baris untuk melihat detail barang.</p>
       {lw.length ? (
         <div className="tw">
           <table className="tbl">
             <thead><Th a={['Barang', 'Qty', 'Peminta', 'Datang', 'Di gudang', 'Pengingat', 'Dipakai']} /></thead>
             <tbody>
-              {lw.map(x => {
+              {lwV.map(x => {
                 const l = x.rm[x.rm.length - 1]
                 const open = () => setUi({ di: x.i.id })
                 return (
@@ -165,8 +175,9 @@ export function VDash() {
           </table>
         </div>
       ) : (
-        <Empty>Tidak ada barang yang cocok. Semua sudah diambil.</Empty>
+        <Empty>Tidak ada barang yang cocok. Ubah kata kunci atau filter.</Empty>
       )}
+      {lwMore}
 
       <Srl>PIC yang belum mengambil ({pics.length} orang)</Srl>
       {pics.length ? (
@@ -174,7 +185,7 @@ export function VDash() {
           <table className="tbl">
             <thead><Th a={['PIC', 'Barang', 'Isi', 'Terlama', 'Pengingat']} /></thead>
             <tbody>
-              {pics.map(a => {
+              {picV.map(a => {
                 const x = a[0]
                 const mx = Math.max(...a.map(y => y.w))
                 const nr = a.filter(y => !y.rm.length && y.w >= 3).length
@@ -197,6 +208,7 @@ export function VDash() {
       ) : (
         <Empty>Tidak ada PIC yang menunggu.</Empty>
       )}
+      {picMore}
 
       <Srl>Lead time kedatangan per SRL</Srl>
       {slT.length ? (
@@ -204,7 +216,7 @@ export function VDash() {
           <table className="tbl">
             <thead><Th a={['SRL', 'Dept', 'Disetujui', 'Datang pertama', 'Lead time', 'Estimasi', 'Status', 'Datang']} /></thead>
             <tbody>
-              {slT.map(x => (
+              {slV.map(x => (
                 <tr key={x.no}>
                   <td>{x.no}</td><td>{x.d}</td>
                   <td>{x.ap ? D(x.ap) : '-'}</td>
@@ -225,6 +237,7 @@ export function VDash() {
       ) : (
         <Empty>Tidak ada SRL pada periode ini.</Empty>
       )}
+      {slMore}
 
       <Srl>Per departemen</Srl>
       <div className="tw">

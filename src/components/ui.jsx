@@ -198,3 +198,18 @@ export function SrlPicker({ list, cur, f, set, depts, lateN, total, unit = 'bara
     </div>
   )
 }
+
+// Daftar bertahap untuk tabel/daftar panjang. Mengembalikan [baris tampil, tombol "tampilkan lagi"].
+export function useMore(list, step = 15) {
+  const [n, setN] = useState(step)
+  useEffect(() => setN(step), [list.length, step])
+  const left = list.length - n
+  const btn = left > 0 ? (
+    <div style={{ gridColumn: '1/-1', marginTop: 8 }}>
+      <button className="btn alt" style={{ width: '100%' }} onClick={() => setN(n + step)}>
+        Tampilkan {Math.min(step, left)} lagi ({left} tersisa)
+      </button>
+    </div>
+  ) : null
+  return [list.slice(0, n), btn]
+}

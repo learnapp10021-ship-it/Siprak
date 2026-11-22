@@ -8,23 +8,46 @@ function DatangCard({ k }) {
   const [q, setQ] = useState('')
   const [l, setL] = useState('0')
   const [cat, setCat] = useState('')
+  const [open, setOpen] = useState(false)
   const m = sel.mi(k.kode)
+  const tot = sel.total(k)
+  const dt = sel.datang(k)
+  const sisa = sel.sisa(k)
+  const pct = tot ? Math.min(100, Math.round((dt / tot) * 100)) : 0
+  const lebih = +l > 0
+  const over = +q > sisa
+  const needCat = lebih && !cat.trim()
+  const can = (+q > 0 || lebih) && !over && !needCat
+  const submit = () => {
+    if (act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.n })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
+  }
   return (
     <div className="row">
       <div className="between"><b>{m.n}</b><small>{k.id}</small></div>
-      <small className="mut">Datang {sel.datang(k)} dari {sel.total(k)} {m.sat}, sisa {sel.sisa(k)}</small>
-      <div className="grid">
-        <label>Qty datang<input type="number" min="0" step="any" max={sel.sisa(k)} value={q} onChange={e => setQ(e.target.value)} /></label>
-        <label>Qty lebih<input type="number" min="0" step="any" value={l} onChange={e => setL(e.target.value)} /></label>
+      <div className="pbar" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100" aria-label="Progres kedatangan"><i style={{ width: pct + '%' }} /></div>
+      <small className="mut">Datang {dt} dari {tot} {m.sat}. Sisa <b>{sisa}</b> {m.sat}.</small>
+      <div className="qrow" style={{ marginTop: 10 }}>
+        <label>Jumlah datang ({m.sat})
+          <input type="number" inputMode="decimal" min="0" step="any" max={sisa} value={q} placeholder="0" onChange={e => setQ(e.target.value)} />
+        </label>
+        <button className="btn alt" onClick={() => setQ(String(sisa))}>Semua sisa ({sisa})</button>
       </div>
-      <div className="f"><label>Catatan (wajib jika ada kelebihan)<input value={cat} onChange={e => setCat(e.target.value)} /></label></div>
+      {over ? <div className="hint" role="alert">Melebihi sisa. Maksimal {sisa} {m.sat}. Kelebihan isi di "Ada kelebihan".</div> : null}
+      {open || lebih ? (
+        <div className="f">
+          <div className="grid" style={{ marginTop: 0 }}>
+            <label>Jumlah lebih ({m.sat})<input type="number" inputMode="decimal" min="0" step="any" value={l} onChange={e => setL(e.target.value)} /></label>
+          </div>
+          <label>Catatan kelebihan (wajib)<input value={cat} onChange={e => setCat(e.target.value)} placeholder="Contoh: supplier kirim lebih" /></label>
+          {needCat ? <div className="hint" role="alert">Isi catatan karena ada kelebihan.</div> : null}
+        </div>
+      ) : (
+        <button className="lnk" onClick={() => setOpen(true)}>+ Ada kelebihan barang?</button>
+      )}
       <div className="acts">
-        <button
-          className="btn grow"
-          onClick={() => {
-            if (act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.n })) { setQ(''); setL('0'); setCat('') }
-          }}
-        >Catat kedatangan</button>
+        <button className="btn grow" disabled={!can} onClick={submit}>
+          {+q > 0 ? `Catat ${+q} ${m.sat} datang` : 'Catat kedatangan'}
+        </button>
       </div>
     </div>
   )
@@ -80,9 +103,14 @@ function SerahCard({ i }) {
       <small className="mut">PIC {sel.nm(r.by)}, {sel.user(r.by).dept}, pakai {D(i.pakai)}. Dipesan {i.qty}.</small><br />
       <Pill t={w >= 3 ? 't-warn' : 't-gray'}>Di gudang {w} hari</Pill>{' '}
       {n ? <Pill t="t-info">Diingatkan {n} kali</Pill> : null}
+      <div className="qrow" style={{ marginTop: 10 }}>
+        <label style={{ flex: '0 0 120px' }}>Jumlah ({m.sat})
+          <input type="number" inputMode="decimal" value={q} min="0" max={b} step="any" onChange={e => setQ(e.target.value)} />
+        </label>
+        <button className="btn grow" disabled={!(+q > 0 && +q <= b)} onClick={() => act('serah', i.id, +q)}>Serahkan ke {first}</button>
+      </div>
+      {+q > b ? <div className="hint" role="alert">Maksimal {b} {m.sat} yang siap diserahkan.</div> : null}
       <div className="acts">
-        <input type="number" value={q} min="0" max={b} step="any" onChange={e => setQ(e.target.value)} style={{ width: 90 }} />
-        <button className="btn grow" onClick={() => act('serah', i.id, +q)}>Serahkan ke {first}</button>
         {hp && (
           <a
             className="btn alt grow" target="_blank" rel="noopener"
