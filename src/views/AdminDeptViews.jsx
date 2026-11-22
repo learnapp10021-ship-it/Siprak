@@ -3,12 +3,12 @@ import { useApp } from '../store'
 import { Hd, Empty, Pill, ReqCard, copyText, useMore } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
 
-function HoldRow({ i, m }) {
+function HoldRow({ i, m, on, toggle }) {
   const { sel, act } = useApp()
   const [a, setA] = useState('')
   return (
     <div className="item">
-      <div className="between"><span><b className="dsk-b">{sel.nm(sel.RQ(i.req).by)}</b><span className="dsk-x">{sel.nm(sel.RQ(i.req).by)}, </span> {i.qty} {m.sat}</span><small>{i.req}</small></div>
+      <div className="between"><span>{toggle && !i.tahan ? <input type="checkbox" className="dsk-c" checked={on} onChange={toggle} aria-label={'Ikut SRL: ' + sel.nm(sel.RQ(i.req).by)} /> : null}<b className="dsk-b">{sel.nm(sel.RQ(i.req).by)}</b><span className="dsk-x">{sel.nm(sel.RQ(i.req).by)}, </span> {i.qty} {m.sat}</span><small>{i.req}</small></div>
       {i.datang ? <small className="mut dsk">Dibutuhkan {D(i.datang)}{i.datang < TODAY && !i.tahan ? ' (terlewat)' : ''}, disetujui {days(i.appr)} hari lalu</small> : null}
       {i.tahan ? (
         <>
@@ -29,12 +29,16 @@ function HoldRow({ i, m }) {
 }
 
 export function VPool() {
-  const { sel, me, act, toast } = useApp()
+  const { sel, me, act, toast, setUi } = useApp()
+  const [off, setOff] = useState([])
+  const [done, setDone] = useState(null)
   const [no, setNo] = useState('')
   const [est, setEst] = useState('')
   const d = me.dept
   const p = sel.poolAll(d)
-  const ready = sel.poolOf(d)
+  const all = sel.poolOf(d)
+  const ready = all.filter(i => !off.includes(i.id))
+  const flip = id => setOff(o => (o.includes(id) ? o.filter(x => x != id) : [...o, id]))
   const g = {}
   p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
   const groups = Object.entries(g).sort((x, y) =>
@@ -47,15 +51,21 @@ export function VPool() {
   }
   const tot = {}
   ready.forEach(i => (tot[i.kode] = (tot[i.kode] || 0) + +i.qty))
-  const held = p.length - ready.length
-  const lateN = ready.filter(i => i.datang < TODAY).length
-  const oldest = ready.length ? Math.max(...ready.map(i => days(i.appr))) : 0
+  const held = p.length - all.length
+  const lateN = all.filter(i => i.datang < TODAY).length
+  const oldest = all.length ? Math.max(...all.map(i => days(i.appr))) : 0
   return (
     <>
       <Hd t={'Pool ' + d} s="Request disetujui yang belum dibuat di ERO. Paling mendesak di atas." />
+      {done && (
+        <div className="pool-done" role="status">
+          <span><b>{done.no} tersimpan.</b> {done.n} request menunggu validasi Admin Warehouse.</span>
+          <span><button className="btn alt" onClick={() => setUi({ tab: 'kon' })}>Lihat di SRL</button> <button className="btn alt" onClick={() => setDone(null)}>Tutup</button></span>
+        </div>
+      )}
       {groups.length > 0 && (
         <div className="pool-kpi dsk" aria-label="Ringkasan pool">
-          <div><b>{ready.length}</b><span>Siap dibuat di ERO</span></div>
+          <div><b>{all.length}</b><span>Siap dibuat di ERO</span></div>
           <div className={held ? 'w' : ''}><b>{held}</b><span>Ditahan</span></div>
           <div className={lateN ? 'x' : ''}><b>{lateN}</b><span>Tanggal datang terlewat</span></div>
           <div><b>{oldest}<small> hari</small></b><span>Menunggu terlama</span></div>
@@ -63,15 +73,16 @@ export function VPool() {
       )}
       {groups.length > 0 && (
         <div className="row eropanel">
-          <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
+          <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request dipilih untuk ERO</b><br />
           <small className="mut dsk-x">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
           <div className="dsk">
             <div className="stp"><i>1</i><b>Salin daftar barang</b></div>
+            {off.length > 0 && <small className="mut">{off.length} request tidak dipilih. <button className="lnk" onClick={() => setOff([])}>Pilih semua</button></small>}
             {ready.length ? (
               <table className="pool-sum"><tbody>
                 {Object.entries(tot).map(([k, q]) => <tr key={k}><td>{sel.mi(k).n}</td><td>{q} {sel.mi(k).sat}</td></tr>)}
               </tbody></table>
-            ) : <small className="mut">Belum ada barang siap. Lepas tahan dulu bila perlu.</small>}
+            ) : <small className="mut">Belum ada request dipilih. Centang request di daftar kanan.</small>}
           </div>
           <div className="acts"><button className="btn alt grow" onClick={copyAll} disabled={!ready.length}>Salin semua (article dan qty)</button></div>
           <div className="dsk stp"><i>2</i><b>Buat SRL di ERO, lalu isi nomornya</b></div>
@@ -84,7 +95,8 @@ export function VPool() {
               className="btn grow" disabled={!ready.length}
               onClick={async () => {
                 // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
-                if (await act('simpanSrl', { no: no.trim(), est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst('') }
+                const n = ready.length, nomor = no.trim()
+                if (await act('simpanSrl', { no: nomor, est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst(''); setOff([]); setDone({ no: nomor, n }) }
               }}
             >Simpan SRL</button>
           </div>
@@ -112,7 +124,7 @@ export function VPool() {
                   ? `${ok.length} request siap, total ${sum(ok, i => i.qty)} ${m.sat}. Datang terawal ${D(ok.map(i => i.datang).sort()[0])}, menunggu ${wt} hari.`
                   : `Semua request ditahan (${a.length}). Belum ikut ERO sampai dilepas.`}
               </small>
-              {a.map(i => <HoldRow key={i.id} i={i} m={m} />)}
+              {a.map(i => <HoldRow key={i.id} i={i} m={m} on={!off.includes(i.id)} toggle={() => flip(i.id)} />)}
             </div>
           )
         })
@@ -161,6 +173,45 @@ function KonCard({ k }) {
   )
 }
 
+function KonRow({ k }) {
+  const { db, sel, act } = useApp()
+  const [open, setOpen] = useState(false)
+  const [alasan, setAlasan] = useState('')
+  const m = sel.mi(k.kode)
+  const t = sel.total(k), dt = sel.datang(k), s = sel.sisa(k)
+  const peminta = db.I.filter(i => i.kon == k.id && sel.live(i))
+  const [tone, tl] = TH[k.tahap] || ['t-ok', k.tahap]
+  const jalan = k.tahap == 'Sudah di ERO'
+  return (
+    <>
+      <tr>
+        <td><b>{m.n}</b><small className="mut">{k.id}</small></td>
+        <td>{k.srl || '-'}</td>
+        <td>{peminta.map(i => sel.nm(sel.RQ(i.req).by).split(' ')[0] + ' ' + i.qty).join(', ')}<small className="mut">{peminta.length} request</small></td>
+        <td className="num">{t} {m.sat}</td>
+        <td>
+          {jalan ? (
+            <>
+              <div className="bar"><b style={{ width: (t ? Math.min(100, (dt / t) * 100) : 0) + '%' }} /></div>
+              <small className="mut">Datang {dt} dari {t}{k.tutup > 0 ? ', ditutup ' + k.tutup : ''}{s > 0 ? ', sisa ' + s : ''}</small>
+            </>
+          ) : k.tahap == 'Dikeluarkan' ? <small className="mut">Alasan: {k.alasan}</small> : <small className="mut">-</small>}
+        </td>
+        <td><Pill t={tone}>{tl}</Pill></td>
+        <td>{jalan && s > 0 ? <button className="btn alt" onClick={() => setOpen(o => !o)}>{open ? 'Batal' : 'Tutup sisa'}</button> : null}</td>
+      </tr>
+      {open && (
+        <tr className="sub"><td colSpan="7">
+          <div className="acts">
+            <input value={alasan} onChange={e => setAlasan(e.target.value)} placeholder="Alasan menutup sisa" style={{ flex: 1 }} />
+            <button className="btn" onClick={async () => { if (await act('tutup', k.id, alasan.trim())) { setAlasan(''); setOpen(false) } }}>Tutup sisa {s} {m.sat}</button>
+          </div>
+        </td></tr>
+      )}
+    </>
+  )
+}
+
 const KRANK = { val: 0, run: 1, kon: 2, done: 3, out: 4 }
 const KLAB = { val: 'Menunggu validasi', run: 'Sedang berjalan', kon: 'Konsolidasi', done: 'Selesai', out: 'Dikeluarkan' }
 
@@ -198,7 +249,17 @@ export function VKon() {
           </label>
         </div>
       )}
-      {l.length ? vis.map(x => <KonCard key={x.k.id} k={x.k} />) : <Empty>{all.length ? 'Tidak ada yang cocok dengan pencarian.' : 'Belum ada SRL. Mulai dari tab Buat ERO.'}</Empty>}
+      {l.length ? (
+        <>
+          <div className="mob">{vis.map(x => <KonCard key={x.k.id} k={x.k} />)}</div>
+          <div className="dsk tblw">
+            <table className="dtbl">
+              <thead><tr><th>Barang</th><th>No. SRL</th><th>Peminta</th><th className="num">Total</th><th>Progres datang</th><th>Status</th><th /></tr></thead>
+              <tbody>{vis.map(x => <KonRow key={x.k.id} k={x.k} />)}</tbody>
+            </table>
+          </div>
+        </>
+      ) : <Empty>{all.length ? 'Tidak ada yang cocok dengan pencarian.' : 'Belum ada SRL. Mulai dari tab Buat ERO.'}</Empty>}
       {more}
     </>
   )
@@ -229,7 +290,32 @@ export function VAll() {
           </select>
         </label>
       </div>
-      {l.length ? vis.map(r => <ReqCard key={r.id} r={r} mode="tim" />) : <Empty>Tidak ada request yang cocok dengan filter.</Empty>}
+      {l.length ? (
+        <>
+          <div className="mob">{vis.map(r => <ReqCard key={r.id} r={r} mode="tim" />)}</div>
+          <div className="dsk tblw">
+            <table className="dtbl">
+              <thead><tr><th>Request</th><th>Tanggal</th><th>Peminta</th><th>Barang dan status</th><th>Tahap</th></tr></thead>
+              <tbody>
+                {vis.map(r => (
+                  <tr key={r.id}>
+                    <td><b>{r.id}</b></td>
+                    <td>{D(r.tgl)}</td>
+                    <td>{sel.nm(r.by)}</td>
+                    <td>
+                      {db.I.filter(i => i.req == r.id).map(i => {
+                        const [, tone, lbl] = sel.st(i)
+                        return <div className="it" key={i.id}><span>{sel.mi(i.kode).n} <b>{i.qty} {sel.mi(i.kode).sat}</b></span><Pill t={tone}>{lbl}</Pill></div>
+                      })}
+                    </td>
+                    <td><Pill t={{ Draft: 't-gray', 'Menunggu Approval': 't-warn', Disetujui: 't-ok', Ditolak: 't-bad', Dibatalkan: 't-gray' }[r.st]}>{r.st}</Pill></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : <Empty>Tidak ada request yang cocok dengan filter.</Empty>}
       {more}
     </>
   )
