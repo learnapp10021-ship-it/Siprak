@@ -175,3 +175,27 @@ header{min-height:var(--hh)}
 @media(min-width:700px){.srlact .btn{width:auto}}
 /* desktop: daftar SRL selalu tampil di kiri, kartu ringkas disembunyikan */
 @media(min-width:1024px){.pk-cur{display:none}}
+
+/* ===== Tema ramah pengguna ala AppSheet: header berwarna, kartu putih di atas latar abu, chip status jelas, tombol besar ===== */
+:root{--shell:#1967D2;--sh:#fff;--shm:#E8F0FE;--bg:#F1F3F4;--brand:#1967D2;--soft:#E8F0FE;--info:#1967D2;--infobg:#E8F0FE;--ok:#0B7A3E;--okbg:#E6F4EA;--warn:#9A5700;--warnbg:#FEF0CD;--bad:#C5221F;--badbg:#FCE8E6;--vio:#7B2CBF;--viobg:#F3E8FD;--gray:#4F5458;--graybg:#EEF0F2}
+#app{background:var(--bg)}
+header{border-bottom:0;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+header h1{font-size:18px;letter-spacing:0}
+header small{color:var(--shm)}
+.ham:active{background:rgba(255,255,255,.18)}
+main .row{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+main .row:last-child{border-bottom:1px solid var(--line)}
+.pill,.lbl{border-radius:999px}
+.pill{padding:3px 10px;font-size:12px}
+.item{border-left-width:4px;border-radius:2px}
+.btn{border-radius:8px;min-height:44px;padding:8px 18px;font-size:15px;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.btn:active{filter:brightness(.92)}
+select,input,textarea{border-radius:8px;border-color:#9AA0A6}
+select:focus,input:focus,textarea:focus{border-color:var(--brand);outline:2px solid var(--soft);outline-offset:0}
+.fab{border-radius:28px;min-height:52px;font-size:16px;box-shadow:0 4px 12px rgba(25,103,210,.45)}
+nav{box-shadow:0 -2px 8px rgba(0,0,0,.1)}
+nav button{font-size:15px;padding:14px 4px}
+nav button[aria-current=true]{background:var(--soft)}
+.bdg{background:var(--bad);color:#fff}
+.drawer .mi[aria-current=true]{background:var(--soft);color:var(--brand);font-weight:700}
+@media(min-width:1024px){nav{box-shadow:2px 0 6px rgba(0,0,0,.06)}}
