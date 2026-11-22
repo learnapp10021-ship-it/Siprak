@@ -876,6 +876,9 @@ function cacheGet_() {
   const m = c.get('snapmeta')
   if (!m) return null
   const meta = JSON.parse(m)
+  // Versi di cache harus sama dengan versi server (sumber kebenaran: Script Properties).
+  // Beda = cache basi (mis. gagal ditulis setelah commit) -> jangan dilayani, bangun ulang dari sheet.
+  if (String(meta.ver) !== String(prop_('ver') || '0')) return null
   const keys = []
   for (let i = 0; i < meta.n; i++) keys.push('snap:' + meta.ver + ':' + i)
   const got = c.getAll(keys)
@@ -933,6 +936,28 @@ function writeJournal_(txId, rows) {
   const rg = sh.getRange(r, 1, rows.length, JR_COLS.length)
   rg.setNumberFormat('@')
   rg.setValues(rows)
+}
+
+// Transaksi berstatus PENDING = eksekusi mati di tengah penulisan (timeout, kuota, galat Sheets).
+// Pemegang lock berikutnya WAJIB membatalkannya (rollback) SEBELUM membaca data. Tanpa ini, data setengah jadi
+// ikut menjadi dasar transaksi orang lain (ID melompat, baris yatim permanen) dan ikut terbit ke semua klien.
+// Hanya dipanggil saat memegang lock. PENDING selalu ada di baris-baris terbaru sheet Tx.
+function recoverOrphans_() {
+  const sh = ss_().getSheetByName(TX_SHEET)
+  if (!sh) return 0 // belum di-setup/migrasi: readAll_ yang akan memberi petunjuk
+  const last = sh.getLastRow()
+  if (last < 2) return 0
+  const from = Math.max(2, last - 199)
+  const v = sh.getRange(from, 1, last - from + 1, TX_COLS.length).getValues()
+  let n = 0
+  v.forEach((x, i) => {
+    if (String(x[4]) !== 'PENDING') return
+    rollbackTx_(String(x[0]))
+    putTx_(from + i, [x[0], x[1], x[2], nowStr(), 'ROLLED_BACK', 'dipulihkan otomatis (eksekusi sebelumnya terhenti)', ''])
+    n++
+  })
+  if (n) cacheDrop_()
+  return n
 }
 
 // Kembalikan keadaan data seperti sebelum tx dijalankan (dipakai saat verifikasi gagal atau eksekusi mati)
@@ -1169,8 +1194,8 @@ function write_(req) {
   const hit = CacheService.getScriptCache().get('tx:' + txId)
   if (hit) {
     const c = cacheGet_()
-    const head = { ok: true, verified: true, replay: true, msg: JSON.parse(hit).msg }
-    return c ? withSnap_(head, c) : JSON.stringify(head)
+    // tanpa snapshot yang sah (cache kosong/basi) jangan balas tanpa data: lanjut ke jalur lock yang membangunnya
+    if (c) return withSnap_({ ok: true, verified: true, replay: true, msg: JSON.parse(hit).msg }, c)
   }
 
   const lock = LockService.getScriptLock()
@@ -1189,6 +1214,7 @@ function write_(req) {
 }
 
 function locked_(txId, name, args, actorId, t0) {
+  recoverOrphans_() // pulihkan transaksi menggantung milik siapa pun sebelum membaca data
   const prior = findTx_(txId)
   if (prior && prior.status === 'OK') {
     return withSnap_({ ok: true, verified: true, replay: true, msg: prior.msg }, currentSnap_(readAll_))
@@ -1262,11 +1288,20 @@ function locked_(txId, name, args, actorId, t0) {
   putTx_(txRow, [txId, name, actorId, nowStr(), 'OK', msg, String(Date.now() - t0)])
   SpreadsheetApp.flush()
 
-  const ver = bumpVer_()
-  const json = snapJson_(d, ver)
-  cachePut_(ver, json)
-  CacheService.getScriptCache().put('tx:' + txId, JSON.stringify({ msg: msg }), CACHE_TTL)
-  return withSnap_({ ok: true, verified: true, msg: msg }, { ver: ver, json: json })
+  // Data SUDAH tersimpan dan terverifikasi (Tx = OK). Galat cache sesudah titik ini tidak boleh membuat klien
+  // mengira gagal: cukup kosongkan cache; klien menyinkronkan sendiri dan kirim ulang hanya menjadi replay.
+  try {
+    CacheService.getScriptCache().put('tx:' + txId, JSON.stringify({ msg: msg }), CACHE_TTL)
+    const ver = bumpVer_()
+    const json = snapJson_(d, ver)
+    cachePut_(ver, json)
+    return withSnap_({ ok: true, verified: true, msg: msg }, { ver: ver, json: json })
+  } catch (e) {
+    try {
+      cacheDrop_()
+    } catch (e2) {}
+    return JSON.stringify({ ok: true, verified: true, msg: msg })
+  }
 }
 function cacheDrop_() {
   CacheService.getScriptCache().remove('snapmeta')
@@ -1281,6 +1316,7 @@ function sync_(since) {
     try {
       c = cacheGet_()
       if (!c) {
+        recoverOrphans_() // jangan terbitkan data setengah jadi dari eksekusi yang mati
         const all = readAll_()
         const ver = bumpVer_()
         const json = snapJson_(all, ver)
