@@ -1,6 +1,6 @@
 import { useApp, newLine } from '../store'
 import { Hd, Empty, Pill, ReqCard } from '../components/ui'
-import { D, TODAY, addDays } from '../lib/utils'
+import { D, today, addDays } from '../lib/utils'
 
 export function VReq() {
   const { db, ui } = useApp()
@@ -23,7 +23,7 @@ export function VNew() {
       const draft = s.draft.map((x, n) => (n == i ? { ...x, [k]: v } : x))
       if (k == 'kode') {
         const m = sel.mi(v)
-        if (m && !draft[i].datang) draft[i].datang = addDays(TODAY, +m.lead)
+        if (m && !draft[i].datang) draft[i].datang = addDays(today(), +m.lead)
       }
       return { draft }
     })
@@ -36,7 +36,7 @@ export function VNew() {
       <Hd t="Buat request" s="Satu request bisa berisi beberapa barang." />
       {f.map((x, i) => {
         const m = x.kode && sel.mi(x.kode)
-        const min = m ? addDays(TODAY, +m.lead) : TODAY
+        const min = m ? addDays(today(), +m.lead) : today()
         return (
           <div className="row" key={i}>
             <div className="f">

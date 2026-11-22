@@ -3,7 +3,8 @@ import { produce } from 'immer'
 import { buildSeed } from './data/seed'
 import { makeSel } from './lib/selectors'
 import { actions } from './lib/actions'
-import { api, apiOn } from './lib/api'
+import { api, apiOn, getSession, saveSession, clearSession } from './lib/api'
+import { LoginView } from './views/LoginView'
 import { diffDb, emptyDb } from './lib/diff'
 import { POLL_MS } from './config'
 
@@ -23,7 +24,7 @@ export const TABS = {
 
 const initialUi = {
   me: 'andi.prod', tab: 'req', draft: [emptyLine()],
-  menu: false, eu: null, self: false, help: false, dpic: null, di: null,
+  menu: false, eu: null, self: false, pw: false, help: false, dpic: null, di: null,
   uq: '', ud: '', q: '', sf: '', df: '', dp: 'w0',
 }
 
@@ -49,7 +50,7 @@ export function AppProvider({ children, initialUi: init }) {
   // Mode demo (tanpa API): data contoh. Mode server: dari cache lokal bila ada, kalau tidak kosong dulu.
   const boot = useRef(null)
   if (!boot.current) {
-    const c = apiOn ? readCache() : null
+    const c = apiOn && getSession() ? readCache() : null
     boot.current = apiOn ? { db: c?.db || emptyDb(), ver: c?.ver || null, ready: !!c } : { db: buildSeed(), ver: null, ready: true }
   }
   const [db, setDb] = useState(boot.current.db)
@@ -58,6 +59,9 @@ export function AppProvider({ children, initialUi: init }) {
   const [ready, setReady] = useState(boot.current.ready)
   const [sync, setSync] = useState({ pending: 0, err: '' })
   const [ui, setUiState] = useState({ ...initialUi, ...init })
+  // Sesi login. Mode server: token dari perangkat. Mode demo: tanpa sesi sampai login (kecuali layar diuji langsung).
+  const [auth, setAuth] = useState(() => (init?.me ? { uid: init.me } : apiOn ? getSession() : null))
+  const [notice, setNotice] = useState('')
   const [toastS, setToastS] = useState({ text: '', bad: false, show: false })
   const timer = useRef()
 
@@ -71,10 +75,69 @@ export function AppProvider({ children, initialUi: init }) {
 
   const sel = useMemo(() => makeSel(db), [db])
 
-  // Pengguna aktif: bila id awal tidak ada di data (mis. data dari spreadsheet), pakai pengguna pertama.
-  const meId = sel.user(ui.me) ? ui.me : db.U[0]?.id
+  // Pengguna aktif. Mode server: siapa yang login. Mode demo: pilihan "Lihat sebagai".
+  const meId = apiOn ? (sel.user(auth?.uid) ? auth.uid : undefined) : sel.user(ui.me) ? ui.me : db.U[0]?.id
   const me = sel.user(meId)
   const uiEff = useMemo(() => (meId === ui.me ? ui : { ...ui, me: meId }), [ui, meId])
+
+  /* ------------------------------------------------------------ login / keluar */
+
+  const logout = useCallback((msg = '') => {
+    clearSession()
+    try {
+      localStorage.removeItem(CACHE_KEY)
+    } catch {
+      /* abaikan */
+    }
+    verRef.current = null
+    if (apiOn) {
+      // Data tidak boleh tertinggal di layar/penyimpanan setelah keluar
+      const e = emptyDb()
+      dbRef.current = e
+      setDb(e)
+      setReady(false)
+    }
+    setNotice(msg)
+    setAuth(null)
+    setUiState(s => ({ ...s, tab: 'x', menu: false, eu: null, self: false, pw: false, help: false, dpic: null, di: null }))
+  }, [])
+
+  // Mengembalikan '' bila berhasil, atau pesan galat untuk ditampilkan di layar login
+  const login = useCallback(
+    async (user, pass) => {
+      const id = String(user || '').trim().toLowerCase()
+      if (!id || !pass) return 'Isi username dan password.'
+      if (apiOn) {
+        try {
+          const r = await api.login(id, pass)
+          saveSession({ token: r.token, uid: r.uid })
+          verRef.current = null
+          setNotice('')
+          setAuth({ uid: r.uid })
+          setUiState(s => ({ ...s, me: r.uid, tab: 'x' }))
+          return ''
+        } catch (e) {
+          return e.message
+        }
+      }
+      // Mode demo: pengguna harus ada di data contoh; password bebas
+      const u = dbRef.current.U.find(x => x.id.toLowerCase() == id)
+      if (!u || u.off) return 'Username tidak ditemukan.'
+      setNotice('')
+      setAuth({ uid: u.id })
+      setUiState(s => ({ ...s, me: u.id, tab: 'x' }))
+      return ''
+    },
+    []
+  )
+
+  const authFail = useCallback(e => {
+    if (e?.auth) {
+      logout(e.message)
+      return true
+    }
+    return false
+  }, [logout])
 
   /* ------------------------------------------------------------ sinkronisasi */
 
@@ -100,15 +163,16 @@ export function AppProvider({ children, initialUi: init }) {
       else if (r.same) verRef.current = r.ver
       setSync(s => ({ ...s, err: '' }))
     } catch (e) {
+      if (authFail(e)) return
       setSync(s => ({ ...s, err: e.message }))
       // Tanpa cache sama sekali: tetap tampilkan layar (kosong) agar pesan galat terbaca
       setReady(true)
     }
-  }, [apply])
+  }, [apply, authFail])
 
   // Muat awal + polling ringan (hanya cek nomor versi) + cek ulang saat tab kembali aktif
   useEffect(() => {
-    if (!apiOn) return
+    if (!apiOn || !auth) return
     reload()
     const check = async () => {
       if (document.visibilityState !== 'visible' || pendingRef.current) return
@@ -117,6 +181,7 @@ export function AppProvider({ children, initialUi: init }) {
         if (v !== verRef.current) await reload()
         else setSync(s => (s.err ? { ...s, err: '' } : s))
       } catch (e) {
+        if (authFail(e)) return
         setSync(s => ({ ...s, err: e.message }))
       }
     }
@@ -126,7 +191,7 @@ export function AppProvider({ children, initialUi: init }) {
       clearInterval(iv)
       document.removeEventListener('visibilitychange', check)
     }
-  }, [reload])
+  }, [reload, auth, authFail])
 
   // Simpan snapshot ke cache lokal setiap data berubah
   useEffect(() => {
@@ -146,6 +211,7 @@ export function AppProvider({ children, initialUi: init }) {
           setSync(s => ({ ...s, err: '' }))
         })
         .catch(e => {
+          if (authFail(e)) return
           staleRef.current = true
           toast(e.conflict ? e.message + ' Data dimuat ulang, silakan ulangi.' : 'Gagal menyimpan: ' + e.message, true)
           setSync(s => ({ ...s, err: e.conflict ? '' : e.message }))
@@ -159,7 +225,7 @@ export function AppProvider({ children, initialUi: init }) {
           }
         })
     },
-    [reload, toast]
+    [reload, toast, authFail]
   )
 
   // Jalankan aksi atas draft immer. Mengembalikan true jika berhasil.
@@ -186,6 +252,9 @@ export function AppProvider({ children, initialUi: init }) {
     [toast, save]
   )
 
+  // Belum login: layar login (data tidak ditampilkan)
+  if (!auth) return <LoginView onLogin={login} notice={notice} demo={!apiOn} />
+
   // Layar penuh hanya saat benar-benar belum ada data untuk ditampilkan
   if (!ready) {
     return (
@@ -203,11 +272,12 @@ export function AppProvider({ children, initialUi: init }) {
             ? 'Gagal terhubung ke server: ' + sync.err
             : 'Spreadsheet masih kosong. Jalankan seedDemo() di Apps Script, atau isi sheet Users.'}
         </p>
-        <button onClick={() => { setReady(false); verRef.current = null; reload() }}>Coba lagi</button>
+        <button onClick={() => { setReady(false); verRef.current = null; reload() }}>Coba lagi</button>{' '}
+        <button onClick={() => logout()}>Keluar</button>
       </div>
     )
   }
 
-  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, sync }
+  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, sync, logout }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

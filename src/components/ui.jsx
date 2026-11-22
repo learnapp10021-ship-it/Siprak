@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
-import { D, TODAY } from '../lib/utils'
+import { D, today } from '../lib/utils'
 
 export const Pill = ({ t, children }) => <span className={`pill ${t}`}>{children}</span>
 export const Hd = ({ t, s }) => (
@@ -48,7 +48,7 @@ export function ItemCard({ it }) {
       <div className={`lbl ${t}`}>{l}</div>
       <small className="mut">Datang {D(it.datang)}{it.pakai ? ', dipakai ' + D(it.pakai) : ''}</small>
       {ss.map((s, n) => (
-        <div key={n}><small className="mut">Diambil {s.qty} oleh {s.to}</small></div>
+        <div key={n}><small className="mut">Diambil {s.qty} oleh {sel.nm(s.to)}</small></div>
       ))}
     </div>
   )
@@ -58,7 +58,7 @@ const TONE = { Draft: 't-gray', 'Menunggu Approval': 't-warn', Disetujui: 't-ok'
 
 // mode: 'own' (milik sendiri), 'appr' (untuk atasan menyetujui), 'tim' (hanya lihat)
 export function ReqCard({ r, mode }) {
-  const { db, sel, act } = useApp()
+  const { db, sel, me, act } = useApp()
   const [cat, setCat] = useState('')
   const its = db.I.filter(i => i.req == r.id)
   return (
@@ -71,20 +71,20 @@ export function ReqCard({ r, mode }) {
       {its.map(i => <ItemCard key={i.id} it={i} />)}
       {mode == 'own' && r.st == 'Draft' && (
         <div className="acts">
-          <button className="btn" onClick={() => act('ajukan', r.id)}>Ajukan</button>
-          <Confirm onConfirm={() => act('batal', r.id)}>Batalkan</Confirm>
+          <button className="btn" onClick={() => act('ajukan', r.id, me.id)}>Ajukan</button>
+          <Confirm onConfirm={() => act('batal', r.id, me.id)}>Batalkan</Confirm>
         </div>
       )}
       {mode == 'own' && r.st == 'Menunggu Approval' && (
-        <div className="acts"><Confirm onConfirm={() => act('batal', r.id)}>Batalkan</Confirm></div>
+        <div className="acts"><Confirm onConfirm={() => act('batal', r.id, me.id)}>Batalkan</Confirm></div>
       )}
       {mode == 'appr' && (
         <div className="acts">
           <div className="f grow" style={{ width: '100%' }}>
             <textarea rows="2" value={cat} onChange={e => setCat(e.target.value)} placeholder="Catatan (wajib jika menolak)" />
           </div>
-          <button className="btn grow" onClick={() => act('setuju', r.id)}>Setujui</button>
-          <Confirm className="btn bad grow" onConfirm={() => act('tolak', r.id, cat.trim())}>Tolak</Confirm>
+          <button className="btn grow" onClick={() => act('setuju', r.id, me.id)}>Setujui</button>
+          <Confirm className="btn bad grow" onConfirm={() => act('tolak', r.id, cat.trim(), me.id)}>Tolak</Confirm>
         </div>
       )}
     </div>
@@ -120,7 +120,7 @@ export function useSrlPick(g, sel) {
     const r = sel.SRLof(no)
     const names = g[no].map(x => sel.mi(x.kode)?.n || '').join(' ')
     meta[no] = { no, dept: r?.dept || '', est: r?.est || '', n: g[no].length,
-      late: !!(r?.est && r.est < TODAY), hay: (no + ' ' + (r?.dept || '') + ' ' + names).toLowerCase() }
+      late: !!(r?.est && r.est < today()), hay: (no + ' ' + (r?.dept || '') + ' ' + names).toLowerCase() }
   })
   const depts = [...new Set(Object.values(meta).map(m => m.dept).filter(Boolean))].sort()
   const q = f.q.trim().toLowerCase()

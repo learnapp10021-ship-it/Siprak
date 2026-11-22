@@ -1,4 +1,4 @@
-import { T, addDays, TODAY } from '../lib/utils'
+import { T, addDays, today } from '../lib/utils'
 import { makeSel } from '../lib/selectors'
 
 // Data contoh (sama dengan versi HTML). Ganti dengan API/backend saat produksi.
@@ -78,18 +78,16 @@ SRL-2611-002|Maintenance|2026-11-17`,
     ['no', 'dept', 'est']
   )
   const KD = T(
-    `KON-001|15|0|Wati Handayani||2026-11-16
-KON-002|20|5|Wati Handayani|Supplier kirim 25, kelebihan 5 dicatat terpisah|2026-11-16
-KON-003|4|0|Joko Susilo||2026-11-17`,
+    `KON-001|15|0|wati.wh||2026-11-16
+KON-002|20|5|wati.wh|Supplier kirim 25, kelebihan 5 dicatat terpisah|2026-11-16
+KON-003|4|0|joko.wh||2026-11-17`,
     ['kon', 'qty', 'lebih', 'by', 'cat', 'tgl']
   )
   const SR = T(
-    `ITM-003|10|Siti Rahma
-ITM-002|20|Andi Saputra`,
+    `ITM-003|10|siti.prod
+ITM-002|20|andi.prod`,
     ['item', 'qty', 'to']
   )
-  const nmOf = id => U.find(u => u.id == id)?.n || id
-
   // Tambahan data contoh: SRL-2611-003 dengan 20 barang
   {
     const A = [
@@ -124,16 +122,16 @@ ITM-002|20|Andi Saputra`,
           pakai: buf ? '' : addDays(dt, 3 + (i % 5)), status: 'Sudah di ERO',
           appr: '2026-11-16T08:' + String(10 + i).padStart(2, '0'), kon: kid, tahan: '', alasan: '',
         })
-        if (i < 3 && !j) SR.push({ item: id, qty: String(q), to: nmOf(P[r]) })
+        if (i < 3 && !j) SR.push({ item: id, qty: String(q), to: P[r] })
       })
       K.push({ id: kid, dept: 'Produksi', kode: k, tahap: 'Sudah di ERO', srl: no, ero: String(tot), tutup: '0', alasan: '' })
       if (i < 6)
-        KD.push({ kon: kid, qty: String(tot), lebih: '0', by: 'Wati Handayani', cat: '', tgl: '2026-11-18' })
+        KD.push({ kon: kid, qty: String(tot), lebih: '0', by: 'wati.wh', cat: '', tgl: '2026-11-18' })
       else if (i < 12)
-        KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'Joko Susilo', cat: '', tgl: '2026-11-21' })
+        KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'joko.wh', cat: '', tgl: '2026-11-21' })
     })
   }
-  K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
+  K.forEach(k => (k.by = k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin'))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
 
   const db = { U, HP, M, R, I, K, L, KD, SR, RM: [] }
@@ -141,7 +139,7 @@ ITM-002|20|Andi Saputra`,
   const sel = makeSel(db)
   db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).forEach((i, n) => {
     for (let c = 0; c < n % 4; c++)
-      db.RM.push({ item: i.id, by: 'Wati Handayani', at: addDays(TODAY, -((n % 4) - c)) + 'T09:00' })
+      db.RM.push({ item: i.id, by: 'wati.wh', at: addDays(today(), -((n % 4) - c)) + 'T09:00' })
   })
   return db
 }

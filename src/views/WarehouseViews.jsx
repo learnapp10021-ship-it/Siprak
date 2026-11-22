@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, Confirm, SrlPicker, useSrlPick } from '../components/ui'
-import { D, TODAY, days } from '../lib/utils'
+import { D, today, days } from '../lib/utils'
 
 function DatangCard({ k }) {
   const { sel, me, act } = useApp()
@@ -19,7 +19,7 @@ function DatangCard({ k }) {
   const needCat = lebih && !cat.trim()
   const can = (+q > 0 || lebih) && !over && !needCat
   const submit = () => {
-    if (act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.n })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
+    if (act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.id })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
   }
   return (
     <div className="row">
@@ -72,7 +72,7 @@ export function VDtg() {
               <Fragment key={n}>
                 <div className="srl between" style={{ alignItems: 'center' }}>
                   <span>{n} <small className="mut">{s?.dept}, estimasi {D(s?.est)}</small></span>
-                  <Confirm className="btn alt" onConfirm={() => act('datangAll', n, me.n)}>Semua datang sesuai jumlah</Confirm>
+                  <Confirm className="btn alt" onConfirm={() => act('datangAll', n, me.id)}>Semua datang sesuai jumlah</Confirm>
                 </div>
                 {a.map(k => <DatangCard key={k.id} k={k} />)}
               </Fragment>
@@ -92,7 +92,7 @@ function SerahCard({ i }) {
   const r = sel.RQ(i.req)
   const b = sel.siap(i)
   const [q, setQ] = useState(String(b))
-  const w = days(sel.lastArrival(i.kon) || TODAY)
+  const w = days(sel.lastArrival(i.kon) || today())
   const n = sel.reminders(i.id).length
   const hp = db.HP[r.by]
   const first = sel.nm(r.by).split(' ')[0]
@@ -107,7 +107,7 @@ function SerahCard({ i }) {
         <label style={{ flex: '0 0 120px' }}>Jumlah ({m.sat})
           <input type="number" inputMode="decimal" value={q} min="0" max={b} step="any" onChange={e => setQ(e.target.value)} />
         </label>
-        <button className="btn grow" disabled={!(+q > 0 && +q <= b)} onClick={() => act('serah', i.id, +q)}>Serahkan ke {first}</button>
+        <button className="btn grow" disabled={!(+q > 0 && +q <= b)} onClick={() => act('serah', i.id, +q, me.id)}>Serahkan ke {first}</button>
       </div>
       {+q > b ? <div className="hint" role="alert">Maksimal {b} {m.sat} yang siap diserahkan.</div> : null}
       <div className="acts">
@@ -115,7 +115,7 @@ function SerahCard({ i }) {
           <a
             className="btn alt grow" target="_blank" rel="noopener"
             href={`https://wa.me/${hp}?text=${encodeURIComponent(msg)}`}
-            onClick={() => act('ingat', i.id, me.n)}
+            onClick={() => act('ingat', i.id, me.id)}
           >Ingatkan via WA</a>
         )}
       </div>

@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify": "esbuild scripts/verify.mjs --bundle --platform=node --format=esm --outfile=.verify.mjs --log-level=error && node .verify.mjs",
+    "gen:seed": "esbuild scripts/gen-seed-gs.mjs --bundle --platform=node --format=esm --outfile=.gen-seed.mjs --log-level=error && node .gen-seed.mjs",
+    "smoke": "esbuild scripts/smoke.mjs --bundle --packages=external --platform=node --format=esm --jsx=automatic --loader:.js=jsx --define:import.meta.env.VITE_API_URL='\"\"' --outfile=.smoke.mjs --log-level=error && node .smoke.mjs",
+    "check": "npm run verify && npm run smoke && npm run build"
   },
   "dependencies": {
     "immer": "^10.1.1",

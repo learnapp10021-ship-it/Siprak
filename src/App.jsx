@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { AppProvider, TABS, useApp } from './store'
-import { Drawer, UserSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
+import { Drawer, UserSheet, PwSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
 import { VReq, VNew } from './views/UserViews'
 import { VAppr, VTim } from './views/AtasanViews'
 import { VPool, VKon, VAll } from './views/AdminDeptViews'
@@ -32,11 +32,11 @@ export function Shell() {
     const h = e => {
       if (e.key !== 'Escape') return
       if (ui.di) setUi({ di: null })
-      else if (ui.menu || ui.eu || ui.help || ui.dpic) setUi({ menu: false, eu: null, self: false, help: false, dpic: null })
+      else if (ui.menu || ui.eu || ui.help || ui.dpic || ui.pw) setUi({ menu: false, eu: null, self: false, help: false, dpic: null, pw: false })
     }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [ui.di, ui.menu, ui.eu, ui.help, ui.dpic, setUi])
+  }, [ui.di, ui.menu, ui.eu, ui.help, ui.dpic, ui.pw, setUi])
 
   return (
     <>
@@ -50,6 +50,7 @@ export function Shell() {
         </header>
         {ui.menu && <Drawer cnt={cnt} />}
         {ui.eu && <UserSheet key={ui.eu + ui.self} />}
+        {ui.pw && <PwSheet />}
         {ui.help && <HelpSheet />}
         {ui.dpic && <PicSheet />}
         {ui.di && <DetailSheet />}

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, ReqCard, copyText } from '../components/ui'
-import { D, TODAY, days, sum } from '../lib/utils'
+import { D, today, days, sum } from '../lib/utils'
 
 function HoldRow({ i, m }) {
-  const { sel, act } = useApp()
+  const { sel, me, act } = useApp()
   const [a, setA] = useState('')
   return (
     <div className="item">
@@ -12,12 +12,12 @@ function HoldRow({ i, m }) {
       {i.tahan ? (
         <>
           <div className="lbl t-warn">Ditahan: {i.alasan}</div>
-          <div className="acts"><button className="btn alt" onClick={() => act('lepas', i.id)}>Lepas tahan</button></div>
+          <div className="acts"><button className="btn alt" onClick={() => act('lepas', i.id, me.id)}>Lepas tahan</button></div>
         </>
       ) : (
         <div className="acts">
           <input value={a} onChange={e => setA(e.target.value)} placeholder="Alasan menahan" style={{ flex: 1 }} />
-          <button className="btn alt" onClick={() => act('tahan', i.id, a.trim())}>Tahan</button>
+          <button className="btn alt" onClick={() => act('tahan', i.id, a.trim(), me.id)}>Tahan</button>
         </div>
       )}
     </div>
@@ -51,7 +51,7 @@ export function VPool() {
           <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
           <div className="grid">
             <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
-            <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
+            <label>Estimasi datang (opsional)<input type="date" min={today()} value={est} onChange={e => setEst(e.target.value)} /></label>
           </div>
           <div className="acts">
             <button
@@ -67,7 +67,7 @@ export function VPool() {
         groups.map(([k, a]) => {
           const m = sel.mi(k)
           const ok = a.filter(i => !i.tahan)
-          const late = ok.some(i => i.datang < TODAY)
+          const late = ok.some(i => i.datang < today())
           const wt = Math.max(...a.map(i => days(i.appr)))
           return (
             <div className="row" key={k}>
@@ -94,7 +94,7 @@ export function VPool() {
 }
 
 function KonCard({ k }) {
-  const { db, sel, act } = useApp()
+  const { db, sel, me, act } = useApp()
   const [alasan, setAlasan] = useState('')
   const m = sel.mi(k.kode)
   const t = sel.total(k)
@@ -107,7 +107,7 @@ function KonCard({ k }) {
         <div><b>{m.n}</b> <small>{k.id}</small></div>
         <Pill t={k.tahap == 'Konsolidasi' ? 't-vio' : 't-ok'}>{k.tahap}</Pill>
       </div>
-      <small className="mut">{peminta.length} request, total {t} {m.sat}{k.srl ? ', ' + k.srl : ''}{k.by ? ', dibuat ' + k.by : ''}</small><br />
+      <small className="mut">{peminta.length} request, total {t} {m.sat}{k.srl ? ', ' + k.srl : ''}{k.by ? ', dibuat ' + sel.nm(k.by) : ''}</small><br />
       <small className="mut">Peminta: {peminta.map(i => sel.nm(sel.RQ(i.req).by).split(' ')[0] + ' ' + i.qty).join(', ')}</small>
       <div className="bar"><b style={{ width: (t ? Math.min(100, (dt / t) * 100) : 0) + '%' }} /></div>
       <small className="mut">
@@ -116,7 +116,7 @@ function KonCard({ k }) {
       {s > 0 && (
         <div className="acts">
           <input value={alasan} onChange={e => setAlasan(e.target.value)} placeholder="Alasan menutup sisa" style={{ flex: 1 }} />
-          <button className="btn alt" onClick={() => { if (act('tutup', k.id, alasan.trim())) setAlasan('') }}>Tutup sisa</button>
+          <button className="btn alt" onClick={() => { if (act('tutup', k.id, alasan.trim(), me.id)) setAlasan('') }}>Tutup sisa</button>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, Srl, useMore } from '../components/ui'
-import { D, TODAY, addDays, avg, days, dayDiff, f1, sum } from '../lib/utils'
+import { D, today, addDays, avg, days, dayDiff, f1, sum } from '../lib/utils'
 
 const Kpi = ({ l, v, s }) => (
   <div className="kpi"><small className="mut">{l}</small><b>{v}</b>{s ? <small className="mut">{s}</small> : null}</div>
@@ -27,17 +27,17 @@ export function VDash() {
   const [qs, setQs] = useState('')
 
   const m = useMemo(() => {
-    const dayOfWeek = new Date(TODAY + 'T00:00:00Z').getUTCDay()
-    const ws = addDays(TODAY, -((dayOfWeek + 6) % 7))
+    const dayOfWeek = new Date(today() + 'T00:00:00Z').getUTCDay()
+    const ws = addDays(today(), -((dayOfWeek + 6) % 7))
     const ps = pr == 'w1' ? addDays(ws, -7) : pr == 'w4' ? addDays(ws, -21) : ws
-    const pe = pr == 'w1' ? addDays(ws, -1) : TODAY
+    const pe = pr == 'w1' ? addDays(ws, -1) : today()
     const inP = d => !!d && d.slice(0, 10) >= ps && d.slice(0, 10) <= pe
 
     const w = db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0)
       .map(i => {
         const r = sel.RQ(i.req)
         const a = sel.lastArrival(i.kon)
-        return { i, m: sel.mi(i.kode), b: sel.siap(i), u: r.by, by: sel.nm(r.by), d: sel.deptOf(i), a, w: days(a || TODAY), rm: sel.reminders(i.id) }
+        return { i, m: sel.mi(i.kode), b: sel.siap(i), u: r.by, by: sel.nm(r.by), d: sel.deptOf(i), a, w: days(a || today()), rm: sel.reminders(i.id) }
       })
       .sort((x, y) => y.w - x.w)
 
@@ -65,7 +65,7 @@ export function VDash() {
         tot: sum(ks, sel.total), dt: sum(ks, sel.datang),
         open: ks.some(k => sel.sisa(k) > 0),
         lt: ap && first ? dayDiff(ap, first) : null,
-        late: !!est && (first ? first > est : est < TODAY),
+        late: !!est && (first ? first > est : est < today()),
       }
     })
     const slP = sl.filter(x => inP(x.first))
@@ -165,7 +165,7 @@ export function VDash() {
                     <td>{D(x.a)}</td>
                     <td><Pill t={agePill(x.w)}>{x.w} hari</Pill></td>
                     <td>
-                      {l ? <>{x.rm.length} kali<br /><small className="mut">{D(l.at)}, {l.by}</small></> : <Pill t={x.w >= 3 ? 't-bad' : 't-gray'}>Belum</Pill>}
+                      {l ? <>{x.rm.length} kali<br /><small className="mut">{D(l.at)}, {sel.nm(l.by)}</small></> : <Pill t={x.w >= 3 ? 't-bad' : 't-gray'}>Belum</Pill>}
                     </td>
                     <td>{x.i.pakai ? D(x.i.pakai) : '-'}</td>
                   </tr>
@@ -266,7 +266,7 @@ export function VDash() {
           <thead><Th a={['Admin', 'Kedatangan dicatat', 'Pengingat terkirim']} /></thead>
           <tbody>
             {adm.map(u => (
-              <tr key={u.id}><td>{u.n}</td><td>{kd.filter(d => d.by == u.n).length}</td><td>{rmP.filter(x => x.by == u.n).length}</td></tr>
+              <tr key={u.id}><td>{u.n}</td><td>{kd.filter(d => sel.uid(d.by) == u.id).length}</td><td>{rmP.filter(x => sel.uid(x.by) == u.id).length}</td></tr>
             ))}
           </tbody>
         </table>

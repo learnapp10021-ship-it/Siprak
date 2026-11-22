@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { TABS, useApp } from '../store'
 import { Pill } from './ui'
-import { D, TODAY, days, dayDiff, disp } from '../lib/utils'
+import { D, today, days, dayDiff, disp } from '../lib/utils'
+import { api, apiOn } from '../lib/api'
 
 const age = w => (w >= 7 ? 't-bad' : w >= 3 ? 't-warn' : 't-gray')
 
 export function Drawer({ cnt }) {
-  const { db, ui, setUi, me } = useApp()
+  const { db, ui, setUi, me, logout } = useApp()
   const tabs = TABS[me.role]
   const close = () => setUi({ menu: false })
   return (
@@ -21,14 +22,60 @@ export function Drawer({ cnt }) {
         ))}
         <button className="mi" onClick={() => setUi({ help: true, menu: false })}>Cara pakai</button>
         <button className="mi" onClick={() => setUi({ eu: me.id, self: true, menu: false })}>Profil saya</button>
-        <div className="dm">
-          <label>Lihat sebagai (demo)
-            <select value={ui.me} onChange={e => setUi({ me: e.target.value, tab: 'x', menu: false, eu: null })}>
-              {db.U.map(u => <option key={u.id} value={u.id}>{u.n} ({u.role})</option>)}
-            </select>
-          </label>
-        </div>
+        {apiOn && <button className="mi" onClick={() => setUi({ pw: true, menu: false })}>Ganti password</button>}
+        <button className="mi" onClick={() => logout()}>Keluar</button>
+        {!apiOn && (
+          <div className="dm">
+            <label>Lihat sebagai (demo)
+              <select value={ui.me} onChange={e => setUi({ me: e.target.value, tab: 'x', menu: false, eu: null })}>
+                {db.U.map(u => <option key={u.id} value={u.id}>{u.n} ({u.role})</option>)}
+              </select>
+            </label>
+          </div>
+        )}
       </aside>
+    </>
+  )
+}
+
+export function PwSheet() {
+  const { setUi, toast, logout } = useApp()
+  const [f, setF] = useState({ o: '', n: '', n2: '' })
+  const [busy, setBusy] = useState(false)
+  const set = (k, v) => setF(s => ({ ...s, [k]: v }))
+  const close = () => setUi({ pw: false })
+  const save = async () => {
+    if (!f.o) return toast('Isi password lama.', true)
+    if (f.n.length < 6) return toast('Password baru minimal 6 karakter.', true)
+    if (f.n !== f.n2) return toast('Konfirmasi password tidak sama.', true)
+    setBusy(true)
+    try {
+      await api.chpw(f.o, f.n)
+      toast('Password diganti.')
+      close()
+    } catch (e) {
+      if (e.auth) logout(e.message)
+      else {
+        toast(e.message, true)
+        setBusy(false)
+      }
+    }
+  }
+  return (
+    <>
+      <div className="scrim" onClick={close} />
+      <section className="sheet" role="dialog" aria-label="Ganti password">
+        <h2>Ganti password</h2>
+        <div className="f">
+          <label>Password lama<input type="password" autoComplete="current-password" value={f.o} onChange={e => set('o', e.target.value)} /></label>
+          <label>Password baru (min. 6 karakter)<input type="password" autoComplete="new-password" value={f.n} onChange={e => set('n', e.target.value)} /></label>
+          <label>Ulangi password baru<input type="password" autoComplete="new-password" value={f.n2} onChange={e => set('n2', e.target.value)} /></label>
+        </div>
+        <div className="acts">
+          <button className="btn alt grow" onClick={close}>Batal</button>
+          <button className="btn grow" disabled={busy} onClick={save}>Simpan</button>
+        </div>
+      </section>
     </>
   )
 }
@@ -103,7 +150,7 @@ export function PicSheet() {
   const u = sel.user(ui.dpic)
   if (!u) return null
   const a = db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0 && sel.RQ(i.req).by == u.id)
-    .map(i => ({ i, m: sel.mi(i.kode), b: sel.siap(i), w: days(sel.lastArrival(i.kon) || TODAY), rm: sel.reminders(i.id) }))
+    .map(i => ({ i, m: sel.mi(i.kode), b: sel.siap(i), w: days(sel.lastArrival(i.kon) || today()), rm: sel.reminders(i.id) }))
     .sort((x, y) => y.w - x.w)
   const mx = a.length ? Math.max(...a.map(x => x.w)) : 0
   const close = () => setUi({ dpic: null })
@@ -146,7 +193,7 @@ export function DetailSheet() {
   const b = sel.siap(i)
   const first = kd[0]?.tgl
   const last = kd.length ? kd[kd.length - 1].tgl : ''
-  const w = days(last || TODAY)
+  const w = days(last || today())
   const ap = (i.appr || '').slice(0, 10)
   const s = k ? sel.SRLof(k.srl) : null
   const close = () => setUi({ di: null })
@@ -172,11 +219,11 @@ export function DetailSheet() {
           ['SRL', k ? k.srl + (s ? ', estimasi ' + D(s.est) : '') : '-'],
         ]} />
         <h3>Riwayat kedatangan SRL</h3>
-        <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + d.by])} e="Belum ada barang datang." />
+        <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + sel.nm(d.by)])} e="Belum ada barang datang." />
         <h3>Riwayat pengingat</h3>
-        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), x.by])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
+        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), sel.nm(x.by)])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
         <h3>Riwayat pengambilan</h3>
-        <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + x.to])} e="Belum ada yang diambil." />
+        <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + sel.nm(x.to)])} e="Belum ada yang diambil." />
         <div className="acts"><button className="btn grow" onClick={close}>Tutup</button></div>
       </section>
     </>

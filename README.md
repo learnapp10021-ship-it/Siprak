@@ -9,6 +9,7 @@ dengan dashboard Warehouse untuk OPR mingguan. Versi React dari `legacy/Request_
 npm install
 npm run dev      # pengembangan
 npm run build    # hasil di dist/ (base './', aman untuk GitHub Pages)
+npm run check    # verifikasi relasi data + semua aksi vs validator server + tes layar + build
 ```
 
 ## Struktur
@@ -27,3 +28,8 @@ src/
 
 Peran: User, Atasan, Admin Dept, Admin Warehouse, Spv Warehouse. Menu "Lihat sebagai (demo)" di drawer
 untuk berpindah peran. Data masih di memori (hilang saat refresh).
+
+Backend Google Sheets + validasi relasi: lihat `apps-script/README.md`.
+
+Login: mode demo (tanpa `VITE_API_URL`) menerima username pengguna contoh dengan password bebas; mode server memakai
+password dari spreadsheet (lihat bagian **Login** di `apps-script/README.md`). Judul layar login diubah di `src/config.js`.
