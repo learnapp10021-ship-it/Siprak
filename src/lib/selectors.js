@@ -57,7 +57,7 @@ export function makeSel(db) {
         : it.alasan
         ? [1, 't-warn', it.alasan]
         : [1, 't-info', 'Disetujui, menunggu diproses ke ERO']
-    if (s == 'Validasi Warehouse') return [2, 't-warn', 'SRL ' + (KN(it.kon)?.srl || '') + ' menunggu validasi Warehouse']
+    if (s == 'Validasi Warehouse') return [2, 't-warn', (KN(it.kon)?.srl || 'SRL') + ' menunggu validasi Warehouse']
     if (s == 'Masuk Konsolidasi') return [2, 't-vio', 'Dikonsolidasi, belum masuk ERO']
     if (s == 'Sudah di ERO') {
       const b = berhak(it)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../store'
-import { Hd, Empty, Pill, ReqCard, copyText } from '../components/ui'
+import { Hd, Empty, Pill, ReqCard, copyText, useMore } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
 
 function HoldRow({ i, m }) {
@@ -48,7 +48,7 @@ export function VPool() {
     <>
       <Hd t={'Pool ' + d} s="Request disetujui yang belum dibuat di ERO. Paling mendesak di atas." />
       {groups.length > 0 && (
-        <div className="row" style={{ gridColumn: '1/-1' }}>
+        <div className="row eropanel">
           <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
           <small className="mut">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
           <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
@@ -84,7 +84,9 @@ export function VPool() {
                 </span>
               </div>
               <small className="mut">
-                {ok.length} request, total {sum(ok, i => i.qty)} {m.sat}. Datang terawal {D(ok.map(i => i.datang).sort()[0])}, menunggu {wt} hari.
+                {ok.length
+                  ? `${ok.length} request siap, total ${sum(ok, i => i.qty)} ${m.sat}. Datang terawal ${D(ok.map(i => i.datang).sort()[0])}, menunggu ${wt} hari.`
+                  : `Semua request ditahan (${a.length}). Belum ikut ERO sampai dilepas.`}
               </small>
               {a.map(i => <HoldRow key={i.id} i={i} m={m} />)}
             </div>
@@ -135,13 +137,45 @@ function KonCard({ k }) {
   )
 }
 
+const KRANK = { val: 0, run: 1, kon: 2, done: 3, out: 4 }
+const KLAB = { val: 'Menunggu validasi', run: 'Sedang berjalan', kon: 'Konsolidasi', done: 'Selesai', out: 'Dikeluarkan' }
+
 export function VKon() {
-  const { db, me } = useApp()
-  const l = db.K.filter(k => k.dept == me.dept).sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))
+  const { db, sel, me } = useApp()
+  const [q, setQ] = useState('')
+  const [st, setSt] = useState('')
+  const kst = k => (k.tahap == 'Validasi Warehouse' ? 'val' : k.tahap == 'Dikeluarkan' ? 'out' : k.tahap == 'Sudah di ERO' ? (sel.sisa(k) > 0 ? 'run' : 'done') : 'kon')
+  const all = db.K.filter(k => k.dept == me.dept)
+    .map(k => ({ k, s: kst(k) }))
+    .sort((a, b) => KRANK[a.s] - KRANK[b.s] || b.k.id.localeCompare(a.k.id, undefined, { numeric: true }))
+  const cnt = {}
+  all.forEach(x => (cnt[x.s] = (cnt[x.s] || 0) + 1))
+  const qq = q.trim().toLowerCase()
+  const l = all.filter(({ k, s }) => {
+    if (st && s != st) return false
+    if (!qq) return true
+    const names = db.I.filter(i => i.kon == k.id).map(i => sel.nm(sel.RQ(i.req).by)).join(' ')
+    return (sel.mi(k.kode).n + ' ' + k.id + ' ' + (k.srl || '') + ' ' + names).toLowerCase().includes(qq)
+  })
+  const [vis, more] = useMore(l, 12)
   return (
     <>
-      <Hd t={'Konsolidasi ' + me.dept} s="Status tiap SRL dan barang yang sudah datang." />
-      {l.length ? l.map(k => <KonCard key={k.id} k={k} />) : <Empty>Belum ada konsolidasi. Mulai dari tab Pool.</Empty>}
+      <Hd t={'SRL ' + me.dept} s={all.length ? (l.length == all.length ? all.length : l.length + ' dari ' + all.length) + ' barang di SRL. Yang perlu perhatian di atas.' : 'Status tiap SRL dan barang yang sudah datang.'} />
+      {all.length > 4 && (
+        <div className="grid" style={{ gridColumn: '1/-1' }}>
+          <label>Cari barang, SRL, atau peminta
+            <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Ketik untuk mencari" />
+          </label>
+          <label>Status
+            <select value={st} onChange={e => setSt(e.target.value)}>
+              <option value="">Semua ({all.length})</option>
+              {Object.keys(KLAB).filter(x => cnt[x]).map(x => <option key={x} value={x}>{KLAB[x]} ({cnt[x]})</option>)}
+            </select>
+          </label>
+        </div>
+      )}
+      {l.length ? vis.map(x => <KonCard key={x.k.id} k={x.k} />) : <Empty>{all.length ? 'Tidak ada yang cocok dengan pencarian.' : 'Belum ada SRL. Mulai dari tab Buat ERO.'}</Empty>}
+      {more}
     </>
   )
 }
@@ -158,6 +192,7 @@ export function VAll() {
       (!q || sel.nm(r.by).toLowerCase().includes(q) || db.I.some(i => i.req == r.id && sel.mi(i.kode).n.toLowerCase().includes(q))) &&
       (!f || db.I.some(i => i.req == r.id && sel.live(i) && sel.st(i)[0] == f))
   ).sort((a, b) => (b.tgl < a.tgl ? -1 : 1))
+  const [vis, more] = useMore(l, 12)
   return (
     <>
       <Hd t={'Semua request ' + d} s={l.length + ' request ditemukan.'} />
@@ -170,7 +205,8 @@ export function VAll() {
           </select>
         </label>
       </div>
-      {l.length ? l.map(r => <ReqCard key={r.id} r={r} mode="tim" />) : <Empty>Tidak ada request yang cocok dengan filter.</Empty>}
+      {l.length ? vis.map(r => <ReqCard key={r.id} r={r} mode="tim" />) : <Empty>Tidak ada request yang cocok dengan filter.</Empty>}
+      {more}
     </>
   )
 }

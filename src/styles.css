@@ -10,16 +10,16 @@
   --shell:#263746;--sh:#fff;--shm:#D9DEE3;
   --bg:#F1F3F5;--paper:#FFFFFF;
   /* teks & garis */
-  --ink:#303A43;--mut:#78838D;--line:#D9DEE3;--bd:#D9DEE3;
+  --ink:#303A43;--mut:#5F6B75;--line:#D9DEE3;--bd:#D9DEE3;
   /* aksi */
   --brand:#263746;--onb:#fff;--soft:#E5EBEF;--ring:rgba(82,125,149,.3);
   /* status */
-  --info:#527D95;--infobg:#E5EBEF;
+  --info:#3F6A82;--infobg:#E5EBEF;
   --ok:#1E6B3A;--okbg:#E6F4EA;
   --warn:#8A5300;--warnbg:#FFF3D6;
   --bad:#B3261E;--badbg:#FDECEA;
   --vio:#456477;--viobg:#E3E8EB;
-  --gray:#78838D;--graybg:#F1F3F5;
+  --gray:#5F6B75;--graybg:#F1F3F5;
   /* bentuk */
   --r:4px;--r2:6px;
   --sh1:none;
@@ -260,6 +260,7 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   main>*{column-span:all}
   main>.row{column-span:none;break-inside:avoid;margin:0 0 16px}
   main>.acts{max-width:480px}
+  main>.grid{column-gap:24px;margin-bottom:16px}
   main.v-new{column-width:auto;columns:1;max-width:680px}
   .sheet{top:50%;bottom:auto;transform:translate(-50%,-50%);max-width:600px;max-height:85vh;border-radius:8px;padding:24px;box-shadow:var(--sh2)}
   .sheet::before{display:none}
@@ -289,6 +290,11 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   .pk-cur{display:none}
   .login{max-width:480px;margin:6vh auto 0;min-height:0;border-radius:8px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh2)}
   .login-hd{padding-top:36px}
+  /* Buat ERO: panel salin + simpan SRL tetap terlihat di kiri, daftar barang di kanan */
+  main.v-pool{display:grid;columns:auto;grid-template-columns:360px minmax(0,1fr);column-gap:32px;align-items:start}
+  main.v-pool>*{grid-column:2}
+  main.v-pool>.hd,main.v-pool>.empty{grid-column:1/-1}
+  main.v-pool>.eropanel{grid-column:1;grid-row:2/span 80;position:sticky;top:calc(var(--hh) + 16px);max-height:calc(100vh - var(--hh) - 32px);overflow:auto}
   /* Kedatangan, Serah terima, Validasi: daftar SRL di kiri, detail di kanan */
   main.v-dtg,main.v-srh,main.v-val{display:grid;columns:auto;grid-template-columns:340px minmax(0,1fr);column-gap:32px;align-items:start}
   main.v-dtg>*,main.v-srh>*,main.v-val>*{grid-column:2}
@@ -304,14 +310,14 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   :root{
     --shell:#263746;--sh:#fff;--shm:#D9DEE3;
     --bg:#F1F3F5;--paper:#FFFFFF;
-    --ink:#303A43;--mut:#78838D;--line:#D9DEE3;--bd:#D9DEE3;
+    --ink:#303A43;--mut:#5F6B75;--line:#D9DEE3;--bd:#D9DEE3;
     --brand:#263746;--soft:#E5EBEF;--ring:rgba(82,125,149,.3);
-    --info:#527D95;--infobg:#E5EBEF;
+    --info:#3F6A82;--infobg:#E5EBEF;
     --ok:#2E6B34;--okbg:#E7F0E6;
     --warn:#82560A;--warnbg:#F6EEDA;
     --bad:#A93226;--badbg:#F5E2DF;
     --vio:#456477;--viobg:#E3E8EB;
-    --gray:#78838D;--graybg:#F1F3F5;
+    --gray:#5F6B75;--graybg:#F1F3F5;
   }
   #app{background:var(--paper)}
   header{box-shadow:none}
@@ -357,3 +363,4 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
 .savebar.bad small{color:inherit;opacity:.85}
 .savebar .btn.alt{background:var(--paper)}
 #app.saving .btn,#app.saving nav button,#app.saving .mi,#app.saving .kbtn{pointer-events:none;opacity:.55}
+.eropanel .grid{align-items:end}

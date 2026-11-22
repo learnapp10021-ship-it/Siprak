@@ -80,8 +80,8 @@ export function ReqCard({ r, mode }) {
       )}
       {mode == 'appr' && (
         <div className="acts">
-          <div className="f grow" style={{ width: '100%' }}>
-            <textarea rows="2" value={cat} onChange={e => setCat(e.target.value)} placeholder="Catatan (wajib jika menolak)" />
+          <div className="f" style={{ flex: '1 0 100%' }}>
+            <textarea rows="2" value={cat} onChange={e => setCat(e.target.value)} placeholder="Catatan (wajib jika menolak)" aria-label="Catatan untuk pemohon" />
           </div>
           <button className="btn grow" onClick={() => act('setuju', r.id)}>Setujui</button>
           <Confirm className="btn bad grow" onConfirm={() => act('tolak', r.id, cat.trim())}>Tolak</Confirm>
