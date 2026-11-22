@@ -1,4 +1,4 @@
-import { D, TODAY, addDays, nowStr, sum, wa } from './utils'
+import { D, TODAY, addDays, cleanMaster, nowStr, sum, wa } from './utils'
 
 // Setiap aksi: (sel, d, ...args) => { err } | { ok } | undefined
 // `d` adalah draft immer (boleh dimutasi), `sel` selector atas draft yang sama.
@@ -177,6 +177,33 @@ export const actions = {
     if (!(q > 0) || q > mx) return { err: 'Qty harus antara 1 dan ' + mx + '.' }
     d.SR.push({ item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY })
     return { ok: 'Diserahkan.' }
+  },
+
+  saveMaster(sel, d, { mode, f }) {
+    const r = cleanMaster(f)
+    if (r.err) return { err: r.err + '.' }
+    const { err, ...row } = r
+    const ex = d.M.find(m => m.k == row.k)
+    if (mode == 'new') {
+      if (ex) return { err: 'Kode ' + row.k + ' sudah ada.' }
+      d.M.push(row)
+      return { ok: 'Item ditambahkan.' }
+    }
+    if (!ex) return { err: 'Item tidak ditemukan.' }
+    Object.assign(ex, row)
+    return { ok: 'Item disimpan.' }
+  },
+  importMaster(sel, d, rows) {
+    const ok = rows.filter(r => !r.err)
+    if (!ok.length) return { err: 'Tidak ada baris yang valid.' }
+    let baru = 0
+    let ubah = 0
+    ok.forEach(r => {
+      const { err, ...row } = r
+      const ex = d.M.find(m => m.k == row.k)
+      if (ex) { Object.assign(ex, row); ubah++ } else { d.M.push(row); baru++ }
+    })
+    return { ok: `${baru} item baru, ${ubah} item diperbarui.` }
   },
 
   serahAll(sel, d, ids) {

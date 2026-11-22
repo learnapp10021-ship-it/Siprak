@@ -6,9 +6,10 @@ import { VAppr, VTim } from './views/AtasanViews'
 import { VPool, VKon, VAll } from './views/AdminDeptViews'
 import { VDtg, VSrh } from './views/WarehouseViews'
 import { VUsr } from './views/UsersView'
+import { VMst } from './views/MasterView'
 import { VDash } from './views/DashboardView'
 
-const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh }
+const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst }
 
 export function Shell() {
   const { db, sel, ui, setUi, me, toastS, sync } = useApp()

@@ -38,3 +38,27 @@ export const addDays = (d, n) => new Date(Date.parse(d) + n * 864e5).toISOString
 export const sum = (a, f) => a.reduce((s, x) => s + +f(x), 0)
 export const f1 = x => (x == null ? '-' : String(Math.round(x * 10) / 10).replace('.', ','))
 export const avg = a => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null)
+
+// Master item: normalisasi dan parser tempel dari Excel/CSV.
+export const flag = v => (/^(1|y|ya|yes|true|buffer|konsinyasi)$/i.test(String(v ?? '').trim()) ? '1' : '0')
+export function cleanMaster(r) {
+  const k = String(r.k || '').trim().toUpperCase().replace(/\s+/g, '-')
+  const n = String(r.n || '').trim()
+  const sat = String(r.sat || '').trim()
+  const lead = r.lead === '' || r.lead == null ? '3' : String(r.lead).trim()
+  let err = ''
+  if (!k) err = 'Kode kosong'
+  else if (!n) err = 'Nama kosong'
+  else if (!sat) err = 'Satuan kosong'
+  else if (!/^\d+$/.test(lead)) err = 'Lead time harus angka hari'
+  return { k, n, sat, buf: flag(r.buf), kons: flag(r.kons), lead, err }
+}
+// Urutan kolom: Kode | Nama | Satuan | Buffer | Konsinyasi | Lead time (hari). Pemisah: tab, ; | atau koma.
+export function parseMaster(text) {
+  const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  if (!lines.length) return []
+  const sep = [/\t/, /;/, /\|/, /,/].find(re => re.test(lines[0])) || /\t/
+  const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, '')))
+  if (/^(kode|code|item)/i.test(rows[0][0]) && !/^[A-Z]{2,}-?\d/.test(rows[0][0])) rows.shift()
+  return rows.map(c => cleanMaster({ k: c[0], n: c[1], sat: c[2], buf: c[3], kons: c[4], lead: c[5] }))
+}
