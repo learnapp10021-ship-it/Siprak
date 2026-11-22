@@ -45,11 +45,13 @@ export function UserSheet() {
   const [f, setF] = useState({ n: u.n, e: u.id, w: disp(db.HP[u.id]), r: u.role, b: u.boss || '', d: u.dept, a: !u.off })
   const set = (k, v) => setF(s => ({ ...s, [k]: v }))
   const close = () => setUi({ eu: null, self: false })
-  const save = () => {
-    const ok = act('saveUser', {
+  const save = async () => {
+    const ok = await act('saveUser', {
       mode: nw ? 'new' : 'edit', self: ui.self, id: u.id, n: f.n.trim(), rawWa: f.w.trim(), email: f.e.trim(),
       role: f.r, boss: f.b, dept: wh ? f.d.trim() : undefined,
       active: nw || ui.self || u.id == ui.me ? undefined : f.a, me,
+      // versi baris yang sedang dilihat: jika orang lain sudah mengubahnya, simpan ditolak (tidak menimpa)
+      baseV: nw ? undefined : u._v,
     })
     if (ok) close()
   }

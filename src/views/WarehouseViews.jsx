@@ -21,8 +21,8 @@ function DatangCard({ k }) {
       <div className="acts">
         <button
           className="btn grow"
-          onClick={() => {
-            if (act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.n })) { setQ(''); setL('0'); setCat('') }
+          onClick={async () => {
+            if (await act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.n })) { setQ(''); setL('0'); setCat('') }
           }}
         >Catat kedatangan</button>
       </div>

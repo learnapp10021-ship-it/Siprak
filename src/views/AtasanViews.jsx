@@ -9,7 +9,7 @@ export function VAppr() {
       <Hd t="Perlu disetujui" s={l.length + ' request menunggu keputusan Anda.'} />
       {l.length > 1 && (
         <div className="acts" style={{ gridColumn: '1/-1' }}>
-          <Confirm className="btn grow" onConfirm={() => act('setujuAll', me.id)}>Setujui semua ({l.length})</Confirm>
+          <Confirm className="btn grow" onConfirm={() => act('setujuAll', me.id, l.map(r => r.id))}>Setujui semua ({l.length})</Confirm>
         </div>
       )}
       {l.length ? l.map(r => <ReqCard key={r.id} r={r} mode="appr" />) : <Empty>Tidak ada request yang menunggu.</Empty>}

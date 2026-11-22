@@ -7,11 +7,12 @@ import { VPool, VKon, VAll } from './views/AdminDeptViews'
 import { VDtg, VSrh } from './views/WarehouseViews'
 import { VUsr } from './views/UsersView'
 import { VDash } from './views/DashboardView'
+import { SaveBar } from './components/SaveBar'
 
 const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh }
 
 export function Shell() {
-  const { db, sel, ui, setUi, me, toastS } = useApp()
+  const { db, sel, ui, setUi, me, toastS, saving } = useApp()
   const tabs = TABS[me.role]
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : tabs[0][0]
   const View = VIEWS[tab]
@@ -41,7 +42,8 @@ export function Shell() {
   const mob = ['User', 'Admin Warehouse'].includes(me.role)
   return (
     <>
-      <div id="app" className={mob ? 'mob' : 'wide'}>
+      <SaveBar />
+      <div id="app" className={(mob ? 'mob' : 'wide') + (saving ? ' saving' : '')} aria-busy={saving ? 'true' : undefined}>
         <header>
           <button className="ham" onClick={() => setUi({ menu: true })} aria-label="Buka menu">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h16M3 11h16M3 16h16" /></svg>

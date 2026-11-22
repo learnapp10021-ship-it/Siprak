@@ -56,8 +56,9 @@ export function VPool() {
           <div className="acts">
             <button
               className="btn grow"
-              onClick={() => {
-                if (act('simpanSrl', { no: no.trim(), est, me })) { setNo(''); setEst('') }
+              onClick={async () => {
+                // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
+                if (await act('simpanSrl', { no: no.trim(), est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst('') }
               }}
             >Simpan SRL</button>
           </div>
@@ -116,7 +117,7 @@ function KonCard({ k }) {
       {s > 0 && (
         <div className="acts">
           <input value={alasan} onChange={e => setAlasan(e.target.value)} placeholder="Alasan menutup sisa" style={{ flex: 1 }} />
-          <button className="btn alt" onClick={() => { if (act('tutup', k.id, alasan.trim())) setAlasan('') }}>Tutup sisa</button>
+          <button className="btn alt" onClick={async () => { if (await act('tutup', k.id, alasan.trim())) setAlasan('') }}>Tutup sisa</button>
         </div>
       )}
     </div>
@@ -125,7 +126,7 @@ function KonCard({ k }) {
 
 export function VKon() {
   const { db, me } = useApp()
-  const l = db.K.filter(k => k.dept == me.dept).sort((a, b) => (b.id < a.id ? -1 : 1))
+  const l = db.K.filter(k => k.dept == me.dept).sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))
   return (
     <>
       <Hd t={'Konsolidasi ' + me.dept} s="Status tiap SRL dan barang yang sudah datang." />

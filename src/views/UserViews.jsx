@@ -27,8 +27,9 @@ export function VNew() {
       }
       return { draft }
     })
-  const save = status => {
-    if (act('saveRequest', { status, lines: f, me })) setUi({ draft: [newLine()], tab: 'req' })
+  // Form baru dikosongkan HANYA setelah server memverifikasi data tersimpan
+  const save = async status => {
+    if (await act('saveRequest', { status, lines: f, me })) setUi({ draft: [newLine()], tab: 'req' })
   }
 
   return (
