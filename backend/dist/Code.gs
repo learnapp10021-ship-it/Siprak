@@ -101,19 +101,44 @@ function parseMaster(text) {
 
 // Semua turunan data (jatah, sisa, status) dihitung dari snapshot db.
 // Dipakai di render (db biasa) maupun di dalam aksi (draft immer).
-function makeSel(db) {
+// cache: true HANYA untuk render (db beku/immutable): pencarian jadi Map sehingga ratusan SRL tetap mulus.
+// Aksi dan server memakai makeSel(db) biasa karena db berubah di tengah aksi (cache akan basi).
+function makeSel(db, { cache = false } = {}) {
   const { U, M, R, I, K, L, KD, SR, RM } = db
 
-  const user = id => U.find(u => u.id == id)
-  const nm = id => user(id)?.n || id
-  const mi = k => M.find(m => m.k == k)
-  const KN = id => K.find(k => k.id == id)
-  const RQ = id => R.find(r => r.id == id)
-  const SRLof = no => L.find(l => l.no == no)
-
   const live = i => !['Ditolak', 'Dibatalkan'].includes(i.status)
-  const total = k => sum(I.filter(i => i.kon == k.id && live(i)), i => i.qty)
-  const datang = k => sum(KD.filter(d => d.kon == k.id), d => d.qty)
+
+  // ---- indeks malas (hanya dipakai bila cache) ----
+  const EMPTY = []
+  const lazy = f => { let v, ok = false; return () => (ok ? v : ((ok = true), (v = f()))) }
+  const firstBy = (arr, key) => {
+    const m = lazy(() => { const o = new Map(); for (const x of arr) if (!o.has(x[key])) o.set(x[key], x); return o })
+    return v => m().get(v)
+  }
+  const groupBy = (get, key) => {
+    const m = lazy(() => { const o = new Map(); for (const x of get()) { const a = o.get(x[key]); a ? a.push(x) : o.set(x[key], [x]) } return o })
+    return v => m().get(v) || EMPTY
+  }
+  const liveByKon = cache ? groupBy(() => I.filter(live), 'kon') : null
+  const kdByKon = cache ? groupBy(() => KD, 'kon') : null
+  const srByItem = cache ? groupBy(() => SR, 'item') : null
+  const sortedMemo = new Map()
+  const liveSorted = kon => {
+    if (!cache) return I.filter(i => i.kon == kon && live(i)).sort(ord)
+    let a = sortedMemo.get(kon)
+    if (!a) sortedMemo.set(kon, (a = [...liveByKon(kon)].sort(ord)))
+    return a
+  }
+
+  const user = cache ? firstBy(U, 'id') : id => U.find(u => u.id == id)
+  const nm = id => user(id)?.n || id
+  const mi = cache ? firstBy(M, 'k') : k => M.find(m => m.k == k)
+  const KN = cache ? firstBy(K, 'id') : id => K.find(k => k.id == id)
+  const RQ = cache ? firstBy(R, 'id') : id => R.find(r => r.id == id)
+  const SRLof = cache ? firstBy(L, 'no') : no => L.find(l => l.no == no)
+
+  const total = cache ? k => sum(liveByKon(k.id), i => i.qty) : k => sum(I.filter(i => i.kon == k.id && live(i)), i => i.qty)
+  const datang = cache ? k => sum(kdByKon(k.id), d => d.qty) : k => sum(KD.filter(d => d.kon == k.id), d => d.qty)
   const sisa = k => Math.max(0, total(k) - datang(k) - +k.tutup)
 
   // urut kebutuhan paling dekat; tanpa tgl pakai dianggap paling akhir
@@ -130,18 +155,19 @@ function makeSel(db) {
     const k = KN(it.kon)
     if (!k) return 0
     let r = datang(k)
-    for (const x of I.filter(i => i.kon == k.id && live(i)).sort(ord)) {
+    for (const x of liveSorted(k.id)) {
       const g = Math.min(r, +x.qty)
       if (x.id == it.id) return g
       r -= g
     }
     return 0
   }
-  const diambil = it => sum(SR.filter(s => s.item == it.id), s => s.qty)
+  const diambil = cache ? it => sum(srByItem(it.id), s => s.qty) : it => sum(SR.filter(s => s.item == it.id), s => s.qty)
   const siap = it => berhak(it) - diambil(it)
   const deptOf = it => user(RQ(it.req)?.by)?.dept
-  const lastArrival = kon => KD.filter(d => d.kon == kon).map(d => d.tgl).sort().pop()
-  const firstArrival = kon => KD.filter(d => d.kon == kon).map(d => d.tgl).sort()[0]
+  const kdOf = kon => (cache ? kdByKon(kon) : KD.filter(d => d.kon == kon))
+  const lastArrival = kon => kdOf(kon).map(d => d.tgl).sort().pop()
+  const firstArrival = kon => kdOf(kon).map(d => d.tgl).sort()[0]
 
   // [tahap 0-4, kelas warna, label]
   const st = it => {
@@ -196,7 +222,7 @@ function makeSel(db) {
   const antrian = it => {
     const k = KN(it.kon)
     if (!k) return null
-    const arr = I.filter(i => i.kon == k.id && live(i)).sort(ord)
+    const arr = liveSorted(k.id)
     const idx = arr.findIndex(i => i.id == it.id)
     if (idx < 0) return null
     return { pos: idx + 1, n: arr.length, ahead: sum(arr.slice(0, idx), i => i.qty) }

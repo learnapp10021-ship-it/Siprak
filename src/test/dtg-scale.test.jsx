@@ -1,9 +1,9 @@
-// Kedatangan dengan ratusan SRL: daftar bertahap, tidak merender semua, dan tetap cepat.
+// Kedatangan dengan seribu SRL: daftar bertahap, tidak merender semua, dan tetap cepat.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { makeSel } from '../lib/selectors'
 
-const N = 400 // SRL
+const N = 1000 // SRL
 const PER = 5 // barang per SRL
 const db = { U: [], HP: {}, M: [], R: [], I: [], K: [], L: [], KD: [], SR: [], RM: [] }
 for (let s = 0; s < N; s++) {
@@ -17,13 +17,13 @@ for (let s = 0; s < N; s++) {
     db.I.push({ id: 'ITM-' + s + '-' + j, req: 'RQ', kode, qty: '10', datang: '0', pakai: '2026-12-01', status: 'Sudah di ERO', appr: '2026-11-16', kon: kid, tahan: '', alasan: '' })
   }
 }
-const sel = makeSel(db)
+const sel = makeSel(db, { cache: true })
 
 vi.mock('../store', () => ({ useApp: () => ({ db, sel, me: { id: 'wati.wh' }, act: async () => true }) }))
 
 afterEach(cleanup)
 
-describe('Kedatangan dengan ratusan SRL', () => {
+describe('Kedatangan dengan seribu SRL', () => {
   it('hanya merender sebagian SRL dan barang, dan cepat', async () => {
     const { VDtg } = await import('../views/WarehouseViews')
     const t0 = performance.now()
@@ -33,7 +33,7 @@ describe('Kedatangan dengan ratusan SRL', () => {
     expect(within(list).getAllByRole('option').length).toBeLessThanOrEqual(8) // satu halaman, bukan 400
     expect(screen.getByText(N + ' SRL')).toBeTruthy()
     expect(screen.getAllByRole('progressbar', { name: 'Progres kedatangan' }).length).toBeLessThanOrEqual(PER)
-    expect(ms).toBeLessThan(2000)
+    expect(ms).toBeLessThan(500)
   })
 
   it('cari SRL menyaring daftar dan tombol tampilkan lagi menambah satu halaman', async () => {

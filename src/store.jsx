@@ -213,7 +213,7 @@ export function AppProvider({ children, initialUi: init }) {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', chk) }
   }, [])
 
-  const sel = useMemo(() => makeSel(db || emptyDb()), [db, day])
+  const sel = useMemo(() => makeSel(db || emptyDb(), { cache: true }), [db, day])
   // Pengguna aktif: id sesi harus ada di data dan aktif, kalau tidak -> layar masuk
   const meId = sel.user(ui.me) && !sel.user(ui.me).off ? ui.me : ''
   const me = sel.user(meId)
