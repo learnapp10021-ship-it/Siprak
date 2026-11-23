@@ -21,8 +21,9 @@ const rowKey = fn => e => {
 }
 
 // Grafik batang harian: barang tiba vs diserahkan. Sorot batang dengan hover atau fokus; nilai tampil di bawah grafik.
-function Trend({ kd, sr, ps, pe }) {
+function Trend({ kd, sr, ps: p0, pe }) {
   const [hi, setHi] = useState(null)
+  const ps = dayDiff(p0, pe) < 6 ? addDays(pe, -6) : p0 // minimal 7 hari agar batang tidak raksasa
   const n = Math.min(35, dayDiff(ps, pe) + 1)
   const rows = Array.from({ length: n }, (_, k) => {
     const d = addDays(ps, k)

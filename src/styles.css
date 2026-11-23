@@ -1,3 +1,10 @@
+/* Inter (variabel, di-host sendiri: tidak butuh internet saat dipakai) */
+@font-face{font-family:Inter;font-style:normal;font-weight:100 900;font-display:swap;
+  src:url(../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2) format("woff2-variations"),url(../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Inter;font-style:normal;font-weight:100 900;font-display:swap;
+  src:url(../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2) format("woff2-variations"),url(../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 /* ==========================================================================
    SIPRAK design system — enterprise
    Hanya lapisan visual. Nama class, ID, atribut aria-*, dan breakpoint (700 / 1024 px)
@@ -87,7 +94,7 @@
 *{box-sizing:border-box}
 html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);
-  font:15px/1.55 "Helvetica Neue",Helvetica,Arial,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;letter-spacing:-.003em;
   font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--shell);z-index:10}
 h1{font-size:16px;margin:0;font-weight:600;line-height:1.25;letter-spacing:.005em}
@@ -221,7 +228,7 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   padding:10px 16px;border-radius:var(--r2);font-size:14px;font-weight:500;z-index:20;max-width:90%;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 6px 20px rgba(0,0,0,.28)}
 #toast.show{opacity:1}
 #toast{white-space:pre-line;text-align:left;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:flex-start;width:max-content;min-width:min(78vw,260px);max-width:min(92vw,440px);cursor:pointer}
-#toast::before{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;line-height:1;margin-top:1px;background:var(--ok);color:#fff;content:"✓"}
+#toast::before{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:600;line-height:1;margin-top:1px;background:var(--ok);color:#fff;content:"✓"}
 #toast .msg{flex:1 1 0;min-width:0}
 #toast .tx{flex-basis:100%;padding-left:30px;font-size:12px;opacity:.7;margin-top:2px}
 #toast.info{background:var(--infobg);color:var(--info);border:1px solid var(--info)}
@@ -603,7 +610,7 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
 .rg-t{stroke:var(--line);stroke-width:6}
 .rg-p{stroke:currentColor;stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .6s ease}
 .rg-w{stroke:currentColor;stroke-width:1.5;stroke-dasharray:2 7;opacity:.55;transform-origin:30px 30px;animation:rgSpin 6s linear infinite}
-.rg>span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--ink)}
+.rg>span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--ink)}
 .rg.t-bad>span{color:var(--bad);font-size:16px}
 @keyframes rgSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.rg-w{animation:none}.rg-p{transition:none}}
@@ -840,3 +847,31 @@ html{scrollbar-gutter:stable}
   main.v-kon .egrid td,main.v-kon .egrid td small{white-space:normal;overflow-wrap:anywhere}
   main.v-kon .egrid .eb{white-space:nowrap}
 }
+
+/* ===== Poles visual: tipografi Inter, bobot ringan, dekorasi minim ===== */
+:root{--sh1:none;--shell:#27476B;--soft:#E9EFF5;--line:#DCDFE3}
+:root[data-theme="smoke"]{--sh1:none}
+.btn,.eb,.chip,.tsw button,nav button{font-weight:500}
+.pill,.lbl,.bdg{font-weight:500}
+.kpi b{font-weight:600;letter-spacing:-.01em}
+.tbl th,.egrid thead th{font-weight:550;color:var(--mut);font-size:12.5px;letter-spacing:0}
+.egrid thead th{background:var(--soft)}
+.tbl td,.egrid td{color:var(--ink)}
+.row,.tw,.erp-grid,.erp-det,.trend{box-shadow:none}
+.item{border-left-width:2px}
+h1,h2,.hd h2{font-weight:600;letter-spacing:-.01em}
+@media (min-width:1024px){
+  body{font-size:14px;line-height:1.45}
+  small,.mut{font-size:12.5px}
+  nav button{font-size:13.5px;min-height:38px;padding:8px 12px}
+  nav{padding:10px 8px}
+  main .btn{font-weight:500}
+  main label{font-size:12.5px;color:var(--mut)}
+  .hd{border-bottom:0;padding:8px 0 6px;margin-bottom:6px}
+  .hd p{color:var(--mut)}
+  .srl{border-bottom:0;font-size:13px;font-weight:600;color:var(--mut);text-transform:none;margin:14px 0 4px;padding:0}
+  .egrid td,.tbl td{font-size:13px}
+  main .row,main .item{border-color:var(--line)}
+  header small{font-size:12px}
+}
+@media (min-width:1024px) and (hover:hover){.egrid tbody tr:hover{background:var(--soft)}}
