@@ -736,3 +736,29 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 .trend-x{display:flex;font-size:12px;color:var(--mut)}.trend-x span{flex:1;text-align:center;white-space:nowrap;overflow:visible;min-width:0}
 .trend-v{display:block;min-height:18px;margin-top:6px}
 @media (min-width:1024px){.agb:has(button){height:16px}.trend svg{height:170px}}
+
+/* Daftar panjang (ratusan SRL / barang): lewati render baris di luar layar */
+.row.dtg{content-visibility:auto;contain-intrinsic-size:auto 170px;padding:12px 14px}
+.row.dtg .pbar{margin:6px 0 2px}
+.pk-vl{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg);scrollbar-gutter:stable}
+.pk-vl .pk-row{position:absolute;left:0;right:0;width:auto;height:calc(72px - 6px);margin:0 4px;min-height:0;overflow:hidden;padding:8px 12px;box-sizing:border-box}
+.pk-vl .pk-l small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-vl:focus-within{box-shadow:0 0 0 2px var(--ring)}
+
+/* ---- Poles kemulusan: transisi ringan, umpan balik tekan, tanpa lompatan tata letak ---- */
+html{scrollbar-gutter:stable}
+.pk-vl .pk-row:focus-visible{outline-offset:-2px}
+.sh-bar{box-shadow:0 -10px 12px -10px rgba(0,0,0,.18)}
+@media (prefers-reduced-motion:no-preference){
+  @keyframes fIn{from{opacity:0;transform:translateY(4px)}}
+  @keyframes fOnly{from{opacity:0}}
+  /* konten detail muncul halus saat ganti SRL / penerima (komponen di-remount lewat key) */
+  .srlhd,.srlact,.row.dtg{animation:fIn .16s ease-out both}
+  .pk-vl .pk-row,.sh-p{animation:fOnly .12s ease-out both}
+  .pk-row,.sh-p,.sh-i{transition:background-color .12s,border-color .12s,box-shadow .12s,opacity .12s,transform .08s}
+  .pk-row:active,.sh-p:active{transform:scale(.985)}
+  .btn{transition:filter .15s,background-color .15s,border-color .15s,transform .08s}
+  .btn:active:not([disabled]){transform:scale(.98)}
+  .chip{transition:background-color .12s,border-color .12s,color .12s,transform .08s}.chip:active{transform:scale(.97)}
+}
+@media (prefers-reduced-motion:reduce){.srlhd,.srlact,.row.dtg,.pk-vl .pk-row,.sh-p{animation:none}.pk-row,.sh-p,.btn,.chip{transition:none}}

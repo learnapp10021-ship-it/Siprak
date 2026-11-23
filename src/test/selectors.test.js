@@ -81,3 +81,28 @@ describe('pergantian hari (TODAY)', () => {
     expect(days('2026-11-20')).toBe(5)
   })
 })
+
+describe('makeSel dengan cache (render) harus identik dengan tanpa cache', () => {
+  it('semua turunan sama pada data contoh lengkap', async () => {
+    const { buildSeed } = await import('../data/seed')
+    const d = buildSeed()
+    const a = makeSel(d)
+    const b = makeSel(d, { cache: true })
+    expect(d.I.length).toBeGreaterThan(20)
+    d.I.forEach(i => {
+      expect(b.berhak(i)).toBe(a.berhak(i))
+      expect(b.diambil(i)).toBe(a.diambil(i))
+      expect(b.siap(i)).toBe(a.siap(i))
+      expect(b.st(i)).toEqual(a.st(i))
+      expect(b.antrian(i)).toEqual(a.antrian(i))
+      expect(b.deptOf(i)).toBe(a.deptOf(i))
+      expect(b.lastArrival(i.kon)).toBe(a.lastArrival(i.kon))
+      expect(b.firstArrival(i.kon)).toBe(a.firstArrival(i.kon))
+    })
+    d.K.forEach(k => {
+      expect([b.total(k), b.datang(k), b.sisa(k)]).toEqual([a.total(k), a.datang(k), a.sisa(k)])
+      expect(b.SRLof(k.srl)).toBe(a.SRLof(k.srl))
+    })
+    d.M.forEach(m => expect(b.mi(m.k)).toBe(a.mi(m.k)))
+  })
+})
