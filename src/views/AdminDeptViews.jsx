@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../store'
-import { Hd, Empty, Pill, ReqCard, copyText, useMore } from '../components/ui'
+import { Hd, Empty, Pill, ReqCard, useMore } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
 import { useMedia } from '../lib/useMedia'
 
@@ -29,7 +29,7 @@ function HoldRow({ i, m }) {
 }
 
 function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan }) {
-  const { sel, me, act, toast } = useApp()
+  const { sel, me, act } = useApp()
   const [fq, setFq] = useState('')
   const [fs, setFs] = useState('')
   const [why, setWhy] = useState('')
@@ -47,7 +47,6 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
   const allOn = vis.length > 0 && vis.every(r => !off.includes(r.i.id))
   const tot = {}
   ready.forEach(i => (tot[i.kode] = (tot[i.kode] || 0) + +i.qty))
-  const copy = () => copyText(Object.entries(tot).map(([k, q]) => k + '\t' + q).join('\n'), toast)
   const tahan = async () => {
     if (!ready.length) return
     for (const i of ready) if (!(await act('tahan', i.id, why.trim()))) return
@@ -57,8 +56,6 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
   return (
     <div className="erp">
       <div className="erp-bar">
-        <button className="eb" onClick={copy} disabled={!ready.length}>Salin terpilih (article, qty)</button>
-        <span className="sep" />
         <input className="eb-in" value={why} onChange={e => setWhy(e.target.value)} placeholder="Alasan menahan" aria-label="Alasan menahan terpilih" />
         <button className="eb" onClick={tahan} disabled={!ready.length}>Tahan terpilih</button>
         <span className="grow" />
@@ -91,7 +88,7 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
                   <td className="c">{i.tahan ? null : <input type="checkbox" checked={on} onChange={() => flip(i.id)} aria-label={'Ikut SRL: ' + who + ', ' + m.n} />}</td>
                   <td>{i.req}</td>
                   <td>{who}</td>
-                  <td><b>{m.n}</b><small>{m.buf == '1' ? 'Buffer' : 'Non buffer'}</small></td>
+                  <td><b>{m.n}</b><small>{i.kode} · {m.buf == '1' ? 'Buffer' : 'Non buffer'}</small></td>
                   <td className="n">{i.qty} {m.sat}</td>
                   <td className={i.datang < TODAY && !i.tahan ? 'bad' : ''}>{D(i.datang)}</td>
                   <td className="n">{w} hr</td>
@@ -118,7 +115,7 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
           </table>
         </div>
         <div className="erp-form">
-          <small className="mut">1. Salin daftar (tombol di atas) dan buat SRL di ERO. 2. Isi nomor SRL dari ERO. 3. Simpan; Admin Warehouse akan memvalidasi.</small>
+          <small className="mut">1. Centang request, lalu input article dan total qty di kiri ke ERO. 2. Isi nomor SRL dari ERO. 3. Simpan; Admin Warehouse akan memvalidasi.</small>
           <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
           <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} />{est ? <small className="mut">{D(est)}</small> : null}</label>
           <button className="btn" disabled={!ready.length} onClick={simpan}>Simpan SRL ({ready.length} request)</button>
@@ -129,7 +126,7 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
 }
 
 export function VPool() {
-  const { sel, me, act, toast, setUi } = useApp()
+  const { sel, me, act, setUi } = useApp()
   const wide = useMedia('(min-width:1024px)')
   const [off, setOff] = useState([])
   const [done, setDone] = useState(null)
@@ -145,11 +142,6 @@ export function VPool() {
   const groups = Object.entries(g).sort((x, y) =>
     (x[1].map(i => i.datang).sort()[0] || '9') < (y[1].map(i => i.datang).sort()[0] || '9') ? -1 : 1
   )
-  const copyAll = () => {
-    const t = {}
-    ready.forEach(i => (t[i.kode] = (t[i.kode] || 0) + +i.qty))
-    copyText(Object.entries(t).map(([k, q]) => k + '\t' + q).join('\n'), toast)
-  }
   const simpan = async () => {
     // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
     const n = ready.length, nomor = no.trim()
@@ -168,8 +160,14 @@ export function VPool() {
       {groups.length > 0 && !wide && (
         <div className="row eropanel">
           <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
-          <small className="mut">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
-          <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
+          <small className="mut">1. Input article dan qty di bawah ke ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
+          <table className="pool-sum">
+            <tbody>
+              {Object.entries(ready.reduce((t, i) => ((t[i.kode] = (t[i.kode] || 0) + +i.qty), t), {})).map(([k, q]) => (
+                <tr key={k}><td><b>{k}</b><small className="mut"> {sel.mi(k).n}</small></td><td>{q} {sel.mi(k).sat}</td></tr>
+              ))}
+            </tbody>
+          </table>
           <div className="grid">
             <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
             <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} />{est ? <small className="mut">{D(est)}</small> : null}</label>

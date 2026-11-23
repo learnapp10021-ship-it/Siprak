@@ -705,3 +705,8 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 .tsw.in button[aria-pressed=true]{background:var(--soft);color:var(--brand)}
 .mi-tema{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px 10px 20px;font-weight:500;color:var(--ink)}
 @media (min-width:1024px){.hd-tema{display:block}}
+.eropanel .pool-sum{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+.eropanel .pool-sum td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.eropanel .pool-sum td:last-child{text-align:right;font-weight:600;white-space:nowrap;padding-left:10px}
+.eropanel .pool-sum small{display:block}
+@media (min-width:1024px){.erp-grid .egrid td small{white-space:nowrap}}
