@@ -762,3 +762,81 @@ html{scrollbar-gutter:stable}
   .chip{transition:background-color .12s,border-color .12s,color .12s,transform .08s}.chip:active{transform:scale(.97)}
 }
 @media (prefers-reduced-motion:reduce){.srlhd,.srlact,.row.dtg,.pk-vl .pk-row,.sh-p{animation:none}.pk-row,.sh-p,.btn,.chip{transition:none}}
+
+/* ===== Penyempurnaan akhir: lebih ringkas, rapat, dan proporsional (hanya tampilan) ===== */
+.hd{padding:14px 0 4px}
+.hd h2{font-size:18px;margin-bottom:2px}
+.hd p{font-size:13px}
+.srl{margin:14px 0 0;padding:4px 0;font-size:14px}
+.tbl th,.tbl td{padding:7px 10px;font-size:13px}
+@media (min-width:640px) and (max-width:1023px){
+  main{padding:4px 20px 20px}
+  .hd{padding:16px 0 6px}
+}
+@media (min-width:1024px){
+  main{margin-left:calc(var(--side) + max(0px,(100vw - var(--side) - 1560px)/2));max-width:1560px;padding:6px 24px 28px}
+  .hd{padding:10px 0 8px;margin-bottom:10px}
+  main .hd h2{font-size:17px}
+  .srl{margin:12px 0 0}
+  main .row{padding:8px 12px;margin-top:6px}
+  main .item{padding:6px 10px;margin-top:6px}
+  .tbl th,.tbl td{padding:6px 10px}
+  .itm{padding:8px 10px}
+  .rg{width:48px;height:48px;flex-basis:48px}
+  .rg svg{width:48px;height:48px}
+  .rg>span{font-size:12px}
+  .itm-steps{margin-top:8px}
+  .itm-facts{grid-template-columns:repeat(4,1fr);margin-top:8px;padding-top:8px;gap:6px 12px}
+  main.v-srh:has(>.sh-wrap){display:block}
+  main.v-srh>.sh-modes{max-width:420px}
+  main .kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .trend svg{height:140px}
+  .trend{padding:8px 12px}
+  header h1{font-size:16px}
+}
+@media (min-width:1700px){
+  main.v-pool,main.v-dtg,main.v-srh,main.v-val{column-gap:24px}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  main{padding-left:14px;padding-right:14px}
+}
+@media (min-width:1024px) and (max-width:1199px){
+  main.v-kon .egrid td:nth-child(3){white-space:normal;max-width:170px}
+  main.v-pool .egrid td{white-space:normal}
+  main.v-pool .egrid td.n,main.v-pool .egrid td.c,main.v-pool .egrid td:nth-child(2){white-space:nowrap}
+  main.v-pool .egrid td small{white-space:normal}
+  main.v-pool .egrid td:nth-child(8){max-width:150px}
+}
+@media (min-width:1024px) and (max-width:1199px){
+  .erp-det .egrid.sm th:nth-child(3),.erp-det .egrid.sm td:nth-child(3){display:none}
+  main.v-kon .egrid td{white-space:normal}
+  main.v-kon .egrid td.n,main.v-kon .egrid td:nth-child(2){white-space:nowrap}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  main.v-kon .egrid{table-layout:fixed}
+  main.v-kon .egrid th:nth-child(1){width:19%}main.v-kon .egrid th:nth-child(2){width:12%}main.v-kon .egrid th:nth-child(3){width:22%}
+  main.v-kon .egrid th:nth-child(4){width:8%}main.v-kon .egrid th:nth-child(5){width:17%}main.v-kon .egrid th:nth-child(6){width:13%}main.v-kon .egrid th:nth-child(7){width:9%}
+  main.v-kon .egrid td{overflow-wrap:anywhere}
+  main.v-kon .egrid td:first-child{min-width:0}
+  .erp-det .egrid.sm th,.erp-det .egrid.sm td{padding:4px 6px}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  main.v-kon .egrid td,main.v-kon .egrid td.n,main.v-kon .egrid td:nth-child(2){white-space:normal;overflow-wrap:anywhere}
+  main.v-kon .egrid th:nth-child(1){width:17%}main.v-kon .egrid th:nth-child(2){width:15%}main.v-kon .egrid th:nth-child(3){width:18%}
+  main.v-kon .egrid th:nth-child(4){width:11%}main.v-kon .egrid th:nth-child(5){width:18%}main.v-kon .egrid th:nth-child(6){width:13%}main.v-kon .egrid th:nth-child(7){width:8%}
+  main.v-kon .egrid th,main.v-kon .egrid td{padding:6px 5px}
+  main.v-kon .egrid .pill{font-size:12px}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  main.v-kon .egrid th:nth-child(1){width:16%}main.v-kon .egrid th:nth-child(2){width:13%}main.v-kon .egrid th:nth-child(3){width:16%}
+  main.v-kon .egrid th:nth-child(4){width:10%}main.v-kon .egrid th:nth-child(5){width:19%}main.v-kon .egrid th:nth-child(6){width:13%}main.v-kon .egrid th:nth-child(7){width:13%}
+  main.v-kon .egrid td small{white-space:normal}
+  main.v-kon .egrid .eb{white-space:nowrap;padding:0 6px}
+}
+@media (min-width:1280px) and (max-width:1439px){
+  main.v-kon .egrid{table-layout:fixed}
+  main.v-kon .egrid th:nth-child(1){width:17%}main.v-kon .egrid th:nth-child(2){width:12%}main.v-kon .egrid th:nth-child(3){width:17%}
+  main.v-kon .egrid th:nth-child(4){width:9%}main.v-kon .egrid th:nth-child(5){width:19%}main.v-kon .egrid th:nth-child(6){width:13%}main.v-kon .egrid th:nth-child(7){width:13%}
+  main.v-kon .egrid td,main.v-kon .egrid td small{white-space:normal;overflow-wrap:anywhere}
+  main.v-kon .egrid .eb{white-space:nowrap}
+}
