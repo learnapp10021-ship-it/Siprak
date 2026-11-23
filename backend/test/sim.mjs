@@ -260,6 +260,24 @@ sec('13b. Alur baru: Validasi SRL, keluarkan, serah semua, Master')
   ok(!sa2.ok && /sudah diserahkan/.test(sa2.err), 'serah semua kedua oleh admin lain ditolak, tidak ganda')
   ok(rows('SerahTerima').length === SR0 + sa.msg.match(/^(\d+)/)[1] * 1, 'jumlah baris serah terima = yang dilaporkan')
   const srIds = rows('SerahTerima').map(x => x.id); ok(new Set(srIds).size === srIds.length, 'ID serah terima unik')
+  // serah sebagian lewat serahAll(ids, qtys): jumlah dipotong sampai jatah, barang tanpa jumlah = semua yang siap
+  const S5 = snap(); const sel5 = $('makeSel')(S5)
+  const sisaSiap = S5.I.filter(i => i.status === 'Sudah di ERO' && sel5.siap(i) >= 2)
+  if (sisaSiap.length >= 2) {
+    const [a, b] = sisaSiap
+    const sa3 = post({ tx: TX(), name: 'serahAll', me: 'wati.wh', args: [[a.id, b.id], { [a.id]: 1, [b.id]: 9999 }] })
+    ok(sa3.ok, 'serahAll dengan jumlah per barang: ' + (sa3.err || sa3.msg))
+    const S6 = snap(); const sel6 = $('makeSel')(S6)
+    ok(sel6.diambil(S6.I.find(i => i.id === a.id)) === sel5.diambil(a) + 1, 'barang A diserahkan tepat 1 (sebagian)')
+    ok(sel6.siap(S6.I.find(i => i.id === b.id)) === 0, 'jumlah melebihi jatah dipotong sampai jatah (B habis), tidak lebih')
+  }
+  // pengingat banyak barang dalam satu panggilan; hanya Admin Warehouse
+  const RM0 = rows('Pengingat').length
+  const ia = post({ tx: TX(), name: 'ingatAll', me: 'andi.prod', args: [['ITM-001', 'ITM-002']] })
+  ok(!ia.ok, 'pengingat massal oleh User biasa ditolak')
+  const ib = post({ tx: TX(), name: 'ingatAll', me: 'wati.wh', args: [['ITM-001', 'ITM-002', 'ITM-NGAWUR']] })
+  ok(ib.ok && rows('Pengingat').length === RM0 + 2, 'pengingat massal mencatat 2 baris, id barang tak dikenal dilewati')
+  ok(rows('Pengingat').slice(-2).every(r => r.by === 'wati.wh'), 'pelaku pengingat selalu dari server (bukan argumen klien)')
   // master
   const M0 = rows('Master').length
   const mm = post({ tx: TX(), name: 'saveMaster', me: 'wati.wh', args: [{ mode: 'new', f: { k: 'tes-001', n: 'Barang Tes', sat: 'Pcs', buf: '1', kons: '0', lead: '4' } }] })

@@ -557,21 +557,33 @@ const actions = {
     return { ok: `${no} divalidasi: ${n} barang menunggu kedatangan.` }
   },
 
-  serahAll(sel, d, ids) {
+  // qtys (opsional) = { [idBarang]: jumlah } untuk serah terima sebagian; tanpa itu, semua yang siap diserahkan.
+  // Jumlah tidak pernah melebihi yang siap; baris yang tidak valid dilewati, sisanya tetap diproses.
+  serahAll(sel, d, ids, qtys) {
     let n = 0
-    let to = ''
+    const to = new Set()
     ;(ids || []).forEach(id => {
       const i = d.I.find(x => x.id == id)
-      const q = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      const mx = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      const want = qtys && qtys[id] != null ? +qtys[id] : mx
+      const q = Math.min(mx, want)
       if (!(q > 0)) return
-      to = sel.RQ(i.req).by
-      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to, tgl: TODAY, at: nowStr() })
+      const by = sel.RQ(i.req).by
+      to.add(by)
+      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: by, tgl: TODAY, at: nowStr() })
       n++
     })
     if (!n) return { err: 'Tidak ada barang yang siap diserahkan (mungkin sudah diserahkan admin lain).' }
-    return { ok: n + ' barang diserahkan ke ' + sel.nm(to) + '.' }
+    return { ok: n + ' barang diserahkan ke ' + [...to].map(u => sel.nm(u)).join(', ') + '.' }
   },
-
+  // Pengingat untuk banyak barang sekaligus (satu pesan WA ke satu penerima): satu panggilan, bukan satu per barang.
+  ingatAll(sel, d, ids, by) {
+    ;(ids || []).forEach(id => {
+      if (!d.I.find(x => x.id == id)) return
+      if (d.RM.find(x => x.item == id && x.by == by && minsAgo(x.at) <= 1)) return
+      d.RM.push({ id: nextId(d.RM, 'RM-'), item: id, by, at: nowStr() })
+    })
+  },
   ingat(sel, d, id, by) {
     if (!d.I.find(x => x.id == id)) return { err: 'Barang tidak ditemukan.' }
     // pengingat berulang dari orang yang sama dalam 1 menit tidak dicatat ganda (tanpa pesan)
@@ -1323,6 +1335,7 @@ const PERM = {
   datangAll: a => PERM.datang(a),
   serah: a => PERM.datang(a),
   ingat: a => PERM.datang(a),
+  ingatAll: a => PERM.datang(a),
 }
 // Identitas pelaku selalu diambil dari server, bukan dari argumen klien
 const BIND = {
@@ -1334,6 +1347,7 @@ const BIND = {
   datangAll: (a, x) => [x[0], a.id],
   keluarkan: (a, x) => [Object.assign({}, x[0], { by: a.n })],
   ingat: (a, x) => [x[0], a.id],
+  ingatAll: (a, x) => [x[0], a.id],
   setujuAll: (a, x) => [a.id, x[1]],
 }
 

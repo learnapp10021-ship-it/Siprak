@@ -429,6 +429,7 @@ const PERM = {
   datangAll: a => PERM.datang(a),
   serah: a => PERM.datang(a),
   ingat: a => PERM.datang(a),
+  ingatAll: a => PERM.datang(a),
 }
 // Identitas pelaku selalu diambil dari server, bukan dari argumen klien
 const BIND = {
@@ -440,6 +441,7 @@ const BIND = {
   datangAll: (a, x) => [x[0], a.id],
   keluarkan: (a, x) => [Object.assign({}, x[0], { by: a.n })],
   ingat: (a, x) => [x[0], a.id],
+  ingatAll: (a, x) => [x[0], a.id],
   setujuAll: (a, x) => [a.id, x[1]],
 }
 

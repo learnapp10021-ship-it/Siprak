@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, Confirm, SrlPicker, SrlHead, useSrlPick } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
+import { SerahPenerima } from './SerahView'
 
 const BANYAK = 6 // di atas ini, daftar barang dalam satu SRL diberi kolom cari
 
@@ -166,6 +167,25 @@ const progSrh = (db, sel) => no => {
   return { pct, text: pct + '% diserahkan' }
 }
 
+// Kemajuan semua SRL sekaligus: satu kali jalan melewati barang (bukan satu pindaian per SRL), untuk ratusan SRL.
+const progSrhMap = (db, sel) => {
+  const m = new Map()
+  db.I.forEach(i => {
+    if (i.status != 'Sudah di ERO') return
+    const no = sel.KN(i.kon)?.srl
+    if (!no) return
+    const a = m.get(no) || { t: 0, d: 0 }
+    a.t += +i.qty
+    a.d += sel.diambil(i)
+    m.set(no, a)
+  })
+  return no => {
+    const a = m.get(no) || { t: 0, d: 0 }
+    const pct = a.t ? Math.min(100, Math.round((a.d / a.t) * 100)) : 0
+    return { pct, text: pct + '% diserahkan' }
+  }
+}
+
 function SerahSrl({ no, items }) {
   const { db, sel, act } = useApp()
   const [q, setQ] = useState('')
@@ -202,19 +222,42 @@ function SerahSrl({ no, items }) {
   )
 }
 
+// Mode tampilan Serah terima diingat per perangkat: per penerima (bawaan) atau per SRL.
+const MODE_KEY = 'siprak.srhMode'
+const readMode = () => {
+  try { return localStorage.getItem(MODE_KEY) == 'srl' ? 'srl' : 'org' } catch { return 'org' }
+}
+
 export function VSrh() {
   const { db, sel } = useApp()
-  const l = db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).sort(sel.ord)
-  const g = {}
-  l.forEach(i => {
-    const no = sel.KN(i.kon)?.srl || '-'
-    ;(g[no] = g[no] || []).push(i)
-  })
-  const pk = useSrlPick(g, sel, progSrh(db, sel))
+  const [mode, setMode] = useState(readMode)
+  const pilih = m => {
+    setMode(m)
+    try { localStorage.setItem(MODE_KEY, m) } catch { /* mode privat: abaikan */ }
+  }
+  const srl = mode == 'srl'
+  // dihitung sekali per perubahan data, bukan setiap mengetik di kolom cari
+  const { l, g, prog } = useMemo(() => {
+    if (!srl) return { l: [], g: {}, prog: null }
+    const l = db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).sort(sel.ord)
+    const g = {}
+    l.forEach(i => {
+      const no = sel.KN(i.kon)?.srl || '-'
+      ;(g[no] = g[no] || []).push(i)
+    })
+    return { l, g, prog: progSrhMap(db, sel) }
+  }, [srl, db, sel])
+  const pk = useSrlPick(g, sel, prog || undefined)
   return (
     <>
-      <Hd t="Serah terima" s="Pilih nomor SRL. Barang dikelompokkan per penerima, kebutuhan terdekat di atas." />
-      {l.length ? (
+      <Hd t="Serah terima" s={srl ? 'Pilih nomor SRL. Barang dikelompokkan per penerima, kebutuhan terdekat di atas.' : 'Cari penerima, lalu serahkan semua barangnya sekaligus, lintas SRL.'} />
+      <div className="sh-modes" role="group" aria-label="Cara menampilkan">
+        <button className="chip" aria-pressed={!srl} onClick={() => pilih('org')}>Per penerima</button>
+        <button className="chip" aria-pressed={srl} onClick={() => pilih('srl')}>Per SRL</button>
+      </div>
+      {!srl ? (
+        <SerahPenerima />
+      ) : l.length ? (
         <>
           <SrlPicker {...pk} />
           {pk.cur ? <SerahSrl key={pk.cur} no={pk.cur} items={g[pk.cur]} /> : null}
