@@ -18,4 +18,5 @@ export const applyTema = t => {
 export const setTema = t => {
   try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY) } catch { /* penyimpanan dinonaktifkan: tema berlaku sesi ini saja */ }
   applyTema(t)
+  try { window.dispatchEvent(new Event('siprak-tema')) } catch { /* abaikan */ }
 }

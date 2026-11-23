@@ -689,3 +689,19 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
   main .kpi b{font-size:20px;margin:2px 0}
   main .kpi small{font-size:12px}
 }
+
+/* ===== Pilihan tema ===== */
+.tsw{display:inline-flex;border:1px solid rgba(255,255,255,.45);border-radius:4px;overflow:hidden;flex:none}
+.tsw button{font:inherit;font-size:12px;line-height:1.2;min-height:28px;padding:4px 10px;background:none;border:0;color:inherit;cursor:pointer;white-space:nowrap}
+.tsw button+button{border-left:1px solid rgba(255,255,255,.45)}
+.tsw button[aria-pressed=true]{background:rgba(255,255,255,.24);font-weight:600}
+.tsw button:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.hd-tema{display:none;margin-right:12px;color:var(--sh)}
+:root[data-theme="smoke"] .tsw{border-color:var(--bd,var(--line))}
+:root[data-theme="smoke"] .tsw button+button{border-left-color:var(--bd,var(--line))}
+:root[data-theme="smoke"] .tsw button[aria-pressed=true]{background:var(--soft)}
+.tsw.in{border-color:var(--line);color:var(--ink)}
+.tsw.in button+button{border-left-color:var(--line)}
+.tsw.in button[aria-pressed=true]{background:var(--soft);color:var(--brand)}
+.mi-tema{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px 10px 20px;font-weight:500;color:var(--ink)}
+@media (min-width:1024px){.hd-tema{display:block}}
