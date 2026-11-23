@@ -34,7 +34,7 @@ function ValSrl({ no, items }) {
   const k0 = sel.KN(items[0].kon)
   return (
     <>
-      <SrlHead no={no} s={sel.SRLof(no)} sub={`${ks.size} barang, ${items.length} request. Dibuat ${k0?.by || '-'} (${k0?.dept || '-'}).`}>
+      <SrlHead no={no} s={sel.SRLof(no)} sub={`${ks.size} barang, ${items.length} request. Dibuat ${k0?.by ? sel.nm(k0.by) : '-'} (${k0?.dept || '-'}).`}>
         <Confirm className="btn" onConfirm={() => act('validasiSrl', no, me.n)}>Validasi SRL ({ks.size} barang)</Confirm>
       </SrlHead>
       {ks.size > 6 && (

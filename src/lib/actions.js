@@ -201,7 +201,7 @@ export const actions = {
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
     Object.entries(g).forEach(([k, a]) => {
       const id = nextId(d.K, 'KON-')
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      d.K.push({ id, dept, by: me.id, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
         i.status = 'Validasi Warehouse'
         i.kon = id
@@ -255,7 +255,7 @@ export const actions = {
     if (!(q > 0) || q > mx) return { err: 'Qty harus antara 1 dan ' + mx + '. (Mungkin sudah diserahkan oleh admin lain.)' }
     const kembar = d.SR.find(x => x.item == id && +x.qty == +q && minsAgo(x.at) <= DUP_MENIT)
     if (kembar) return { err: 'Serah terima yang sama baru saja dicatat. Tidak dicatat ganda.' }
-    d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY, at: nowStr() })
+    d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.RQ(i.req).by, tgl: TODAY, at: nowStr() })
     return { ok: 'Diserahkan.' }
   },
 
@@ -339,12 +339,12 @@ export const actions = {
       const i = d.I.find(x => x.id == id)
       const q = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
       if (!(q > 0)) return
-      to = sel.nm(sel.RQ(i.req).by)
+      to = sel.RQ(i.req).by
       d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to, tgl: TODAY, at: nowStr() })
       n++
     })
     if (!n) return { err: 'Tidak ada barang yang siap diserahkan (mungkin sudah diserahkan admin lain).' }
-    return { ok: n + ' barang diserahkan ke ' + to + '.' }
+    return { ok: n + ' barang diserahkan ke ' + sel.nm(to) + '.' }
   },
 
   ingat(sel, d, id, by) {

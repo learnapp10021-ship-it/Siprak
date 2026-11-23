@@ -169,11 +169,11 @@ export function DetailSheet() {
           ['SRL', k ? k.srl + (s ? ', estimasi ' + D(s.est) : '') : '-'],
         ]} />
         <h3>Riwayat kedatangan SRL</h3>
-        <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + d.by])} e="Belum ada barang datang." />
+        <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + sel.nm(d.by)])} e="Belum ada barang datang." />
         <h3>Riwayat pengingat</h3>
-        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), x.by])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
+        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), sel.nm(x.by)])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
         <h3>Riwayat pengambilan</h3>
-        <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + x.to])} e="Belum ada yang diambil." />
+        <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + sel.nm(x.to)])} e="Belum ada yang diambil." />
         <div className="acts"><button className="btn grow" onClick={close}>Tutup</button></div>
       </Dialog>
     </>

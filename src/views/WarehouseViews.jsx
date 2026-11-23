@@ -34,7 +34,7 @@ function DatangCard({ k }) {
   const needCat = lebih && !cat.trim()
   const can = (+q > 0 || lebih) && !over && !needCat
   const submit = async () => {
-    if (await act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.n })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
+    if (await act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.id })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
   }
   return (
     <div className="row">
@@ -77,7 +77,7 @@ function DatangSrl({ no, items }) {
   return (
     <>
       <SrlHead no={no} s={sel.SRLof(no)} pct={p.pct} sub={`${items.length} barang belum lengkap. ${p.text}.`}>
-        <Confirm className="btn alt" onConfirm={() => act('datangAll', no, me.n)}>Semua datang sesuai jumlah ({items.length})</Confirm>
+        <Confirm className="btn alt" onConfirm={() => act('datangAll', no, me.id)}>Semua datang sesuai jumlah ({items.length})</Confirm>
       </SrlHead>
       <ItemSearch q={q} setQ={setQ} n={items.length} />
       {shown.map(k => <DatangCard key={k.id} k={k} />)}
@@ -149,7 +149,7 @@ function SerahCard({ i, grouped }) {
           <a
             className="btn alt grow" target="_blank" rel="noopener"
             href={`https://wa.me/${hp}?text=${encodeURIComponent(msg)}`}
-            onClick={() => act('ingat', i.id, me.n)}
+            onClick={() => act('ingat', i.id, me.id)}
           >Ingatkan via WA</a>
         )}
       </div>

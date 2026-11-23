@@ -14,7 +14,7 @@
 //     tx ditandai OK dan klien diberi tahu "berhasil". Jika tidak, di-rollback dan klien diberi tahu gagal.
 //  6. Pembacaan (sync) dilayani dari cache tanpa lock; cache diperbarui penulis di dalam lock.
 //
-// File ini digabung otomatis dengan src/lib/*.js oleh scripts/build-backend.mjs -> backend/dist/Code.gs
+// File ini digabung otomatis dengan src/lib/*.js dan rules.gs oleh scripts/build-backend.mjs -> backend/dist/Code.gs
 // =====================================================================================
 
 // Nama sheet dan urutan kolom mengikuti backend sebelumnya (data lama tetap terbaca); kolom baru
@@ -436,10 +436,10 @@ const BIND = {
   saveUser: (a, x) => [Object.assign({}, x[0], { me: a, dept: a.role === 'Admin Warehouse' ? x[0].dept : undefined })],
   saveRequest: (a, x) => [{ status: x[0].status, lines: x[0].lines, me: a }],
   simpanSrl: (a, x) => [Object.assign({}, x[0], { me: a })],
-  datang: (a, x) => [Object.assign({}, x[0], { by: a.n })],
-  datangAll: (a, x) => [x[0], a.n],
+  datang: (a, x) => [Object.assign({}, x[0], { by: a.id })],
+  datangAll: (a, x) => [x[0], a.id],
   keluarkan: (a, x) => [Object.assign({}, x[0], { by: a.n })],
-  ingat: (a, x) => [x[0], a.n],
+  ingat: (a, x) => [x[0], a.id],
   setujuAll: (a, x) => [a.id, x[1]],
 }
 
@@ -529,6 +529,13 @@ function locked_(txId, name, args, actorId, t0) {
   d.U.forEach(u => (u.hp = d.HP[u.id] || ''))
   delete d.HP
   const ch = diff_(before, d, txId)
+
+  // relasi & aturan data (rules.gs): aksi yang menghasilkan data tidak sah ditolak sebelum ada yang ditulis
+  const bad = validateChange_(d, ch)
+  if (bad.length) {
+    const pre = bad.some(e => e.c) ? 'Jumlah tidak cocok dengan data terbaru (mungkin diubah pengguna lain): ' : 'Data tidak valid: '
+    return reject_(pre + bad.slice(0, 2).map(e => e.m).join(' | '), before)
+  }
 
   const nChanged = TABLES.reduce((s, t) => s + ch[t].add.length + ch[t].upd.length, 0)
   if (!nChanged) return withSnap_({ ok: true, verified: true, noop: true, msg: (res && res.ok) || '' }, currentSnap_(before))
@@ -697,12 +704,42 @@ function migrate() {
       rg.setValues(vals.map(r => r.map(v => (v == null ? '' : String(v)))))
       log.push(def.sheet + ': ' + touched + ' baris dilengkapi')
     })
+    log.push(migrateNames_())
     SpreadsheetApp.flush()
     cacheDrop_()
     return log.join('\n') + '\nSelesai. Jalankan auditData() untuk memeriksa.'
   } finally {
     lock.releaseLock()
   }
+}
+
+// Dulu Konsolidasi.by, Kedatangan.by, SerahTerima.to, dan Pengingat.by berisi NAMA pengguna; sekarang berisi ID.
+// Nama yang cocok dengan tepat satu pengguna diganti ID-nya; yang tidak cocok/ganda dilaporkan, tidak diubah.
+function migrateNames_() {
+  const users = readTable_('U')
+  const byId = {}, byName = {}
+  users.forEach(u => {
+    byId[u.id] = 1
+    const k = String(u.n).toLowerCase().trim()
+    byName[k] = vHas_(byName, k) ? null : u.id // null = nama ganda
+  })
+  let changed = 0
+  const rep = []
+  ;[['K', 'by'], ['KD', 'by'], ['SR', 'to'], ['RM', 'by']].forEach(tc => {
+    const def = SCHEMA[tc[0]], sh = ss_().getSheetByName(def.sheet), last = sh.getLastRow()
+    if (last < 2) return
+    const rg = sh.getRange(2, def.cols.indexOf(tc[1]) + 1, last - 1, 1)
+    const vals = rg.getValues()
+    let dirty = false
+    vals.forEach((row, i) => {
+      const v = String(row[0] == null ? '' : row[0]).trim(), key = v.toLowerCase()
+      if (!v || byId[v]) return
+      if (byName[key]) { row[0] = byName[key]; dirty = true; changed++ }
+      else rep.push(def.sheet + ' baris ' + (i + 2) + ': "' + v + '" ' + (byName[key] === null ? 'cocok dengan lebih dari satu pengguna' : 'tidak cocok dengan pengguna mana pun'))
+    })
+    if (dirty) { rg.setNumberFormat('@'); rg.setValues(vals) }
+  })
+  return changed + ' sel nama diganti ID pengguna.' + (rep.length ? '\nPerlu dibetulkan manual:\n- ' + rep.join('\n- ') : '')
 }
 
 function seedDemo() {
@@ -738,7 +775,7 @@ function seedDemo() {
   return 'Data contoh dimuat.'
 }
 
-// Memeriksa kesehatan data: ID ganda, referensi yatim, transaksi menggantung
+// Memeriksa kesehatan data: kunci asing, nilai status, kesesuaian tahap, jumlah, transaksi menggantung (aturan di rules.gs)
 function auditData() {
   const lines = []
   let all
@@ -747,19 +784,7 @@ function auditData() {
   } catch (e) {
     return 'GAGAL BACA: ' + e.message
   }
-  const ids = t => new Set(all[t].map(r => r[SCHEMA[t].key]))
-  const R = ids('R'), I = ids('I'), K = ids('K'), U = ids('U'), M = ids('M')
-  all.R.forEach(r => { if (!U.has(r.by)) lines.push('Request ' + r.id + ': pemilik ' + r.by + ' tidak ada di Users') })
-  all.I.forEach(i => {
-    if (!R.has(i.req)) lines.push('Item ' + i.id + ': request ' + i.req + ' tidak ada')
-    if (!M.has(i.kode)) lines.push('Item ' + i.id + ': barang ' + i.kode + ' tidak ada di Master')
-    if (i.kon && !K.has(i.kon)) lines.push('Item ' + i.id + ': konsolidasi ' + i.kon + ' tidak ada')
-  })
-  all.KD.forEach(x => { if (!K.has(x.kon)) lines.push('Kedatangan ' + x.id + ': konsolidasi ' + x.kon + ' tidak ada') })
-  all.SR.forEach(x => { if (!I.has(x.item)) lines.push('Serah terima ' + x.id + ': item ' + x.item + ' tidak ada') })
-  all.K.forEach(k => {
-    if (+k.tutup < 0) lines.push('Konsolidasi ' + k.id + ': nilai tutup negatif')
-  })
+  validateAll_(all).forEach(e => lines.push(e.m))
   const tx = ss_().getSheetByName(TX_SHEET)
   if (tx.getLastRow() > 1) {
     tx.getRange(2, 1, tx.getLastRow() - 1, TX_COLS.length).getValues().forEach(v => {
