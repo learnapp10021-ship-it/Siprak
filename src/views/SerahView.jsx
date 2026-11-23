@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { Empty, Pill, Confirm } from '../components/ui'
 import { D, TODAY, days } from '../lib/utils'
@@ -9,6 +9,8 @@ import './serah.css'
 // Aman untuk ratusan SRL: daftar bertahap (20 per halaman), cari/filter/urut, rincian hanya untuk satu orang.
 
 const PAGE = 20
+const GPAGE = 8 // grup SRL yang tampil sekaligus di rincian satu penerima
+const BUKA = 3 // bila SRL lebih dari ini, hanya sebagian kecil yang terbuka di awal
 const LAMA = 3 // hari di gudang yang dianggap lama
 const SORTS = { wait: 'Menunggu terlama', need: 'Kebutuhan terdekat', many: 'Barang terbanyak', name: 'Nama A-Z' }
 const ini = n => n.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
@@ -40,12 +42,33 @@ export function usePenerima() {
   }, [db, sel])
 }
 
+// Kelompokkan barang per SRL; SRL dengan estimasi paling awal di atas.
+export function grupSrl(items) {
+  const m = new Map()
+  items.forEach(x => {
+    if (!m.has(x.srl)) m.set(x.srl, { no: x.srl, est: x.est, a: [] })
+    m.get(x.srl).a.push(x)
+  })
+  return [...m.values()].sort((a, b) => ((a.est || '9') < (b.est || '9') ? -1 : (a.est || '9') > (b.est || '9') ? 1 : a.no < b.no ? -1 : 1))
+}
+
+// Kotak centang tiga keadaan: semua / sebagian / tidak ada.
+function Tri({ n, of, onChange, label }) {
+  const r = useRef(null)
+  useEffect(() => { if (r.current) r.current.indeterminate = n > 0 && n < of }, [n, of])
+  return <input ref={r} type="checkbox" checked={n == of && of > 0} onChange={() => onChange(n < of)} aria-label={label} />
+}
+
 function Detail({ p, onBack }) {
   const { db, sel, me, act } = useApp()
   const [off, setOff] = useState(() => new Set()) // barang yang tidak dicentang (bawaan: semua ikut)
   const [qty, setQty] = useState({}) // jumlah diubah per barang (bawaan: semua yang siap)
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
+  const [lim, setLim] = useState(GPAGE)
+  const allGrups = useMemo(() => grupSrl(p.items), [p.items])
+  // SRL banyak: hanya beberapa teratas yang terbuka di awal; sedikit: semua terbuka
+  const [buka, setBuka] = useState(() => new Set(allGrups.slice(0, allGrups.length > BUKA ? 1 : allGrups.length).map(g => g.no)))
   const key = useDeferredValue(q).trim().toLowerCase()
   const first = p.name.split(' ')[0]
   const hp = db.HP[p.by]
@@ -55,15 +78,14 @@ function Detail({ p, onBack }) {
   const on = x => !off.has(x.i.id)
   const pilih = p.items.filter(on)
   const salah = pilih.filter(x => !okq(x))
-  const shown = key ? p.items.filter(x => (x.m.n + ' ' + x.i.kode + ' ' + x.srl).toLowerCase().includes(key)) : p.items
+  const shown = useMemo(() => (key ? p.items.filter(x => (x.m.n + ' ' + x.i.kode + ' ' + x.srl).toLowerCase().includes(key)) : p.items), [p.items, key])
 
-  // kelompokkan per SRL; SRL dengan estimasi paling awal di atas
-  const bySrl = new Map()
-  shown.forEach(x => {
-    if (!bySrl.has(x.srl)) bySrl.set(x.srl, { no: x.srl, est: x.est, a: [] })
-    bySrl.get(x.srl).a.push(x)
-  })
-  const grups = [...bySrl.values()].sort((a, b) => ((a.est || '9') < (b.est || '9') ? -1 : (a.est || '9') > (b.est || '9') ? 1 : a.no < b.no ? -1 : 1))
+  const grups = useMemo(() => grupSrl(shown), [shown])
+  const vis = grups.slice(0, lim)
+  const isi = x => !on(x) || okq(x) // barang yang dicentang tapi jumlahnya salah
+  const terbuka = g => !!key || buka.has(g.no) || !g.a.every(isi) // pencarian dan galat selalu terlihat
+  const toggle = no => setBuka(s => { const n = new Set(s); n.has(no) ? n.delete(no) : n.add(no); return n })
+  const semuaBuka = grups.length > 0 && grups.every(terbuka)
 
   const flip = id => setOff(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const semua = v => setOff(v ? new Set() : new Set(p.items.map(x => x.i.id)))
@@ -100,43 +122,68 @@ function Detail({ p, onBack }) {
 
       <div className="sh-tools">
         {p.items.length > 6 ? (
-          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Cari barang, kode, atau nomor SRL" aria-label="Cari barang penerima ini" />
+          <input type="search" value={q} onChange={e => { setQ(e.target.value); setLim(GPAGE) }} placeholder="Cari barang, kode, atau nomor SRL" aria-label="Cari barang penerima ini" />
         ) : null}
         <span className="grow" />
         <small className="mut" aria-live="polite">{totalPilih} dari {p.items.length} dipilih</small>
+        {grups.length > 1 && !key ? (
+          <button className="lnk" onClick={() => setBuka(semuaBuka ? new Set() : new Set(allGrups.map(g => g.no)))}>{semuaBuka ? 'Tutup semua SRL' : 'Buka semua SRL'}</button>
+        ) : null}
         <button className="lnk" onClick={() => semua(true)}>Pilih semua</button>
         <button className="lnk" onClick={() => semua(false)}>Kosongkan</button>
       </div>
 
-      {grups.map(gr => {
-        const allOn = gr.a.every(on)
+      {vis.map(gr => {
+        const n = gr.a.filter(on).length
+        const open = terbuka(gr)
+        const telat = !!(gr.est && gr.est < TODAY)
+        const rusak = gr.a.some(x => !isi(x))
+        const lama = Math.max(...gr.a.map(x => x.wait))
         return (
-          <div key={gr.no} className="sh-g">
+          <div key={gr.no} className={'sh-g' + (open ? ' open' : '')}>
             <div className="sh-gh">
-              <span><b>{gr.no}</b> <small className="mut">est. {D(gr.est)}, {gr.a.length} barang</small></span>
-              <button className="lnk" onClick={() => setSrl(gr.a, !allOn)}>{allOn ? 'Kosongkan SRL ini' : 'Pilih SRL ini'}</button>
+              <Tri n={n} of={gr.a.length} onChange={v => setSrl(gr.a, v)} label={'Pilih semua barang di ' + gr.no} />
+              <button className="sh-gt" aria-expanded={open} aria-controls={'g-' + gr.no} onClick={() => toggle(gr.no)} disabled={!!key}>
+                <span className="sh-chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                <span className="sh-gn">
+                  <b>{gr.no}</b>
+                  <small className="mut">est. {D(gr.est)}, {n} dari {gr.a.length} barang dipilih</small>
+                </span>
+                <span className="sh-gm">
+                  {rusak ? <Pill t="t-bad">Jumlah salah</Pill> : null}
+                  {telat ? <Pill t="t-bad">Terlambat</Pill> : null}
+                  {lama >= LAMA ? <Pill t="t-warn">{lama} hari</Pill> : null}
+                </span>
+              </button>
             </div>
-            {gr.a.map(x => (
-              <div key={x.i.id} className={'sh-i' + (on(x) ? '' : ' off')}>
-                <input type="checkbox" checked={on(x)} onChange={() => flip(x.i.id)} aria-label={'Serahkan ' + x.m.n} />
-                <span className="sh-it">
-                  <b>{x.m.n}</b>
-                  <small className="mut">{x.i.kode}, pakai {D(x.i.pakai)}, dipesan {x.i.qty}</small>
-                  {x.wait >= LAMA ? <Pill t="t-warn">Di gudang {x.wait} hari</Pill> : null}
-                </span>
-                <span className="sh-q">
-                  <input
-                    type="number" inputMode="decimal" min="0" max={x.b} step="any" value={val(x)} disabled={!on(x)}
-                    aria-label={'Jumlah ' + x.m.n} aria-invalid={on(x) && !okq(x) ? 'true' : undefined}
-                    onChange={e => setQty(s => ({ ...s, [x.i.id]: e.target.value }))}
-                  />
-                  <small className="mut">dari {fmt(x.b)} {x.m.sat}</small>
-                </span>
+            {open ? (
+              <div id={'g-' + gr.no}>
+                {gr.a.map(x => (
+                  <div key={x.i.id} className={'sh-i' + (on(x) ? '' : ' off')}>
+                    <input type="checkbox" checked={on(x)} onChange={() => flip(x.i.id)} aria-label={'Serahkan ' + x.m.n} />
+                    <span className="sh-it">
+                      <b>{x.m.n}</b>
+                      <small className="mut">{x.i.kode}, pakai {D(x.i.pakai)}, dipesan {x.i.qty}</small>
+                      {x.wait >= LAMA ? <Pill t="t-warn">Di gudang {x.wait} hari</Pill> : null}
+                    </span>
+                    <span className="sh-q">
+                      <input
+                        type="number" inputMode="decimal" min="0" max={x.b} step="any" value={val(x)} disabled={!on(x)}
+                        aria-label={'Jumlah ' + x.m.n} aria-invalid={on(x) && !okq(x) ? 'true' : undefined}
+                        onChange={e => setQty(s => ({ ...s, [x.i.id]: e.target.value }))}
+                      />
+                      <small className="mut">dari {fmt(x.b)} {x.m.sat}</small>
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
           </div>
         )
       })}
+      {grups.length > vis.length ? (
+        <button className="btn alt sh-more" onClick={() => setLim(l => l + GPAGE)}>Tampilkan {Math.min(GPAGE, grups.length - vis.length)} SRL lagi (sisa {grups.length - vis.length})</button>
+      ) : null}
       {key && !shown.length ? <Empty>Tidak ada barang yang cocok dengan "{q.trim()}".</Empty> : null}
 
       <div className="sh-bar">

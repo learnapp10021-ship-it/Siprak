@@ -72,4 +72,32 @@ describe('Serah terima per penerima', () => {
     expect(await screen.findByRole('listbox', { name: 'Daftar SRL' })).toBeTruthy()
     expect(localStorage.getItem('siprak.srhMode')).toBe('srl')
   })
+
+  it('grup SRL bisa dilipat; kotak centang SRL memilih/melepas semua barangnya', async () => {
+    const list = await bukaSerah()
+    fireEvent.change(screen.getByLabelText('Urutkan'), { target: { value: 'many' } })
+    fireEvent.click(list.getAllByRole('option')[0])
+    const head = (await screen.findAllByRole('button', { expanded: true }))[0]
+    const items = () => screen.queryAllByRole('checkbox', { name: /^Serahkan / }).length
+    const n0 = items()
+    expect(n0).toBeGreaterThan(0)
+    fireEvent.click(head) // lipat
+    expect(items()).toBeLessThan(n0)
+    fireEvent.click(head) // buka lagi
+    expect(items()).toBe(n0)
+    // kotak centang SRL melepas semua barang di grupnya
+    const g = screen.getAllByRole('checkbox', { name: /^Pilih semua barang di / })[0]
+    fireEvent.click(g)
+    expect(screen.getAllByRole('checkbox', { name: /^Serahkan / }).some(c => !c.checked)).toBe(true)
+  })
+})
+
+describe('grupSrl', () => {
+  const mk = (srl, est) => ({ srl, est })
+  it('mengelompokkan per SRL dan mengurutkan estimasi paling awal di atas', async () => {
+    const { grupSrl } = await import('../views/SerahView')
+    const g = grupSrl([mk('B', '2026-12-02'), mk('A', '2026-12-01'), mk('B', '2026-12-02'), mk('C', '')])
+    expect(g.map(x => x.no)).toEqual(['A', 'B', 'C'])
+    expect(g.find(x => x.no == 'B').a.length).toBe(2)
+  })
 })
