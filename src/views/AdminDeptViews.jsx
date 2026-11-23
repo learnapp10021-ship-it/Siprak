@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, ReqCard, copyText, useMore } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
+import { useMedia } from '../lib/useMedia'
 
-function HoldRow({ i, m, on, toggle }) {
+function HoldRow({ i, m }) {
   const { sel, act } = useApp()
   const [a, setA] = useState('')
   return (
     <div className="item">
-      <div className="between"><span>{toggle && !i.tahan ? <input type="checkbox" className="dsk-c" checked={on} onChange={toggle} aria-label={'Ikut SRL: ' + sel.nm(sel.RQ(i.req).by)} /> : null}<b className="dsk-b">{sel.nm(sel.RQ(i.req).by)}</b><span className="dsk-x">{sel.nm(sel.RQ(i.req).by)}, </span> {i.qty} {m.sat}</span><small>{i.req}</small></div>
-      {i.datang ? <small className="mut dsk">Dibutuhkan {D(i.datang)}{i.datang < TODAY && !i.tahan ? ' (terlewat)' : ''}, disetujui {days(i.appr)} hari lalu</small> : null}
+      <div className="between"><span>{sel.nm(sel.RQ(i.req).by)}, {i.qty} {m.sat}</span><small>{i.req}</small></div>
       {i.tahan ? (
         <>
           <div className="lbl t-warn">Ditahan: {i.alasan}</div>
@@ -28,8 +28,111 @@ function HoldRow({ i, m, on, toggle }) {
   )
 }
 
+function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan }) {
+  const { sel, me, act, toast } = useApp()
+  const [fq, setFq] = useState('')
+  const [fs, setFs] = useState('')
+  const [why, setWhy] = useState('')
+  const ready = all.filter(i => !off.includes(i.id))
+  const rows = p
+    .map(i => ({ i, m: sel.mi(i.kode), who: sel.nm(sel.RQ(i.req).by), w: days(i.appr) }))
+    .sort((a, b) => ((a.i.datang || '9') < (b.i.datang || '9') ? -1 : (a.i.datang || '9') > (b.i.datang || '9') ? 1 : a.m.n.localeCompare(b.m.n)))
+    .filter(({ i, m, who }) => {
+      const st = i.tahan ? 'hold' : i.datang < TODAY ? 'late' : 'ok'
+      if (fs && fs != st) return false
+      const q = fq.trim().toLowerCase()
+      return !q || (m.n + ' ' + who + ' ' + i.req).toLowerCase().includes(q)
+    })
+  const vis = rows.filter(r => !r.i.tahan)
+  const allOn = vis.length > 0 && vis.every(r => !off.includes(r.i.id))
+  const tot = {}
+  ready.forEach(i => (tot[i.kode] = (tot[i.kode] || 0) + +i.qty))
+  const copy = () => copyText(Object.entries(tot).map(([k, q]) => k + '\t' + q).join('\n'), toast)
+  const tahan = async () => {
+    if (!ready.length) return
+    for (const i of ready) if (!(await act('tahan', i.id, why.trim()))) return
+    setWhy('')
+  }
+  const toggleAll = () => setOff(o => (allOn ? [...new Set([...o, ...vis.map(r => r.i.id)])] : o.filter(x => !vis.some(r => r.i.id == x))))
+  return (
+    <div className="erp">
+      <div className="erp-bar">
+        <button className="eb" onClick={copy} disabled={!ready.length}>Salin terpilih (article, qty)</button>
+        <span className="sep" />
+        <input className="eb-in" value={why} onChange={e => setWhy(e.target.value)} placeholder="Alasan menahan" aria-label="Alasan menahan terpilih" />
+        <button className="eb" onClick={tahan} disabled={!ready.length}>Tahan terpilih</button>
+        <span className="grow" />
+        <span className="erp-cnt">{ready.length} dipilih dari {p.length} request</span>
+      </div>
+      <div className="erp-grid">
+        <table className="egrid">
+          <thead>
+            <tr>
+              <th className="c"><input type="checkbox" checked={allOn} onChange={toggleAll} aria-label="Pilih semua yang tampil" /></th>
+              <th>Request</th><th>Peminta</th><th>Barang</th><th className="n">Qty</th><th>Dibutuhkan</th><th className="n">Tunggu</th><th>Status</th><th />
+            </tr>
+            <tr className="flt">
+              <th />
+              <th colSpan="3"><input value={fq} onChange={e => setFq(e.target.value)} placeholder="Cari request, peminta, barang" aria-label="Cari di pool" /></th>
+              <th colSpan="3" />
+              <th>
+                <select value={fs} onChange={e => setFs(e.target.value)} aria-label="Filter status">
+                  <option value="">Semua</option><option value="ok">Siap</option><option value="late">Terlewat</option><option value="hold">Ditahan</option>
+                </select>
+              </th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ i, m, who, w }) => {
+              const on = !i.tahan && !off.includes(i.id)
+              return (
+                <tr key={i.id} className={(i.tahan ? 'held ' : '') + (on ? 'on' : '')}>
+                  <td className="c">{i.tahan ? null : <input type="checkbox" checked={on} onChange={() => flip(i.id)} aria-label={'Ikut SRL: ' + who + ', ' + m.n} />}</td>
+                  <td>{i.req}</td>
+                  <td>{who}</td>
+                  <td><b>{m.n}</b><small>{m.buf == '1' ? 'Buffer' : 'Non buffer'}</small></td>
+                  <td className="n">{i.qty} {m.sat}</td>
+                  <td className={i.datang < TODAY && !i.tahan ? 'bad' : ''}>{D(i.datang)}</td>
+                  <td className="n">{w} hr</td>
+                  <td>{i.tahan ? <span className="t-warn">Ditahan: {i.alasan}</span> : i.datang < TODAY ? <span className="t-bad">Terlewat</span> : 'Siap'}</td>
+                  <td className="c">{i.tahan ? <button className="eb sm" onClick={() => act('lepas', i.id)}>Lepas</button> : null}</td>
+                </tr>
+              )
+            })}
+            {!rows.length && <tr><td colSpan="9" className="none">Tidak ada request yang cocok dengan filter.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="erp-tab"><span>Detail SRL</span></div>
+      <div className="erp-det">
+        <div>
+          <table className="egrid sm">
+            <thead><tr><th>Article</th><th>Barang</th><th className="n">Request</th><th className="n">Total qty</th></tr></thead>
+            <tbody>
+              {Object.entries(tot).map(([k, q]) => (
+                <tr key={k}><td>{k}</td><td>{sel.mi(k).n}</td><td className="n">{ready.filter(i => i.kode == k).length}</td><td className="n"><b>{q}</b> {sel.mi(k).sat}</td></tr>
+              ))}
+              {!ready.length && <tr><td colSpan="4" className="none">Belum ada request dipilih. Centang request di tabel atas.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="erp-form">
+          <div className="stp"><i>1</i><b>Salin daftar, buat SRL di ERO</b></div>
+          <div className="stp"><i>2</i><b>Isi nomor SRL dari ERO</b></div>
+          <label>No. SRL<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
+          <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
+          <div className="stp"><i>3</i><b>Simpan, lalu divalidasi Admin Warehouse</b></div>
+          <button className="btn" disabled={!ready.length} onClick={simpan}>Simpan SRL ({ready.length} request)</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function VPool() {
   const { sel, me, act, toast, setUi } = useApp()
+  const wide = useMedia('(min-width:1024px)')
   const [off, setOff] = useState([])
   const [done, setDone] = useState(null)
   const [no, setNo] = useState('')
@@ -49,11 +152,11 @@ export function VPool() {
     ready.forEach(i => (t[i.kode] = (t[i.kode] || 0) + +i.qty))
     copyText(Object.entries(t).map(([k, q]) => k + '\t' + q).join('\n'), toast)
   }
-  const tot = {}
-  ready.forEach(i => (tot[i.kode] = (tot[i.kode] || 0) + +i.qty))
-  const held = p.length - all.length
-  const lateN = all.filter(i => i.datang < TODAY).length
-  const oldest = all.length ? Math.max(...all.map(i => days(i.appr))) : 0
+  const simpan = async () => {
+    // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
+    const n = ready.length, nomor = no.trim()
+    if (await act('simpanSrl', { no: nomor, est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst(''); setOff([]); setDone({ no: nomor, n }) }
+  }
   return (
     <>
       <Hd t={'Pool ' + d} s="Request disetujui yang belum dibuat di ERO. Paling mendesak di atas." />
@@ -63,74 +166,44 @@ export function VPool() {
           <span><button className="btn alt" onClick={() => setUi({ tab: 'kon' })}>Lihat di SRL</button> <button className="btn alt" onClick={() => setDone(null)}>Tutup</button></span>
         </div>
       )}
-      {groups.length > 0 && (
-        <div className="pool-kpi dsk" aria-label="Ringkasan pool">
-          <div><b>{all.length}</b><span>Siap dibuat di ERO</span></div>
-          <div className={held ? 'w' : ''}><b>{held}</b><span>Ditahan</span></div>
-          <div className={lateN ? 'x' : ''}><b>{lateN}</b><span>Tanggal datang terlewat</span></div>
-          <div><b>{oldest}<small> hari</small></b><span>Menunggu terlama</span></div>
-        </div>
-      )}
-      {groups.length > 0 && (
+      {groups.length > 0 && wide && <PoolGrid {...{ p, all, off, flip, setOff, no, setNo, est, setEst, simpan }} />}
+      {groups.length > 0 && !wide && (
         <div className="row eropanel">
-          <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request dipilih untuk ERO</b><br />
-          <small className="mut dsk-x">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
-          <div className="dsk">
-            <div className="stp"><i>1</i><b>Salin daftar barang</b></div>
-            {off.length > 0 && <small className="mut">{off.length} request tidak dipilih. <button className="lnk" onClick={() => setOff([])}>Pilih semua</button></small>}
-            {ready.length ? (
-              <table className="pool-sum"><tbody>
-                {Object.entries(tot).map(([k, q]) => <tr key={k}><td>{sel.mi(k).n}</td><td>{q} {sel.mi(k).sat}</td></tr>)}
-              </tbody></table>
-            ) : <small className="mut">Belum ada request dipilih. Centang request di daftar kanan.</small>}
-          </div>
-          <div className="acts"><button className="btn alt grow" onClick={copyAll} disabled={!ready.length}>Salin semua (article dan qty)</button></div>
-          <div className="dsk stp"><i>2</i><b>Buat SRL di ERO, lalu isi nomornya</b></div>
+          <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
+          <small className="mut">1. Salin daftar, buat SRL di ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
+          <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
           <div className="grid">
             <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
             <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
           </div>
-          <div className="acts">
-            <button
-              className="btn grow" disabled={!ready.length}
-              onClick={async () => {
-                // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
-                const n = ready.length, nomor = no.trim()
-                if (await act('simpanSrl', { no: nomor, est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst(''); setOff([]); setDone({ no: nomor, n }) }
-              }}
-            >Simpan SRL</button>
-          </div>
-          <small className="mut dsk">Langkah 3: Simpan SRL. Admin Warehouse akan memvalidasi; barang tidak sesuai kembali ke Pool.</small>
+          <div className="acts"><button className="btn grow" onClick={simpan}>Simpan SRL</button></div>
         </div>
       )}
-      {groups.length ? (
-        groups.map(([k, a]) => {
-          const m = sel.mi(k)
-          const ok = a.filter(i => !i.tahan)
-          const late = ok.some(i => i.datang < TODAY)
-          const wt = Math.max(...a.map(i => days(i.appr)))
-          return (
-            <div className="row" key={k}>
-              <div className="between">
-                <b>{m.n}</b>
-                <span>
-                  {late && <><Pill t="t-bad">Tanggal datang terlewat</Pill>{' '}</>}
-                  {wt >= 3 && <><Pill t="t-warn">Menunggu {wt} hari</Pill>{' '}</>}
-                  <Pill t="t-info">{m.buf == '1' ? 'Buffer' : 'Non buffer'}</Pill>
-                </span>
-              </div>
-              <small className="mut">
-                {ok.length
-                  ? `${ok.length} request siap, total ${sum(ok, i => i.qty)} ${m.sat}. Datang terawal ${D(ok.map(i => i.datang).sort()[0])}, menunggu ${wt} hari.`
-                  : `Semua request ditahan (${a.length}). Belum ikut ERO sampai dilepas.`}
-              </small>
-              {a.map(i => <HoldRow key={i.id} i={i} m={m} on={!off.includes(i.id)} toggle={() => flip(i.id)} />)}
+      {groups.length > 0 && !wide && groups.map(([k, a]) => {
+        const m = sel.mi(k)
+        const ok = a.filter(i => !i.tahan)
+        const late = ok.some(i => i.datang < TODAY)
+        const wt = Math.max(...a.map(i => days(i.appr)))
+        return (
+          <div className="row" key={k}>
+            <div className="between">
+              <b>{m.n}</b>
+              <span>
+                {late && <><Pill t="t-bad">Tanggal datang terlewat</Pill>{' '}</>}
+                {wt >= 3 && <><Pill t="t-warn">Menunggu {wt} hari</Pill>{' '}</>}
+                <Pill t="t-info">{m.buf == '1' ? 'Buffer' : 'Non buffer'}</Pill>
+              </span>
             </div>
-          )
-        })
-      ) : (
-        <Empty>Pool kosong. Request yang disetujui atasan akan muncul di sini.</Empty>
-      )}
+            <small className="mut">
+              {ok.length
+                ? `${ok.length} request siap, total ${sum(ok, i => i.qty)} ${m.sat}. Datang terawal ${D(ok.map(i => i.datang).sort()[0])}, menunggu ${wt} hari.`
+                : `Semua request ditahan (${a.length}). Belum ikut ERO sampai dilepas.`}
+            </small>
+            {a.map(i => <HoldRow key={i.id} i={i} m={m} />)}
+          </div>
+        )
+      })}
+      {!groups.length && <Empty>Pool kosong. Request yang disetujui atasan akan muncul di sini.</Empty>}
     </>
   )
 }
@@ -188,7 +261,7 @@ function KonRow({ k }) {
         <td><b>{m.n}</b><small className="mut">{k.id}</small></td>
         <td>{k.srl || '-'}</td>
         <td>{peminta.map(i => sel.nm(sel.RQ(i.req).by).split(' ')[0] + ' ' + i.qty).join(', ')}<small className="mut">{peminta.length} request</small></td>
-        <td className="num">{t} {m.sat}</td>
+        <td className="n">{t} {m.sat}</td>
         <td>
           {jalan ? (
             <>
@@ -198,7 +271,7 @@ function KonRow({ k }) {
           ) : k.tahap == 'Dikeluarkan' ? <small className="mut">Alasan: {k.alasan}</small> : <small className="mut">-</small>}
         </td>
         <td><Pill t={tone}>{tl}</Pill></td>
-        <td>{jalan && s > 0 ? <button className="btn alt" onClick={() => setOpen(o => !o)}>{open ? 'Batal' : 'Tutup sisa'}</button> : null}</td>
+        <td>{jalan && s > 0 ? <button className="eb sm" onClick={() => setOpen(o => !o)}>{open ? 'Batal' : 'Tutup sisa'}</button> : null}</td>
       </tr>
       {open && (
         <tr className="sub"><td colSpan="7">
@@ -233,10 +306,21 @@ export function VKon() {
     return (sel.mi(k.kode).n + ' ' + k.id + ' ' + (k.srl || '') + ' ' + names).toLowerCase().includes(qq)
   })
   const [vis, more] = useMore(l, 12)
+  const wide = useMedia('(min-width:1024px)')
   return (
     <>
       <Hd t={'SRL ' + me.dept} s={all.length ? (l.length == all.length ? all.length : l.length + ' dari ' + all.length) + ' barang di SRL. Yang perlu perhatian di atas.' : 'Status tiap SRL dan barang yang sudah datang.'} />
-      {all.length > 4 && (
+      {all.length > 4 && wide && (
+        <div className="erp-bar top">
+          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Cari barang, SRL, atau peminta" aria-label="Cari barang, SRL, atau peminta" />
+          <select value={st} onChange={e => setSt(e.target.value)} aria-label="Status">
+            <option value="">Semua status ({all.length})</option>
+            {Object.keys(KLAB).filter(x => cnt[x]).map(x => <option key={x} value={x}>{KLAB[x]} ({cnt[x]})</option>)}
+          </select>
+          <span className="grow" /><span className="erp-cnt">{l.length} dari {all.length} barang</span>
+        </div>
+      )}
+      {all.length > 4 && !wide && (
         <div className="grid" style={{ gridColumn: '1/-1' }}>
           <label>Cari barang, SRL, atau peminta
             <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Ketik untuk mencari" />
@@ -250,15 +334,14 @@ export function VKon() {
         </div>
       )}
       {l.length ? (
-        <>
-          <div className="mob">{vis.map(x => <KonCard key={x.k.id} k={x.k} />)}</div>
-          <div className="dsk tblw">
-            <table className="dtbl">
-              <thead><tr><th>Barang</th><th>No. SRL</th><th>Peminta</th><th className="num">Total</th><th>Progres datang</th><th>Status</th><th /></tr></thead>
+        wide ? (
+          <div className="erp-grid">
+            <table className="egrid">
+              <thead><tr><th>Barang</th><th>No. SRL</th><th>Peminta</th><th className="n">Total</th><th>Progres datang</th><th>Status</th><th /></tr></thead>
               <tbody>{vis.map(x => <KonRow key={x.k.id} k={x.k} />)}</tbody>
             </table>
           </div>
-        </>
+        ) : vis.map(x => <KonCard key={x.k.id} k={x.k} />)
       ) : <Empty>{all.length ? 'Tidak ada yang cocok dengan pencarian.' : 'Belum ada SRL. Mulai dari tab Buat ERO.'}</Empty>}
       {more}
     </>
@@ -278,9 +361,20 @@ export function VAll() {
       (!f || db.I.some(i => i.req == r.id && sel.live(i) && sel.st(i)[0] == f))
   ).sort((a, b) => (b.tgl < a.tgl ? -1 : 1))
   const [vis, more] = useMore(l, 12)
+  const wide = useMedia('(min-width:1024px)')
   return (
     <>
       <Hd t={'Semua request ' + d} s={l.length + ' request ditemukan.'} />
+      {wide ? (
+        <div className="erp-bar top">
+          <input value={ui.q} onChange={e => setUi({ q: e.target.value })} placeholder="Cari nama atau barang" aria-label="Cari nama atau barang" />
+          <select value={f} onChange={e => setUi({ sf: e.target.value })} aria-label="Tahap barang">
+            <option value="">Semua tahap</option>
+            {names.map((n, i) => <option key={i} value={i}>{n}</option>)}
+          </select>
+          <span className="grow" /><span className="erp-cnt">{l.length} request</span>
+        </div>
+      ) : (
       <div className="grid" style={{ gridColumn: '1/-1' }}>
         <label>Cari nama atau barang<input value={ui.q} onChange={e => setUi({ q: e.target.value })} placeholder="Ketik nama atau barang" /></label>
         <label>Tahap barang
@@ -290,11 +384,11 @@ export function VAll() {
           </select>
         </label>
       </div>
+      )}
       {l.length ? (
-        <>
-          <div className="mob">{vis.map(r => <ReqCard key={r.id} r={r} mode="tim" />)}</div>
-          <div className="dsk tblw">
-            <table className="dtbl">
+        wide ? (
+          <div className="erp-grid">
+            <table className="egrid">
               <thead><tr><th>Request</th><th>Tanggal</th><th>Peminta</th><th>Barang dan status</th><th>Tahap</th></tr></thead>
               <tbody>
                 {vis.map(r => (
@@ -314,7 +408,7 @@ export function VAll() {
               </tbody>
             </table>
           </div>
-        </>
+        ) : vis.map(r => <ReqCard key={r.id} r={r} mode="tim" />)
       ) : <Empty>Tidak ada request yang cocok dengan filter.</Empty>}
       {more}
     </>

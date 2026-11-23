@@ -408,3 +408,74 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   .dtbl .it{border-bottom:1px dashed var(--line)}
   .dtbl .it:last-child{border-bottom:0}
 }
+
+/* ===== Admin Dept desktop: gaya grid data ala aplikasi ERP (padat, bergaris, toolbar datar) ===== */
+@media (min-width:1024px){
+  main.v-pool{display:block}
+  main.v-pool>*{grid-column:auto}
+  main.v-pool>.eropanel{position:static}
+  main.v-pool .hd,main.v-kon .hd,main.v-allr .hd{padding:12px 0 8px;margin-bottom:10px}
+  .erp{font-size:13px}
+  .erp-bar{display:flex;align-items:center;gap:8px;background:var(--soft);border:1px solid var(--line);border-bottom:0;padding:6px 8px;border-radius:3px 3px 0 0}
+  .erp-bar.top{border-bottom:1px solid var(--line);border-radius:3px;margin-bottom:10px;background:var(--paper)}
+  .erp-bar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+  .erp-bar .grow{flex:1}
+  .erp-cnt{color:var(--mut);font-size:12px}
+  .erp-bar input,.erp-bar select{height:28px;padding:2px 8px;font-size:13px;border:1px solid var(--line);border-radius:3px;background:var(--paper);color:var(--ink);width:auto;min-width:220px}
+  .erp-bar.top input{min-width:320px}
+  .eb{height:28px;padding:0 12px;font-size:13px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:3px;cursor:pointer}
+  .eb:hover:not(:disabled){background:var(--soft);border-color:var(--brand)}
+  .eb:disabled{opacity:.45;cursor:default}
+  .eb.sm{height:22px;padding:0 8px;font-size:12px}
+  .erp-grid{background:var(--paper);border:1px solid var(--line);overflow:auto;max-height:calc(100vh - var(--hh) - 330px);min-height:140px}
+  main.v-kon .erp-grid,main.v-allr .erp-grid{max-height:none;border-radius:3px}
+  .egrid{width:100%;border-collapse:collapse;font-size:13px}
+  .egrid th,.egrid td{padding:5px 10px;border:1px solid var(--line);text-align:left;vertical-align:middle;line-height:1.35}
+  .egrid thead th{background:var(--soft);font-weight:600;color:var(--ink);white-space:nowrap;position:sticky;top:0;z-index:1}
+  .egrid thead tr.flt th{top:29px;background:var(--paper);padding:3px 6px;font-weight:400}
+  .egrid .flt input,.egrid .flt select{width:100%;height:24px;padding:1px 6px;font-size:12px;border:1px solid var(--line);border-radius:2px}
+  .egrid .n{text-align:right;white-space:nowrap}
+  .egrid .c{text-align:center;width:34px}
+  .egrid td.bad,.egrid .t-bad{color:var(--bad);font-weight:600}
+  .egrid .t-warn{color:var(--warn)}
+  .egrid tbody tr:hover{background:var(--bg)}
+  .egrid tbody tr.on{background:var(--soft)}
+  .egrid tbody tr.held{color:var(--mut);background:var(--bg)}
+  .egrid td.none{text-align:center;color:var(--mut);padding:16px}
+  .egrid small{display:block;color:var(--mut);font-size:12px}
+  .egrid input[type=checkbox]{width:15px;height:15px;margin:0;vertical-align:middle}
+  .egrid .it{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:2px 0}
+  .egrid .it .pill{white-space:normal;text-align:left}
+  .egrid .bar{min-width:110px;margin:2px 0}
+  .egrid .sub td{background:var(--bg)}
+  .egrid.sm th,.egrid.sm td{padding:4px 8px}
+  .erp-tab{margin-top:14px;display:flex}
+  .erp-tab span{background:var(--paper);border:1px solid var(--line);border-bottom:0;padding:5px 16px;font-size:13px;font-weight:600;border-radius:3px 3px 0 0;position:relative;top:1px}
+  .erp-det{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;background:var(--paper);border:1px solid var(--line);padding:12px;align-items:start}
+  .erp-form{display:grid;gap:8px}
+  .erp-form label{display:grid;gap:3px;font-size:12px;color:var(--mut)}
+  .erp-form input{height:30px;font-size:13px}
+  .erp-form .stp{margin:4px 0 0}
+  .erp-form .btn{height:34px}
+}
+@media (min-width:1024px){
+  .egrid td:nth-child(2),.egrid td:nth-child(6){white-space:nowrap}
+  .egrid .t-warn,.egrid .t-bad{background:none;padding:0}
+  .erp-bar input,.erp-bar select{height:28px!important;min-height:0!important;box-sizing:border-box}
+  .egrid .flt input,.egrid .flt select{height:24px!important;min-height:0!important;box-sizing:border-box}
+  .erp-grid{max-height:calc(100vh - var(--hh) - 360px)}
+}
+@media (min-width:1024px){
+  .egrid td:first-child{min-width:150px}
+  .egrid th,.egrid td{padding:5px 8px}
+  .egrid .bar{min-width:90px}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  main{padding-left:16px;padding-right:16px}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  .egrid td:first-child{min-width:120px}
+  .egrid .bar{min-width:60px}
+  main.v-kon .egrid th,main.v-kon .egrid td{padding:5px 6px}
+  main.v-kon .egrid .pill{white-space:normal}
+}
