@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { D, TODAY } from '../lib/utils'
 
@@ -51,7 +51,7 @@ function Ring({ pct, tone, dead, wait }) {
   )
 }
 
-export function ItemCard({ it }) {
+export const ItemCard = memo(function ItemCard({ it }) {
   const { sel, db } = useApp()
   const m = sel.mi(it.kode)
   const [g, t, l] = sel.st(it)
@@ -108,12 +108,12 @@ export function ItemCard({ it }) {
       ))}
     </div>
   )
-}
+})
 
 const TONE = { Draft: 't-gray', 'Menunggu Approval': 't-warn', Disetujui: 't-ok', Ditolak: 't-bad', Dibatalkan: 't-gray' }
 
 // mode: 'own' (milik sendiri), 'appr' (untuk atasan menyetujui), 'tim' (hanya lihat)
-export function ReqCard({ r, mode }) {
+export const ReqCard = memo(function ReqCard({ r, mode }) {
   const { db, sel, act } = useApp()
   const [cat, setCat] = useState('')
   const its = db.I.filter(i => i.req == r.id)
@@ -145,7 +145,7 @@ export function ReqCard({ r, mode }) {
       )}
     </div>
   )
-}
+})
 
 // Salin ke clipboard dengan fallback execCommand
 export function copyText(t, toast) {

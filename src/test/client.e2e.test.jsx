@@ -34,12 +34,12 @@ globalThis.fetch = async (url, opts = {}) => {
   return { status: 200, text: async () => text }
 }
 
-let app, AppProvider, useApp
+let app, AppProvider, useApp, useStatus
 const line = q => ({ kode: 'SRG-001', qty: String(q), datang: addDays(TODAY, 10), pakai: addDays(TODAY, 14) })
 const draftArgs = q => [{ status: 'Draft', lines: [line(q)], me: { id: 'andi.prod', boss: 'budi.spv', role: 'User' } }]
 
 function Probe() {
-  app = useApp()
+  app = { ...useApp(), ...useStatus() } // data/aksi + status simpan/toast (konteks terpisah)
   return <div data-testid="r">{app.db.R.length}</div>
 }
 const mount = async () => {
@@ -52,7 +52,7 @@ beforeAll(async () => {
   vi.stubEnv('VITE_API_URL', 'http://gas.test/exec')
   vi.stubEnv('VITE_POLL_MS', '60')
   vi.resetModules()
-  ;({ AppProvider, useApp } = await import('../store'))
+  ;({ AppProvider, useApp, useStatus } = await import('../store'))
 })
 beforeEach(() => {
   cleanup()

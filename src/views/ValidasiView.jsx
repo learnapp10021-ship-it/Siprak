@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Confirm, SrlPicker, SrlHead, useSrlPick } from '../components/ui'
 import { D, sum } from '../lib/utils'
@@ -27,7 +27,7 @@ function TakeOut({ ids, label = 'Keluarkan dari SRL' }) {
 function ValSrl({ no, items }) {
   const { sel, me, act } = useApp()
   const [q, setQ] = useState('')
-  const key = q.trim().toLowerCase()
+  const key = useDeferredValue(q).trim().toLowerCase()
   const ks = new Map()
   items.forEach(i => { if (!ks.has(i.kon)) ks.set(i.kon, []); ks.get(i.kon).push(i) })
   const groups = [...ks.entries()].filter(([, a]) => !key || (sel.mi(a[0].kode).n + ' ' + a[0].kode).toLowerCase().includes(key))

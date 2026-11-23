@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, ReqCard, copyText, useMore } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
@@ -33,6 +33,7 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
   const [fq, setFq] = useState('')
   const [fs, setFs] = useState('')
   const [why, setWhy] = useState('')
+  const dfq = useDeferredValue(fq)
   const ready = all.filter(i => !off.includes(i.id))
   const rows = p
     .map(i => ({ i, m: sel.mi(i.kode), who: sel.nm(sel.RQ(i.req).by), w: days(i.appr) }))
@@ -40,7 +41,7 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
     .filter(({ i, m, who }) => {
       const st = i.tahan ? 'hold' : i.datang < TODAY ? 'late' : 'ok'
       if (fs && fs != st) return false
-      const q = fq.trim().toLowerCase()
+      const q = dfq.trim().toLowerCase()
       return !q || (m.n + ' ' + who + ' ' + i.req).toLowerCase().includes(q)
     })
   const vis = rows.filter(r => !r.i.tahan)
@@ -298,7 +299,7 @@ export function VKon() {
     .sort((a, b) => KRANK[a.s] - KRANK[b.s] || b.k.id.localeCompare(a.k.id, undefined, { numeric: true }))
   const cnt = {}
   all.forEach(x => (cnt[x.s] = (cnt[x.s] || 0) + 1))
-  const qq = q.trim().toLowerCase()
+  const qq = useDeferredValue(q).trim().toLowerCase()
   const l = all.filter(({ k, s }) => {
     if (st && s != st) return false
     if (!qq) return true
@@ -351,7 +352,7 @@ export function VKon() {
 export function VAll() {
   const { db, sel, me, ui, setUi } = useApp()
   const d = me.dept
-  const q = ui.q.toLowerCase()
+  const q = useDeferredValue(ui.q).toLowerCase()
   const f = ui.sf
   const names = ['Diajukan', 'Disetujui', 'Dikonsolidasi', 'Di ERO', 'Barang tiba']
   const l = db.R.filter(

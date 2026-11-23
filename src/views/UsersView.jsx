@@ -1,3 +1,4 @@
+import { useDeferredValue } from 'react'
 import { useApp } from '../store'
 import { Hd, Pill } from '../components/ui'
 import { disp } from '../lib/utils'
@@ -7,7 +8,7 @@ export function VUsr() {
   const wh = me.role == 'Admin Warehouse'
   const d = wh ? ui.ud : me.dept
   const deps = [...new Set(db.U.map(u => u.dept))]
-  const q = ui.uq.toLowerCase()
+  const q = useDeferredValue(ui.uq).toLowerCase()
   const l = db.U.filter(u => (!d || u.dept == d) && (!q || (u.n + u.id).toLowerCase().includes(q)))
   return (
     <>

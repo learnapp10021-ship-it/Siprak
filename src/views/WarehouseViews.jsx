@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, Confirm, SrlPicker, SrlHead, useSrlPick } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
@@ -71,7 +71,7 @@ function DatangCard({ k }) {
 function DatangSrl({ no, items }) {
   const { db, sel, me, act } = useApp()
   const [q, setQ] = useState('')
-  const key = q.trim().toLowerCase()
+  const key = useDeferredValue(q).trim().toLowerCase()
   const shown = key ? items.filter(k => (sel.mi(k.kode).n + ' ' + k.kode + ' ' + k.id).toLowerCase().includes(key)) : items
   const p = progDtg(db, sel)(no)
   return (
@@ -169,7 +169,7 @@ const progSrh = (db, sel) => no => {
 function SerahSrl({ no, items }) {
   const { db, sel, act } = useApp()
   const [q, setQ] = useState('')
-  const key = q.trim().toLowerCase()
+  const key = useDeferredValue(q).trim().toLowerCase()
   const shown = key
     ? items.filter(i => (sel.mi(i.kode).n + ' ' + i.kode + ' ' + sel.nm(sel.RQ(i.req).by)).toLowerCase().includes(key))
     : items

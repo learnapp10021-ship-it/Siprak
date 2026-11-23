@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, Srl, useMore } from '../components/ui'
 import { D, TODAY, addDays, avg, days, dayDiff, f1, sum } from '../lib/utils'
@@ -25,6 +25,7 @@ export function VDash() {
   const f = ui.df
   const pr = ui.dp
   const [qs, setQs] = useState('')
+  const dqs = useDeferredValue(qs)
 
   const m = useMemo(() => {
     const dayOfWeek = new Date(TODAY + 'T00:00:00Z').getUTCDay()
@@ -79,7 +80,7 @@ export function VDash() {
   }, [db, sel, pr])
 
   const { ps, pe, inP, w, kd, sr, rmP, pkP, slP, slT, ot, deps, adm } = m
-  const qq = qs.trim().toLowerCase()
+  const qq = dqs.trim().toLowerCase()
   const lw = w
     .filter(x => (f == 'late' ? x.w >= 3 : f == 'none' ? !x.rm.length : true))
     .filter(x => !qq || (x.m.n + ' ' + x.i.id + ' ' + x.by + ' ' + x.d).toLowerCase().includes(qq))

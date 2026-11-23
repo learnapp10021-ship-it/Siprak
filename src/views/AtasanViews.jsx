@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, ReqCard, Confirm, useMore } from '../components/ui'
 
@@ -32,7 +32,7 @@ export function VTim() {
   const { db, sel, ui } = useApp()
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
-  const qq = q.trim().toLowerCase()
+  const qq = useDeferredValue(q).trim().toLowerCase()
   const all = db.R.filter(r => sel.user(r.by)?.boss == ui.me && r.st != 'Draft').sort((a, b) => (b.tgl < a.tgl ? -1 : b.tgl > a.tgl ? 1 : b.id < a.id ? -1 : 1))
   const l = all.filter(
     r => (!st || r.st == st) && (!qq || sel.nm(r.by).toLowerCase().includes(qq) || r.id.toLowerCase().includes(qq) || db.I.some(i => i.req == r.id && sel.mi(i.kode).n.toLowerCase().includes(qq)))

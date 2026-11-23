@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { AppProvider, TABS, useApp } from './store'
+import { memo, useEffect } from 'react'
+import { AppProvider, TABS, useApp, useStatus } from './store'
 import { Drawer, UserSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
 import { VReq, VNew } from './views/UserViews'
 import { VAppr, VTim } from './views/AtasanViews'
@@ -12,13 +12,17 @@ import { VDash } from './views/DashboardView'
 import { SaveBar } from './components/SaveBar'
 import { badgeCounts } from './lib/notes'
 
-const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }
+// Tiap layar dimemo: berubahnya status simpan/toast di Shell tidak menggambar ulang daftar yang berat.
+const VIEWS = Object.fromEntries(
+  Object.entries({ dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }).map(([k, v]) => [k, memo(v)])
+)
 
 // Menu bawah (HP/tablet) hanya untuk pekerjaan harian; menu lain ada di menu samping (hamburger). Desktop tetap menampilkan semua.
 const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'], 'Admin Dept': ['pool', 'kon'] }
 
 export function Shell() {
-  const { db, sel, ui, setUi, me, toastS, sync, saving, dismissToast } = useApp()
+  const { db, sel, ui, setUi, me } = useApp()
+  const { toastS, sync, saving, dismissToast } = useStatus()
   const tabs = TABS[me.role]
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : BOTTOM[me.role]?.[0] || tabs[0][0]
   const View = VIEWS[tab]

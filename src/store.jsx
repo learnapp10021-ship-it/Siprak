@@ -11,7 +11,11 @@ import { incomingNotes } from './lib/notes'
 import { Login } from './components/Login'
 
 const Ctx = createContext(null)
+const StatusCtx = createContext(null)
+// Data, pengguna, dan aksi (jarang berubah). Status simpan, toast, dan koneksi ada di useStatus() supaya
+// perubahannya tidak menggambar ulang seluruh aplikasi.
 export const useApp = () => useContext(Ctx)
+export const useStatus = () => useContext(StatusCtx)
 const REMOTE = api.REMOTE
 const emptyDb = () => ({ U: [], HP: {}, M: [], R: [], I: [], K: [], L: [], KD: [], SR: [], RM: [] })
 
@@ -334,6 +338,12 @@ export function AppProvider({ children, initialUi: init }) {
     setUi({ me: '', tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
   }, [setUi])
 
+  // Nilai utama stabil: hanya berubah bila data, pengguna aktif, atau sesi berubah
+  const value = useMemo(
+    () => ({ db, sel, ui: uiEff, setUi, me, act, toast, remote: REMOTE, logout }),
+    [db, sel, uiEff, setUi, me, act, toast, logout]
+  )
+
   if (boot.state != 'ready' || !db)
     return <Boot state={boot.state == 'error' ? 'error' : 'loading'} err={boot.err} retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
   if (!me && db.U.length) return <Login users={db.U} onPick={login} />
@@ -341,8 +351,10 @@ export function AppProvider({ children, initialUi: init }) {
     return <Boot state="error" err="Sheet Users masih kosong. Isi pengguna atau jalankan seedDemo() di Apps Script." retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
 
   // 'sync' dipertahankan untuk header (teks status kecil di bawah nama)
-  const sync = { pending: saving ? 1 : 0, err: net.ok ? '' : 'offline' }
-  const refresh = () => load()
-  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, dismissToast, saving, net, sync, retry, skip, refresh, remote: REMOTE, logout }
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  const status = { toastS, dismissToast, saving, net, sync: { pending: saving ? 1 : 0, err: net.ok ? '' : 'offline' }, retry, skip, refresh: load }
+  return (
+    <Ctx.Provider value={value}>
+      <StatusCtx.Provider value={status}>{children}</StatusCtx.Provider>
+    </Ctx.Provider>
+  )
 }

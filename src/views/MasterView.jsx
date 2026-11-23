@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, useMore } from '../components/ui'
 import { Dialog } from '../components/Dialog'
@@ -93,7 +93,7 @@ export function VMst() {
   const use = {}
   db.I.forEach(i => { use[i.kode] = (use[i.kode] || 0) + 1 })
   const sats = [...new Set(db.M.map(m => m.sat))].sort()
-  const key = q.trim().toLowerCase()
+  const key = useDeferredValue(q).trim().toLowerCase()
   const l = db.M.filter(m => (!sat || m.sat == sat) && (!key || (m.k + ' ' + m.n).toLowerCase().includes(key)))
   const [vis, more] = useMore(l, 20)
   return (

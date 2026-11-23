@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../store'
+import { useStatus } from '../store'
 import { AKSI } from '../lib/notes'
 
 const jam = t => new Date(t).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
@@ -8,7 +8,7 @@ const jam = t => new Date(t).toLocaleTimeString('id-ID', { hour: '2-digit', minu
 // membaca ulang data dari spreadsheet dan memastikannya tersimpan; di sini ditampilkan proses, antrean,
 // kegagalan, dan keadaan offline.
 export function SaveBar() {
-  const { saving, net, retry, skip, refresh } = useApp()
+  const { saving, net, retry, skip, refresh } = useStatus()
   const [lama, setLama] = useState(false)
   const tx = saving?.phase == 'sending' ? saving.tx : null
   useEffect(() => {
