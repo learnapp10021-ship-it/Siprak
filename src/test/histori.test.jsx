@@ -166,6 +166,35 @@ describe('Request saya vs Histori (data contoh)', () => {
   })
 })
 
+describe('Kartu barang ringkas', () => {
+  beforeAll(() => load())
+
+  it('tahapan dan rincian tersembunyi sampai kartu dibuka; tombol memakai aria-expanded', async () => {
+    const { container } = await open(mine)
+    const top = container.querySelector('.itm-top')
+    expect(top.getAttribute('aria-expanded')).toBe('false')
+    expect(top.getAttribute('aria-controls')).toBe(container.querySelector('.itm-more').id)
+    const itm = top.closest('.itm')
+    expect(itm.classList.contains('open')).toBe(false)
+    fireEvent.click(top)
+    expect(top.getAttribute('aria-expanded')).toBe('true')
+    expect(itm.classList.contains('open')).toBe(true)
+    expect(itm.querySelector('.itm-steps')).toBeTruthy()
+    fireEvent.click(top)
+    expect(itm.classList.contains('open')).toBe(false)
+  })
+
+  it('barang ditolak tidak punya rincian untuk dibuka (tombol nonaktif)', async () => {
+    await open('rudi.prod')
+    tab('Histori')
+    const row = (await screen.findByText('RQ-010')).closest('li')
+    fireEvent.click(within(row).getAllByRole('button')[0])
+    const top = row.querySelector('.itm-top')
+    expect(top.disabled).toBe(true)
+    expect(top.hasAttribute('aria-expanded')).toBe(false)
+  })
+})
+
 describe('skala besar: 3000 request selesai', () => {
   beforeAll(() => load(bigSeed))
 

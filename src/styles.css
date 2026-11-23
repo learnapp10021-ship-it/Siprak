@@ -894,3 +894,71 @@ h1,h2,.hd h2{font-weight:600;letter-spacing:-.01em}
 .his-det>small{display:block;margin-top:10px}
 .his-det>.item:first-of-type{margin-top:12px}
 @media(prefers-reduced-motion:reduce){.his-ch,.his-sum{transition:none}}
+
+/* ==========================================================================
+   Layar User (Request saya, Histori, Buat request): lebih lembut dan ringkas.
+   Dibatasi lewat main.v-* supaya layar admin yang padat tidak berubah.
+   ========================================================================== */
+main.v-req,main.v-his,main.v-new{--card-r:12px;--card-sh:0 1px 2px rgba(16,24,40,.06),0 4px 16px rgba(16,24,40,.06);--ease:cubic-bezier(.2,.7,.2,1)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]):not([data-theme="smoke"]) main.v-req,:root:not([data-theme="light"]):not([data-theme="smoke"]) main.v-his,:root:not([data-theme="light"]):not([data-theme="smoke"]) main.v-new{--card-sh:0 1px 2px rgba(0,0,0,.4)}}
+:root[data-theme="dark"] main.v-req,:root[data-theme="dark"] main.v-his,:root[data-theme="dark"] main.v-new{--card-sh:0 1px 2px rgba(0,0,0,.4)}
+
+/* Kartu: sudut membulat, bayangan halus, ruang napas */
+main.v-req .row,main.v-new .row,main.v-his .his-row{border-radius:var(--card-r);box-shadow:var(--card-sh);border-color:transparent;padding:16px 18px;margin-top:14px;transition:box-shadow .2s var(--ease),transform .2s var(--ease)}
+main.v-his .his-row{padding:0;margin:0}
+main.v-his .his{gap:10px}
+main.v-req .btn,main.v-new .btn{border-radius:8px}
+main.v-req .pill,main.v-his .pill{border-radius:999px;padding:2px 10px;font-size:12px}
+main.v-req input,main.v-req select,main.v-new input,main.v-new select,main.v-his input,main.v-his select,main.v-new textarea{border-radius:8px}
+main.v-his .chip{border-radius:999px}
+main.v-his .his-sum{min-height:60px;padding:12px 16px}
+
+/* Barang: tanpa kotak abu di dalam kotak putih; dipisah garis tipis, dibuka lewat ketukan */
+main.v-req .itm,main.v-his .itm{background:none;border:0;border-top:1px solid var(--line);border-radius:0;padding:0;margin:12px 0 0}
+main.v-req .row>.itm:first-of-type,main.v-his .his-det>.itm:first-of-type{border-top:0;margin-top:8px}
+main.v-his .his-det{padding:0 16px 12px}
+.itm-top{display:flex;align-items:center;gap:12px;width:100%;padding:12px 0;font:inherit;color:inherit;text-align:left;background:none;border:0;border-radius:8px;cursor:pointer}
+.itm-top:disabled{cursor:default}
+.itm-top .between{display:flex}
+.itm-main{display:grid;gap:2px;flex:1;min-width:0}
+.itm-ch{flex:none;width:8px;height:8px;margin:-3px 4px 0 0;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(45deg);transition:transform .25s var(--ease),margin .25s var(--ease)}
+.itm.open .itm-ch{margin-top:3px;transform:rotate(-135deg)}
+@media(hover:hover){.itm-top:not(:disabled):hover .itm-main b{color:var(--brand)}}
+.itm-top:active:not(:disabled){background:var(--soft)}
+main.v-req .rg,main.v-his .rg{width:48px;height:48px;flex-basis:48px}
+main.v-req .rg svg,main.v-his .rg svg{width:48px;height:48px}
+main.v-req .rg>span,main.v-his .rg>span{font-size:12px}
+/* Rincian: membuka dan menutup halus (tinggi dianimasikan lewat grid, tanpa mengukur lewat JS) */
+.itm-more{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .26s var(--ease),visibility 0s .26s}
+.itm.open .itm-more{grid-template-rows:1fr;visibility:visible;transition-delay:0s}
+.itm-in{min-height:0;overflow:hidden}
+.itm-in>.itm-steps{margin-top:2px}
+.itm-in>:last-child{margin-bottom:12px}
+
+/* Form Buat request: isian sejajar rapi, tombol seragam */
+main.v-new .row .f+.grid{margin-top:12px}
+main.v-new .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+main.v-new .grid>label:nth-child(3){grid-column:1/-1}
+@media(min-width:700px){
+  main.v-new{max-width:760px}
+  main.v-new .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  main.v-new .grid>label:nth-child(3){grid-column:auto}
+}
+main.v-new>.acts{max-width:none;gap:10px;margin-top:14px}
+main.v-new>.acts .btn{min-height:44px;font-weight:600}
+
+@media(hover:hover){main.v-req .row:hover,main.v-his .his-row:hover{box-shadow:0 2px 4px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.09)}}
+
+/* Gerak: kartu masuk berurutan, cincin progres tumbuh dari nol */
+@media(prefers-reduced-motion:no-preference){
+  @keyframes cIn{from{opacity:0;transform:translateY(10px)}}
+  @keyframes rgGrow{from{stroke-dasharray:0 400}}
+  main.v-req>.row,main.v-his .his-row,main.v-new>.row{animation:cIn .38s var(--ease) both}
+  main.v-req>.row:nth-of-type(2),main.v-his .his-row:nth-child(2){animation-delay:.05s}
+  main.v-req>.row:nth-of-type(3),main.v-his .his-row:nth-child(3){animation-delay:.1s}
+  main.v-req>.row:nth-of-type(4),main.v-his .his-row:nth-child(4){animation-delay:.15s}
+  main.v-req>.row:nth-of-type(n+5),main.v-his .his-row:nth-child(n+5){animation-delay:.2s}
+  main.v-req .rg-p{animation:rgGrow .7s var(--ease) both}
+  .his-det{animation:fIn .2s ease-out}
+}
+@media(prefers-reduced-motion:reduce){.itm-more,.itm-ch{transition:none}}

@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { D, TODAY } from '../lib/utils'
 
@@ -62,6 +62,8 @@ export const ItemCard = memo(function ItemCard({ it }) {
   const k = sel.KN(it.kon)
   const srl = k && sel.SRLof(k.srl)
   const q = sel.antrian(it)
+  const [open, setOpen] = useState(false)
+  const mid = useId()
   const got = sel.berhak(it)
   const took = sel.diambil(it)
   const done = !dead && g == 4 && took >= +it.qty
@@ -77,36 +79,45 @@ export const ItemCard = memo(function ItemCard({ it }) {
     facts.push(['Butuh datang', D(it.datang)])
     if (it.pakai) facts.push(['Dipakai', D(it.pakai)])
   }
+  const hasMore = !dead || ss.length > 0
 
   return (
-    <div className="item itm">
-      <div className="itm-top">
+    <div className={'item itm' + (open ? ' open' : '')}>
+      {/* Ringkas: cincin progres + nama + status. Tahapan dan rincian dibuka lewat ketukan (tidak memanjangkan daftar). */}
+      <button type="button" className="itm-top" aria-expanded={hasMore ? open : undefined} aria-controls={hasMore ? mid : undefined} disabled={!hasMore} onClick={() => setOpen(o => !o)}>
         <Ring pct={pct} tone={t} dead={dead} wait={wait} />
-        <div className="itm-main">
-          <div className="between"><b>{m.n}</b><span className="itm-q">{it.qty} {m.sat}</span></div>
-          <div className={`lbl ${t}`}>{l}</div>
+        <span className="itm-main">
+          <span className="between"><b>{m.n}</b><span className="itm-q">{it.qty} {m.sat}</span></span>
+          <span className={`lbl ${t}`}>{l}</span>
+        </span>
+        {hasMore ? <i className="itm-ch" aria-hidden="true" /> : null}
+      </button>
+      {hasMore ? (
+        <div className="itm-more" id={mid}>
+          <div className="itm-in">
+            {dead ? null : (
+              <ol className="itm-steps" aria-label="Tahapan proses">
+                {STAGES.map((s, n) => (
+                  <li key={s} className={n < g || done ? 'on' : n == g ? 'cur ' + t : ''} aria-current={n == g && !done ? 'step' : undefined}>
+                    <i />
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {facts.length ? (
+              <dl className="itm-facts">
+                {facts.map(([a, b]) => (
+                  <div key={a}><dt>{a}</dt><dd>{b}</dd></div>
+                ))}
+              </dl>
+            ) : null}
+            {ss.map((s, n) => (
+              <div key={n}><small className="mut">Diambil {s.qty} oleh {sel.nm(s.to)}</small></div>
+            ))}
+          </div>
         </div>
-      </div>
-      {dead ? null : (
-        <ol className="itm-steps" aria-label="Tahapan proses">
-          {STAGES.map((s, n) => (
-            <li key={s} className={n < g || done ? 'on' : n == g ? 'cur ' + t : ''} aria-current={n == g && !done ? 'step' : undefined}>
-              <i />
-              <span>{s}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      {facts.length ? (
-        <dl className="itm-facts">
-          {facts.map(([a, b]) => (
-            <div key={a}><dt>{a}</dt><dd>{b}</dd></div>
-          ))}
-        </dl>
       ) : null}
-      {ss.map((s, n) => (
-        <div key={n}><small className="mut">Diambil {s.qty} oleh {sel.nm(s.to)}</small></div>
-      ))}
     </div>
   )
 })
