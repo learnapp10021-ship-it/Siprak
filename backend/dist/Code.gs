@@ -205,9 +205,27 @@ function makeSel(db) {
   const poolAll = d => I.filter(i => i.status == 'Approved' && !i.kon && RQ(i.req) && deptOf(i) == d)
   const poolOf = d => poolAll(d).filter(i => !i.tahan)
 
+  // Request "closed" (tidak ada lagi yang perlu dipantau): Ditolak/Dibatalkan, atau Disetujui yang semua barangnya
+  // sudah diambil penuh, atau sisanya ditutup dan tidak ada lagi yang siap diambil.
+  // its (opsional) = barang request itu, agar pemanggil yang memeriksa ribuan request tidak memindai ulang seluruh barang.
+  const reqClosed = (r, its) => {
+    if (r.st == 'Ditolak' || r.st == 'Dibatalkan') return true
+    if (r.st != 'Disetujui') return false
+    const l = (its || I.filter(i => i.req == r.id)).filter(live)
+    return (
+      l.length > 0 &&
+      l.every(i => {
+        if (i.status != 'Sudah di ERO') return false
+        if (diambil(i) >= +i.qty) return true
+        const k = KN(i.kon)
+        return !!k && +k.tutup > 0 && sisa(k) == 0 && siap(i) <= 0
+      })
+    )
+  }
+
   return {
     user, nm, mi, KN, RQ, SRLof, live, total, datang, sisa, ord, berhak, diambil, siap,
-    deptOf, lastArrival, firstArrival, st, progress, antrian, poolAll, poolOf,
+    deptOf, lastArrival, firstArrival, st, progress, antrian, poolAll, poolOf, reqClosed,
     reminders: itemId => RM.filter(x => x.item == itemId),
   }
 }

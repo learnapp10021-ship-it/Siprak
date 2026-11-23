@@ -81,3 +81,43 @@ describe('pergantian hari (TODAY)', () => {
     expect(days('2026-11-20')).toBe(5)
   })
 })
+
+describe('reqClosed (request selesai / closed)', () => {
+  const k = (tutup = '0') => ({ id: 'K1', tahap: 'Sudah di ERO', srl: 'S1', tutup })
+  const itm = (id, qty, over = {}) => ({ id, req: 'R1', kode: 'X', qty: String(qty), status: 'Sudah di ERO', kon: 'K1', appr: '2026-11-01', pakai: '', ...over })
+  const R = st => ({ id: 'R1', by: 'u', st })
+
+  it('Ditolak dan Dibatalkan selalu closed; Draft dan Menunggu tidak', () => {
+    const s = makeSel(db())
+    expect(s.reqClosed(R('Ditolak'))).toBe(true)
+    expect(s.reqClosed(R('Dibatalkan'))).toBe(true)
+    expect(s.reqClosed(R('Draft'))).toBe(false)
+    expect(s.reqClosed(R('Menunggu Approval'))).toBe(false)
+  })
+
+  it('Disetujui: closed hanya bila semua barang sudah diambil penuh', () => {
+    const base = { K: [k()], KD: [{ kon: 'K1', qty: '10', lebih: '0', tgl: '2026-11-02' }] }
+    const buka = makeSel(db({ ...base, I: [itm('A', 10)], SR: [{ item: 'A', qty: '4' }] }))
+    expect(buka.reqClosed(R('Disetujui'))).toBe(false)
+    const tutup = makeSel(db({ ...base, I: [itm('A', 10)], SR: [{ item: 'A', qty: '10' }] }))
+    expect(tutup.reqClosed(R('Disetujui'))).toBe(true)
+  })
+
+  it('Disetujui: belum datang atau belum di ERO tidak closed', () => {
+    expect(makeSel(db({ K: [k()], I: [itm('A', 10)] })).reqClosed(R('Disetujui'))).toBe(false)
+    expect(makeSel(db({ I: [itm('A', 10, { status: 'Approved', kon: '' })] })).reqClosed(R('Disetujui'))).toBe(false)
+  })
+
+  it('sisa ditutup: closed setelah semua yang datang diambil; belum closed bila masih ada yang siap diambil', () => {
+    const base = { K: [k('6')], KD: [{ kon: 'K1', qty: '4', lebih: '0', tgl: '2026-11-02' }], I: [itm('A', 10)] }
+    expect(makeSel(db({ ...base, SR: [{ item: 'A', qty: '4' }] })).reqClosed(R('Disetujui'))).toBe(true)
+    expect(makeSel(db({ ...base, SR: [{ item: 'A', qty: '1' }] })).reqClosed(R('Disetujui'))).toBe(false)
+  })
+
+  it('barang yang ditolak/dibatalkan diabaikan; request tanpa barang hidup tidak closed', () => {
+    const base = { K: [k()], KD: [{ kon: 'K1', qty: '5', lebih: '0', tgl: '2026-11-02' }] }
+    const s = makeSel(db({ ...base, I: [itm('A', 5), itm('B', 3, { status: 'Dibatalkan' })], SR: [{ item: 'A', qty: '5' }] }))
+    expect(s.reqClosed(R('Disetujui'))).toBe(true)
+    expect(makeSel(db({ I: [itm('B', 3, { status: 'Dibatalkan' })] })).reqClosed(R('Disetujui'))).toBe(false)
+  })
+})

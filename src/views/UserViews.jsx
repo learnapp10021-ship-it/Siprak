@@ -1,51 +1,125 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp, newLine } from '../store'
 import { Hd, Empty, Pill, ReqCard, Confirm } from '../components/ui'
 import { lineErrors } from '../lib/actions'
 import { D, TODAY, addDays } from '../lib/utils'
 
-// Filter status di "Request saya". 'x' = Ditolak atau Dibatalkan.
-const RFILTER = [
-  ['', 'Semua'],
+// "Request saya" dipisah: Aktif (yang masih perlu dipantau) dan Selesai (closed: ditolak, dibatalkan, atau semua barang
+// sudah diambil / sisa ditutup). Yang Selesai tidak dihitung dan tidak digambar sampai dibuka, dan tampil ringkas per
+// 20 request, supaya layar tetap ringan walau riwayatnya ratusan.
+const AFILTER = [
+  ['', 'Semua aktif'],
   ['Menunggu Approval', 'Menunggu atasan'],
-  ['Disetujui', 'Disetujui'],
+  ['Disetujui', 'Disetujui / diproses'],
   ['Draft', 'Draft'],
-  ['x', 'Ditolak / batal'],
 ]
-const inFilter = (r, f) => !f || (f == 'x' ? r.st == 'Ditolak' || r.st == 'Dibatalkan' : r.st == f)
+const PAGE = 20
+
+// Baris ringkas untuk request selesai; rincian barang baru digambar saat dibuka.
+function ClosedRow({ r }) {
+  const { db, sel } = useApp()
+  const [open, setOpen] = useState(false)
+  const n = db.I.filter(i => i.req == r.id).length
+  const lbl = r.st == 'Disetujui' ? 'Selesai' : r.st
+  const tone = r.st == 'Ditolak' ? 't-bad' : 't-gray'
+  return (
+    <div className="row closed">
+      <button className="cl-hd" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+        <span><b>{r.id}</b> <small className="mut">{D(r.tgl)}, {n} barang</small></span>
+        <span className="cl-r"><Pill t={r.st == 'Disetujui' ? 't-ok' : tone}>{lbl}</Pill><span className="pk-chg">{open ? 'Tutup' : 'Rincian'}</span></span>
+      </button>
+      {open && <ReqCard r={r} mode="own" />}
+    </div>
+  )
+}
 
 export function VReq() {
-  const { db, ui, setUi } = useApp()
+  const { db, sel, ui, setUi } = useApp()
+  const [view, setView] = useState('aktif')
   const [f, setF] = useState('')
-  const all = db.R.filter(r => r.by == ui.me).sort((a, b) => (b.tgl < a.tgl ? -1 : 1))
-  const cnt = k => all.filter(r => inFilter(r, k)).length
-  const l = all.filter(r => inFilter(r, f))
+  const [q, setQ] = useState('')
+  const [lim, setLim] = useState(PAGE)
   const toNew = () => setUi({ tab: 'new' })
+  // Dihitung sekali per perubahan data: barang dikelompokkan per request, lalu dipilah aktif / selesai
+  const { act, done } = useMemo(() => {
+    const by = {}
+    db.I.forEach(i => (by[i.req] = by[i.req] || []).push(i))
+    const mine = db.R.filter(r => r.by == ui.me).sort((a, b) => (b.tgl < a.tgl ? -1 : b.tgl > a.tgl ? 1 : b.id < a.id ? -1 : 1))
+    const act = [], done = []
+    mine.forEach(r => (sel.reqClosed(r, by[r.id] || []) ? done : act).push(r))
+    return { act, done }
+  }, [db, sel, ui.me])
+  const total = act.length + done.length
+  const cnt = k => act.filter(r => !k || r.st == k).length
+  const key = q.trim().toLowerCase()
+  const hay = r => (r.id + ' ' + r.st + ' ' + db.I.filter(i => i.req == r.id).map(i => (sel.mi(i.kode)?.n || '') + ' ' + i.kode).join(' ')).toLowerCase()
+  const lA = act.filter(r => !f || r.st == f)
+  // pencarian hanya memindai riwayat selesai bila memang dibuka
+  const lD = view == 'selesai' ? done.filter(r => !key || hay(r).includes(key)) : []
+  const pick = v => { setView(v); setLim(PAGE); setQ('') }
   return (
     <>
       <Hd t="Request saya" s="Pantau tiap barang dari pengajuan sampai diambil." />
-      {all.length > 0 && (
+      {total > 0 && (
         <div className="acts"><button className="btn alt" onClick={toNew}>Buat request baru</button></div>
       )}
-      {all.length > 2 && (
-        <div className="chips fl" role="group" aria-label="Filter status request">
-          {RFILTER.filter(([k]) => !k || cnt(k) || f == k).map(([k, lbl]) => (
-            <button key={k} className="chip" aria-pressed={f == k} onClick={() => setF(k)}>{lbl} ({cnt(k)})</button>
-          ))}
+      {total > 0 && (
+        <div className="seg" role="group" aria-label="Tampilan request">
+          <button aria-pressed={view == 'aktif'} onClick={() => pick('aktif')}>Aktif ({act.length})</button>
+          <button aria-pressed={view == 'selesai'} onClick={() => pick('selesai')}>Selesai ({done.length})</button>
         </div>
       )}
-      {l.map(r => <ReqCard key={r.id} r={r} mode="own" />)}
-      {!all.length && (
-        <Empty>
-          Belum ada request.
-          <div className="acts" style={{ justifyContent: 'center' }}><button className="btn" onClick={toNew}>Buat request pertama</button></div>
-        </Empty>
+      {view == 'aktif' && (
+        <>
+          {act.length > 2 && (
+            <div className="chips fl" role="group" aria-label="Filter status request">
+              {AFILTER.filter(([k]) => !k || cnt(k) || f == k).map(([k, lbl]) => (
+                <button key={k} className="chip" aria-pressed={f == k} onClick={() => setF(k)}>{lbl} ({cnt(k)})</button>
+              ))}
+            </div>
+          )}
+          {lA.map(r => <ReqCard key={r.id} r={r} mode="own" />)}
+          {!total && (
+            <Empty>
+              Belum ada request.
+              <div className="acts" style={{ justifyContent: 'center' }}><button className="btn" onClick={toNew}>Buat request pertama</button></div>
+            </Empty>
+          )}
+          {total > 0 && !act.length && (
+            <Empty>
+              Tidak ada request aktif.
+              <div className="acts" style={{ justifyContent: 'center' }}>
+                {done.length ? <button className="btn alt" onClick={() => pick('selesai')}>Lihat {done.length} request selesai</button> : null}
+              </div>
+            </Empty>
+          )}
+          {act.length > 0 && !lA.length && (
+            <Empty>
+              Tidak ada request dengan status ini.
+              <div className="acts" style={{ justifyContent: 'center' }}><button className="btn alt" onClick={() => setF('')}>Tampilkan semua</button></div>
+            </Empty>
+          )}
+        </>
       )}
-      {all.length > 0 && !l.length && (
-        <Empty>
-          Tidak ada request dengan status ini.
-          <div className="acts" style={{ justifyContent: 'center' }}><button className="btn alt" onClick={() => setF('')}>Tampilkan semua</button></div>
-        </Empty>
+      {view == 'selesai' && (
+        <>
+          <small className="mut" style={{ gridColumn: '1/-1' }}>Riwayat request yang sudah tuntas: semua barang diambil, ditolak, atau dibatalkan.</small>
+          {done.length > 5 && (
+            <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
+              <label>Cari riwayat
+                <input type="search" value={q} placeholder="No. request atau nama barang" onChange={e => { setQ(e.target.value); setLim(PAGE) }} />
+              </label>
+            </div>
+          )}
+          {lD.slice(0, lim).map(r => <ClosedRow key={r.id} r={r} />)}
+          {lD.length > lim && (
+            <div className="acts">
+              <button className="btn alt grow" onClick={() => setLim(lim + PAGE)}>Tampilkan {Math.min(PAGE, lD.length - lim)} lagi ({lD.length - lim} tersisa)</button>
+            </div>
+          )}
+          {!done.length && <Empty>Belum ada request yang selesai.</Empty>}
+          {done.length > 0 && !lD.length && <Empty>Tidak ada riwayat yang cocok dengan pencarian.</Empty>}
+        </>
       )}
     </>
   )

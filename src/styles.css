@@ -762,3 +762,13 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 .egrid .bad,small.bad{color:var(--bad)}
 .qrow-l{display:grid;gap:3px;font-size:12px;font-weight:600}
 .erp-bar.dtg-foot{border-top:0;border-bottom:1px solid var(--line);border-radius:0 0 3px 3px;margin-top:-1px;position:sticky;bottom:0;z-index:2}
+
+/* ---------- Request saya: Aktif / Selesai ---------- */
+.seg{display:flex;gap:0;margin:12px 0 4px;grid-column:1/-1;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;background:var(--paper)}
+.seg button{flex:1;font:inherit;font-size:13px;font-weight:600;padding:8px 12px;min-height:40px;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.seg button+button{border-left:1px solid var(--bd)}
+.seg button[aria-pressed=true]{background:var(--brand);color:var(--onb)}
+.row.closed{padding:0}
+.cl-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;font:inherit;text-align:left;background:transparent;border:0;padding:12px 14px;min-height:48px;cursor:pointer;color:var(--ink)}
+.cl-r{display:flex;align-items:center;gap:10px}
+.row.closed>.row{border:0;border-top:1px solid var(--bd);margin:0;border-radius:0}
