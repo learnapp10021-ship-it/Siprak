@@ -679,3 +679,11 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
   .erp-grid .egrid td:nth-child(3){white-space:normal}
   .erp-det{grid-template-columns:minmax(0,1fr) 330px}
 }
+/* label sejajar di baris yang sama (HP) */
+.eropanel .grid{align-items:end}
+@media (min-width:1024px){
+  main .kpis{gap:8px;margin-top:8px}
+  main .kpi{border-radius:3px;box-shadow:none;padding:8px 12px}
+  main .kpi b{font-size:20px;margin:2px 0}
+  main .kpi small{font-size:12px}
+}

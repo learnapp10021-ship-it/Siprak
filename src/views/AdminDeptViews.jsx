@@ -120,7 +120,7 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
         <div className="erp-form">
           <small className="mut">1. Salin daftar (tombol di atas) dan buat SRL di ERO. 2. Isi nomor SRL dari ERO. 3. Simpan; Admin Warehouse akan memvalidasi.</small>
           <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
-          <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
+          <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} />{est ? <small className="mut">{D(est)}</small> : null}</label>
           <button className="btn" disabled={!ready.length} onClick={simpan}>Simpan SRL ({ready.length} request)</button>
         </div>
       </div>
@@ -172,7 +172,7 @@ export function VPool() {
           <div className="acts"><button className="btn alt grow" onClick={copyAll}>Salin semua (article dan qty)</button></div>
           <div className="grid">
             <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
-            <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
+            <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} />{est ? <small className="mut">{D(est)}</small> : null}</label>
           </div>
           <div className="acts"><button className="btn grow" onClick={simpan}>Simpan SRL</button></div>
         </div>
