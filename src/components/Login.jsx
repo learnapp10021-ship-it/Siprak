@@ -24,7 +24,8 @@ export function Login({ users, onPick }) {
 
   return (
     <div className="login">
-      <h1 className="login-t">SIPRAK</h1>
+      <h1 className="login-t">NRB</h1>
+      <p className="login-sub">Nota Request Barang</p>
       <form className="login-card" onSubmit={submit} noValidate>
         {err ? <div className="login-err" role="alert">{err}</div> : null}
         <select
@@ -43,7 +44,7 @@ export function Login({ users, onPick }) {
           value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
         />
         <button type="submit" className="login-btn">Login</button>
-        <img className="login-logo" src={logo} alt="DBC, Inspired to Exceed" />
+        <img className="login-logo" src={logo} width="334" height="167" decoding="async" alt="DBC, Inspired to Exceed" />
         <p className="login-note">Mode uji coba: password belum diperiksa, boleh dikosongkan.</p>
       </form>
     </div>

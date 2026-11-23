@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, useMore } from '../components/ui'
+import { Dialog } from '../components/Dialog'
 import { cleanMaster, parseMaster } from '../lib/utils'
 
 const NEW = { k: '', n: '', sat: '', buf: '0', kons: '0', lead: '3' }
@@ -14,7 +15,7 @@ function ItemSheet({ item, sats, onClose }) {
   return (
     <>
       <div className="scrim" onClick={onClose} />
-      <section className="sheet" role="dialog" aria-label={nw ? 'Tambah item' : 'Ubah item'}>
+      <Dialog label={nw ? 'Tambah item' : 'Ubah item'}>
         <h2>{nw ? 'Tambah item' : 'Ubah item'}</h2>
         <div className="f">
           <label>Kode item
@@ -37,7 +38,7 @@ function ItemSheet({ item, sats, onClose }) {
           <button className="btn grow" onClick={save}>Simpan</button>
           <button className="btn alt" onClick={onClose}>Batal</button>
         </div>
-      </section>
+      </Dialog>
     </>
   )
 }
@@ -54,7 +55,7 @@ function ImportSheet({ onClose }) {
   return (
     <>
       <div className="scrim" onClick={onClose} />
-      <section className="sheet" role="dialog" aria-label="Impor master item">
+      <Dialog label="Impor master item">
         <h2>Impor master item</h2>
         <p className="mut" style={{ margin: '0 0 8px' }}>
           Salin dari Excel lalu tempel di bawah. Urutan kolom: <b>Kode, Nama, Satuan, Buffer, Konsinyasi, Lead time (hari)</b>.
@@ -78,7 +79,7 @@ function ImportSheet({ onClose }) {
           </button>
           <button className="btn alt" onClick={onClose}>Batal</button>
         </div>
-      </section>
+      </Dialog>
     </>
   )
 }

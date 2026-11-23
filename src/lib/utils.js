@@ -20,7 +20,17 @@ export const nowStr = () => {
   const d = new Date()
   return `${todayStr()}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
-export const TODAY = todayStr()
+// "Hari ini" dihitung saat dimuat, lalu disegarkan lewat refreshToday(): tab/PWA di HP sering terbuka
+// melewati tengah malam, dan tanpa penyegaran status "terlambat" serta tanggal minimum jadi salah.
+// (Di Apps Script setiap permintaan adalah eksekusi baru, jadi nilainya selalu segar.)
+export let TODAY = todayStr()
+// Mengembalikan true bila hari berganti sejak pemuatan/penyegaran terakhir.
+export const refreshToday = () => {
+  const t = todayStr()
+  if (t === TODAY) return false
+  TODAY = t
+  return true
+}
 
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 // Format tanggal pendek Indonesia, tanpa Intl supaya sama di browser dan Google Apps Script

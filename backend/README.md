@@ -13,4 +13,4 @@
 - Jangan ubah/urut ulang kolom header. Jangan hapus baris data. Master barang boleh diedit langsung.
 - Edit manual terlihat di aplikasi setelah beberapa detik. Jalankan `auditData()` bila curiga ada data janggal.
 - Kode bisnis ada di `src/lib/*.js`; setelah mengubahnya jalankan `npm run build:backend` dan deploy ulang.
-- Pengujian: `npm test` (sinkronisasi build, simulasi backend 77 skenario, uji klien end-to-end).
+- Pengujian: `npm test` (sinkronisasi build, simulasi dan audit backend, uji klien end-to-end).

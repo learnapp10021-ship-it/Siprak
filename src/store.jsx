@@ -5,6 +5,7 @@ import { makeSel } from './lib/selectors'
 import { actions } from './lib/actions'
 import * as api from './lib/api'
 import { outbox } from './lib/outbox'
+import { TODAY, refreshToday } from './lib/utils'
 import { POLL_MS } from './config'
 import { incomingNotes } from './lib/notes'
 import { Login } from './components/Login'
@@ -199,7 +200,16 @@ export function AppProvider({ children, initialUi: init }) {
     return () => { stop = true; clearTimeout(t); document.removeEventListener('visibilitychange', vis) }
   }, [boot.state, applySnap, toast])
 
-  const sel = useMemo(() => makeSel(db || emptyDb()), [db])
+  // Ganti hari saat tab tetap terbuka: segarkan "hari ini" lalu hitung ulang semua turunan (status terlambat, dll.)
+  const [day, setDay] = useState(TODAY)
+  useEffect(() => {
+    const chk = () => { if (refreshToday()) setDay(TODAY) }
+    const t = setInterval(chk, 60000)
+    document.addEventListener('visibilitychange', chk)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', chk) }
+  }, [])
+
+  const sel = useMemo(() => makeSel(db || emptyDb()), [db, day])
   // Pengguna aktif: id sesi harus ada di data dan aktif, kalau tidak -> layar masuk
   const meId = sel.user(ui.me) && !sel.user(ui.me).off ? ui.me : ''
   const me = sel.user(meId)

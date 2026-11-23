@@ -18,14 +18,13 @@ export function makeSel(db) {
   const sisa = k => Math.max(0, total(k) - datang(k) - +k.tutup)
 
   // urut kebutuhan paling dekat; tanpa tgl pakai dianggap paling akhir
-  const ord = (a, b) =>
-    (a.pakai || '9') < (b.pakai || '9')
-      ? -1
-      : (a.pakai || '9') > (b.pakai || '9')
-      ? 1
-      : a.appr < b.appr
-      ? -1
-      : 1
+  // Pembanding harus konsisten: untuk dua nilai yang sama hasilnya 0 (urutan awal dipertahankan oleh sort yang stabil).
+  const ord = (a, b) => {
+    const pa = a.pakai || '9'
+    const pb = b.pakai || '9'
+    if (pa !== pb) return pa < pb ? -1 : 1
+    return a.appr < b.appr ? -1 : a.appr > b.appr ? 1 : 0
+  }
 
   // Jatah barang yang sudah datang dibagi ke request sesuai urutan kebutuhan
   const berhak = it => {
@@ -41,14 +40,15 @@ export function makeSel(db) {
   }
   const diambil = it => sum(SR.filter(s => s.item == it.id), s => s.qty)
   const siap = it => berhak(it) - diambil(it)
-  const deptOf = it => user(RQ(it.req).by).dept
+  const deptOf = it => user(RQ(it.req)?.by)?.dept
   const lastArrival = kon => KD.filter(d => d.kon == kon).map(d => d.tgl).sort().pop()
   const firstArrival = kon => KD.filter(d => d.kon == kon).map(d => d.tgl).sort()[0]
 
   // [tahap 0-4, kelas warna, label]
   const st = it => {
     const s = it.status
-    const sat = mi(it.kode).sat
+    // Data bisa diedit manual di spreadsheet: kode yang salah ketik tidak boleh membuat seluruh layar mati
+    const sat = mi(it.kode)?.sat || ''
     if (s == 'Draft') return [0, 't-gray', 'Draft, belum diajukan']
     if (s == 'Menunggu Approval') return [0, 't-warn', 'Menunggu persetujuan atasan']
     if (s == 'Approved')
@@ -68,15 +68,39 @@ export function makeSel(db) {
       const kk = KN(it.kon)
       if (kk && sisa(kk) == 0 && +kk.tutup > 0)
         return [4, 't-warn', `Sisa ditutup${kk.alasan ? ': ' + kk.alasan : ''}. Diambil ${a} dari ${it.qty} ${sat}`]
-      const srl = SRLof(KN(it.kon)?.srl)
+      const srl = SRLof(kk?.srl)
       return [
         3,
         't-vio',
-        'Sudah di ERO (' + KN(it.kon).srl + '), menunggu barang datang' +
+        'Sudah di ERO (' + (kk?.srl || 'SRL') + '), menunggu barang datang' +
           (srl ? ' (est. ' + D(srl.est) + ')' : ''),
       ]
     }
     return [-1, s == 'Ditolak' ? 't-bad' : 't-gray', s]
+  }
+
+  // Persen proses 0-100 untuk cincin progres: tahap alur, lalu (setelah masuk ERO) porsi barang yang sudah datang
+  const progress = it => {
+    const s = it.status
+    if (s == 'Draft') return 0
+    if (s == 'Menunggu Approval') return 15
+    if (s == 'Approved') return 35
+    if (s == 'Validasi Warehouse' || s == 'Masuk Konsolidasi') return 50
+    if (s == 'Sudah di ERO') {
+      const q = +it.qty || 1
+      return Math.round(65 + 35 * Math.min(1, Math.max(berhak(it), diambil(it)) / q))
+    }
+    return 0
+  }
+
+  // Posisi antrian dalam konsolidasi yang sama (urutan kebutuhan), plus jumlah barang di depannya
+  const antrian = it => {
+    const k = KN(it.kon)
+    if (!k) return null
+    const arr = I.filter(i => i.kon == k.id && live(i)).sort(ord)
+    const idx = arr.findIndex(i => i.id == it.id)
+    if (idx < 0) return null
+    return { pos: idx + 1, n: arr.length, ahead: sum(arr.slice(0, idx), i => i.qty) }
   }
 
   const poolAll = d => I.filter(i => i.status == 'Approved' && !i.kon && RQ(i.req) && deptOf(i) == d)
@@ -84,7 +108,7 @@ export function makeSel(db) {
 
   return {
     user, nm, mi, KN, RQ, SRLof, live, total, datang, sisa, ord, berhak, diambil, siap,
-    deptOf, lastArrival, firstArrival, st, poolAll, poolOf,
+    deptOf, lastArrival, firstArrival, st, progress, antrian, poolAll, poolOf,
     reminders: itemId => RM.filter(x => x.item == itemId),
   }
 }

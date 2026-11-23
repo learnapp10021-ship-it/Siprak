@@ -34,21 +34,77 @@ export function Confirm({ onConfirm, className = 'btn bad', children }) {
   )
 }
 
+const STAGES = ['Diajukan', 'Disetujui', 'Validasi', 'Di ERO', 'Ambil']
+
+// Cincin progres bulat: busur = persen proses; cincin putus-putus berputar pelan saat masih menunggu
+function Ring({ pct, tone, dead, wait }) {
+  const r = 24, c = 2 * Math.PI * r
+  return (
+    <div className={`rg ${tone}`} role="img" aria-label={dead ? 'Tidak diproses' : `Proses ${pct} persen`}>
+      <svg viewBox="0 0 60 60" width="56" height="56" aria-hidden="true">
+        <circle className="rg-t" cx="30" cy="30" r={r} />
+        {dead ? null : <circle className="rg-p" cx="30" cy="30" r={r} strokeDasharray={`${(c * pct) / 100} ${c}`} transform="rotate(-90 30 30)" />}
+        {wait ? <circle className="rg-w" cx="30" cy="30" r="28.5" /> : null}
+      </svg>
+      <span>{dead ? '\u2715' : pct + '%'}</span>
+    </div>
+  )
+}
+
 export function ItemCard({ it }) {
   const { sel, db } = useApp()
   const m = sel.mi(it.kode)
   const [g, t, l] = sel.st(it)
+  const dead = g < 0
+  const pct = sel.progress(it)
   const ss = db.SR.filter(s => s.item == it.id)
+  const k = sel.KN(it.kon)
+  const srl = k && sel.SRLof(k.srl)
+  const q = sel.antrian(it)
+  const got = sel.berhak(it)
+  const took = sel.diambil(it)
+  const done = !dead && g == 4 && took >= +it.qty
+  // Masih menunggu sesuatu (persetujuan, proses ERO, barang datang): cincin berputar pelan
+  const wait = !dead && !done && g <= 3 && it.status != 'Draft' && !(g == 1 && it.tahan)
+
+  const facts = []
+  if (!dead) {
+    if (g >= 3) facts.push(['Barang datang', `${got} dari ${it.qty} ${m.sat}`])
+    if (took) facts.push(['Sudah diambil', `${took} dari ${it.qty} ${m.sat}`])
+    if (q && q.n > 1 && got < +it.qty) facts.push(['Urutan antrian', `#${q.pos} dari ${q.n}${q.ahead ? `, ${q.ahead} ${m.sat} di depan` : ', paling awal'}`])
+    if (g == 3 && srl?.est) facts.push(['Estimasi tiba', D(srl.est)])
+    facts.push(['Butuh datang', D(it.datang)])
+    if (it.pakai) facts.push(['Dipakai', D(it.pakai)])
+  }
+
   return (
-    <div className="item">
-      <div className="between"><b>{m.n}</b><span>{it.qty} {m.sat}</span></div>
-      <div className={`steps ${t}`} aria-hidden="true">
-        {[0, 1, 2, 3, 4].map(n => <i key={n} className={n <= g ? 'on' : ''} />)}
+    <div className="item itm">
+      <div className="itm-top">
+        <Ring pct={pct} tone={t} dead={dead} wait={wait} />
+        <div className="itm-main">
+          <div className="between"><b>{m.n}</b><span className="itm-q">{it.qty} {m.sat}</span></div>
+          <div className={`lbl ${t}`}>{l}</div>
+        </div>
       </div>
-      <div className={`lbl ${t}`}>{l}</div>
-      <small className="mut">Datang {D(it.datang)}{it.pakai ? ', dipakai ' + D(it.pakai) : ''}</small>
+      {dead ? null : (
+        <ol className="itm-steps" aria-label="Tahapan proses">
+          {STAGES.map((s, n) => (
+            <li key={s} className={n < g || done ? 'on' : n == g ? 'cur ' + t : ''} aria-current={n == g && !done ? 'step' : undefined}>
+              <i />
+              <span>{s}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {facts.length ? (
+        <dl className="itm-facts">
+          {facts.map(([a, b]) => (
+            <div key={a}><dt>{a}</dt><dd>{b}</dd></div>
+          ))}
+        </dl>
+      ) : null}
       {ss.map((s, n) => (
-        <div key={n}><small className="mut">Diambil {s.qty} oleh {s.to}</small></div>
+        <div key={n}><small className="mut">Diambil {s.qty} oleh {sel.nm(s.to)}</small></div>
       ))}
     </div>
   )
@@ -197,7 +253,7 @@ export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN
             <button className="chip" aria-pressed={f.late} onClick={() => set({ late: !f.late })}>Terlambat ({lateN})</button>
           )}
           <small className="mut">{list.length == total ? total + ' SRL' : list.length + ' dari ' + total + ' SRL'}</small>
-          {fold && active && <button className="lnk" style={{ minHeight: 32, padding: '4px 0' }} onClick={reset}>Hapus filter</button>}
+          {fold && active && <button className="lnk" onClick={reset}>Hapus filter</button>}
         </div>
         {list.length ? (
           <div role="listbox" aria-label="Daftar SRL">
