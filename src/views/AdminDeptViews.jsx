@@ -7,6 +7,12 @@ import { useMedia } from '../lib/useMedia'
 function HoldRow({ i, m }) {
   const { sel, act } = useApp()
   const [a, setA] = useState('')
+  const [err, setErr] = useState(false)
+  const nid = 'hold-' + i.id
+  const tahan = () => {
+    if (!a.trim()) { setErr(true); document.getElementById(nid)?.focus(); return }
+    act('tahan', i.id, a.trim())
+  }
   return (
     <div className="item">
       <div className="between"><span>{sel.nm(sel.RQ(i.req).by)}, {i.qty} {m.sat}</span><small>{i.req}</small></div>
@@ -19,8 +25,10 @@ function HoldRow({ i, m }) {
         <>
         {i.alasan ? <div className="lbl t-warn">{i.alasan}</div> : null}
         <div className="acts">
-          <input value={a} onChange={e => setA(e.target.value)} placeholder="Alasan menahan" style={{ flex: 1 }} />
-          <button className="btn alt" onClick={() => act('tahan', i.id, a.trim())}>Tahan</button>
+          <input id={nid} value={a} onChange={e => { setA(e.target.value); setErr(false) }} placeholder="Alasan menahan" aria-label={'Alasan menahan ' + i.req}
+            aria-invalid={err ? 'true' : undefined} aria-describedby={err ? nid + '-e' : undefined} style={{ flex: 1 }} />
+          <button className="btn alt" onClick={tahan}>Tahan</button>
+          {err ? <span className="hint" id={nid + '-e'} style={{ flex: '1 0 100%', marginTop: 0 }}>Isi alasan menahan dulu.</span> : null}
         </div>
         </>
       )}
@@ -28,7 +36,7 @@ function HoldRow({ i, m }) {
   )
 }
 
-function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan }) {
+function PoolGrid({ p, all, off, flip, setOff, no, setNo, noErr, est, setEst, simpan }) {
   const { sel, me, act } = useApp()
   const [fq, setFq] = useState('')
   const [fs, setFs] = useState('')
@@ -115,8 +123,15 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
           </table>
         </div>
         <div className="erp-form">
-          <small className="mut">1. Centang request, lalu input article dan total qty di kiri ke ERO. 2. Isi nomor SRL dari ERO. 3. Simpan; Admin Warehouse akan memvalidasi.</small>
-          <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
+          <ol className="stp">
+            <li>Centang request di tabel, lalu input article dan total qty di kiri ke ERO.</li>
+            <li>Isi nomor SRL dari ERO.</li>
+            <li>Simpan; Admin Warehouse akan memvalidasi.</li>
+          </ol>
+          <label>No. SRL dari ERO
+            <input id="srl-no" value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" aria-invalid={noErr ? 'true' : undefined} aria-describedby={noErr ? 'srl-no-e' : undefined} />
+            {noErr ? <span className="hint" id="srl-no-e" aria-hidden="true">{noErr}</span> : null}
+          </label>
           <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} />{est ? <small className="mut">{D(est)}</small> : null}</label>
           <button className="btn" disabled={!ready.length} onClick={simpan}>Simpan SRL ({ready.length} request)</button>
         </div>
@@ -132,6 +147,8 @@ export function VPool() {
   const [done, setDone] = useState(null)
   const [no, setNo] = useState('')
   const [est, setEst] = useState('')
+  const [noErr, setNoErr] = useState('')
+  const chgNo = v => { setNo(v); setNoErr('') }
   const d = me.dept
   const p = sel.poolAll(d)
   const all = sel.poolOf(d)
@@ -145,22 +162,40 @@ export function VPool() {
   const simpan = async () => {
     // ids = barang yang terlihat siap diproses; server menolak bila daftar sudah berubah
     const n = ready.length, nomor = no.trim()
-    if (await act('simpanSrl', { no: nomor, est, me, ids: ready.map(i => i.id) })) { setNo(''); setEst(''); setOff([]); setDone({ no: nomor, n }) }
+    if (!nomor) {
+      setNoErr('Isi nomor SRL dari ERO dulu.')
+      document.getElementById('srl-no')?.focus()
+      return
+    }
+    if (await act('simpanSrl', { no: nomor, est, me, ids: ready.map(i => i.id) })) { setNo(''); setNoErr(''); setEst(''); setOff([]); setDone({ no: nomor, n }) }
   }
+  const lateN = p.filter(i => !i.tahan && i.datang < TODAY).length
+  const heldN = p.filter(i => i.tahan).length
   return (
     <>
       <Hd t={'Pool ' + d} s="Request disetujui yang belum dibuat di ERO. Paling mendesak di atas." />
+      {p.length > 0 && (
+        <div className="chips ovw" role="group" aria-label="Ringkasan pool">
+          <Pill t="t-info">{p.length - heldN} siap dibuat di ERO</Pill>
+          {lateN > 0 && <Pill t="t-bad">{lateN} tanggal datang terlewat</Pill>}
+          {heldN > 0 && <Pill t="t-warn">{heldN} ditahan</Pill>}
+        </div>
+      )}
       {done && (
         <div className="pool-done" role="status">
           <span><b>{done.no} tersimpan.</b> {done.n} request menunggu validasi Admin Warehouse.</span>
           <span><button className="btn alt" onClick={() => setUi({ tab: 'kon' })}>Lihat di SRL</button> <button className="btn alt" onClick={() => setDone(null)}>Tutup</button></span>
         </div>
       )}
-      {groups.length > 0 && wide && <PoolGrid {...{ p, all, off, flip, setOff, no, setNo, est, setEst, simpan }} />}
+      {groups.length > 0 && wide && <PoolGrid {...{ p, all, off, flip, setOff, no, setNo: chgNo, noErr, est, setEst, simpan }} />}
       {groups.length > 0 && !wide && (
         <div className="row eropanel">
           <b>{new Set(ready.map(i => i.kode)).size} barang dari {new Set(ready.map(i => i.req)).size} request siap dibuat di ERO</b><br />
-          <small className="mut">1. Input article dan qty di bawah ke ERO. 2. Simpan nomor SRL di sini. Admin Warehouse akan memvalidasi barang di SRL itu; yang tidak sesuai bisa dikeluarkan dan kembali ke Pool ini.</small>
+          <ol className="stp">
+            <li>Input article dan qty di bawah ke ERO.</li>
+            <li>Isi nomor SRL dari ERO di sini, lalu simpan.</li>
+            <li>Admin Warehouse memvalidasi; barang yang tidak sesuai dikeluarkan dan kembali ke Pool ini.</li>
+          </ol>
           <table className="pool-sum">
             <tbody>
               {Object.entries(ready.reduce((t, i) => ((t[i.kode] = (t[i.kode] || 0) + +i.qty), t), {})).map(([k, q]) => (
@@ -169,7 +204,10 @@ export function VPool() {
             </tbody>
           </table>
           <div className="grid">
-            <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
+            <label>No. SRL dari ERO
+              <input id="srl-no" value={no} onChange={e => chgNo(e.target.value)} placeholder="SRL-2611-003" aria-invalid={noErr ? 'true' : undefined} aria-describedby={noErr ? 'srl-no-e' : undefined} />
+              {noErr ? <span className="hint" id="srl-no-e" aria-hidden="true">{noErr}</span> : null}
+            </label>
             <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} />{est ? <small className="mut">{D(est)}</small> : null}</label>
           </div>
           <div className="acts"><button className="btn grow" onClick={simpan}>Simpan SRL</button></div>
@@ -285,7 +323,7 @@ const KRANK = { val: 0, run: 1, kon: 2, done: 3, out: 4 }
 const KLAB = { val: 'Menunggu validasi', run: 'Sedang berjalan', kon: 'Konsolidasi', done: 'Selesai', out: 'Dikeluarkan' }
 
 export function VKon() {
-  const { db, sel, me } = useApp()
+  const { db, sel, me, setUi } = useApp()
   const [q, setQ] = useState('')
   const [st, setSt] = useState('')
   const kst = k => (k.tahap == 'Validasi Warehouse' ? 'val' : k.tahap == 'Dikeluarkan' ? 'out' : k.tahap == 'Sudah di ERO' ? (sel.sisa(k) > 0 ? 'run' : 'done') : 'kon')
@@ -317,17 +355,19 @@ export function VKon() {
         </div>
       )}
       {all.length > 4 && !wide && (
-        <div className="grid" style={{ gridColumn: '1/-1' }}>
-          <label>Cari barang, SRL, atau peminta
-            <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Ketik untuk mencari" />
-          </label>
-          <label>Status
-            <select value={st} onChange={e => setSt(e.target.value)}>
-              <option value="">Semua ({all.length})</option>
-              {Object.keys(KLAB).filter(x => cnt[x]).map(x => <option key={x} value={x}>{KLAB[x]} ({cnt[x]})</option>)}
-            </select>
-          </label>
-        </div>
+        <>
+          <div className="grid" style={{ gridColumn: '1/-1', gridTemplateColumns: '1fr' }}>
+            <label>Cari barang, SRL, atau peminta
+              <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Ketik untuk mencari" />
+            </label>
+          </div>
+          <div className="chips fl" style={{ gridColumn: '1/-1' }} role="group" aria-label="Filter status SRL">
+            <button className="chip" aria-pressed={!st} onClick={() => setSt('')}>Semua ({all.length})</button>
+            {Object.keys(KLAB).filter(x => cnt[x]).map(x => (
+              <button key={x} className="chip" aria-pressed={st == x} onClick={() => setSt(st == x ? '' : x)}>{KLAB[x]} ({cnt[x]})</button>
+            ))}
+          </div>
+        </>
       )}
       {l.length ? (
         wide ? (
@@ -338,7 +378,16 @@ export function VKon() {
             </table>
           </div>
         ) : vis.map(x => <KonCard key={x.k.id} k={x.k} />)
-      ) : <Empty>{all.length ? 'Tidak ada yang cocok dengan pencarian.' : 'Belum ada SRL. Mulai dari tab Buat ERO.'}</Empty>}
+      ) : (
+        <Empty>
+          {all.length ? 'Tidak ada yang cocok dengan pencarian.' : 'Belum ada SRL.'}
+          <div className="acts" style={{ justifyContent: 'center' }}>
+            {all.length
+              ? <button className="btn alt" onClick={() => { setQ(''); setSt('') }}>Hapus pencarian dan filter</button>
+              : <button className="btn" onClick={() => setUi({ tab: 'pool' })}>Buka Buat ERO</button>}
+          </div>
+        </Empty>
+      )}
       {more}
     </>
   )
@@ -349,7 +398,8 @@ export function VAll() {
   const d = me.dept
   const q = ui.q.toLowerCase()
   const f = ui.sf
-  const names = ['Diajukan', 'Disetujui', 'Dikonsolidasi', 'Di ERO', 'Barang tiba']
+  const reset = () => setUi({ q: '', sf: '' })
+  const names =['Diajukan', 'Disetujui', 'Dikonsolidasi', 'Di ERO', 'Barang tiba']
   const l = db.R.filter(
     r =>
       sel.user(r.by)?.dept == d && r.st != 'Draft' &&
@@ -405,7 +455,12 @@ export function VAll() {
             </table>
           </div>
         ) : vis.map(r => <ReqCard key={r.id} r={r} mode="tim" />)
-      ) : <Empty>Tidak ada request yang cocok dengan filter.</Empty>}
+      ) : (
+        <Empty>
+          Tidak ada request yang cocok dengan filter.
+          {(ui.q || f) ? <div className="acts" style={{ justifyContent: 'center' }}><button className="btn alt" onClick={reset}>Hapus pencarian dan filter</button></div> : null}
+        </Empty>
+      )}
       {more}
     </>
   )
