@@ -755,7 +755,8 @@ ITM-002|20|andi.prod`,
   // ===== Data contoh lengkap: semua tahap proses, kedua departemen =====
   {
     const B = '2026-11-23'
-    const WT = 'Wati Handayani', JK = 'Joko Susilo'
+    const WT = 'Wati Handayani', JK = 'Joko Susilo' // hanya untuk teks alasan; kolom relasi memakai ID
+    const WI = 'wati.wh', JI = 'joko.wh'
     U.find(u => u.id == 'eko.prod').off = true // contoh akun nonaktif
     const buf = k => M.find(m => m.k == k).buf == '1'
     const rq = (id, by, tgl, st, cat = '') => R.push({ id, by, tgl, st, cat })
@@ -809,7 +810,7 @@ ITM-002|20|andi.prod`,
     let kn = Math.max(...K.map(k => +k.id.slice(4)))
     const kon = (dept, kode, tahap, srl, ero, o = {}) => {
       const id = 'KON-' + String(++kn).padStart(3, '0')
-      K.push({ id, dept, kode, tahap, srl, ero: String(ero), tutup: '0', alasan: '', by: nmOf(dept == 'Produksi' ? 'dewi.admin' : 'yani.admin'), ...o })
+      K.push({ id, dept, kode, tahap, srl, ero: String(ero), tutup: '0', alasan: '', by: dept == 'Produksi' ? 'dewi.admin' : 'yani.admin', ...o })
       return id
     }
     kon('Maintenance', 'SKR-901', 'Dikeluarkan', 'SRL-2611-006', 0, { alasan: 'Jumlah tidak sesuai dengan permintaan' })
@@ -836,34 +837,34 @@ ITM-002|20|andi.prod`,
       ['GRD-101', [['RQ-036', 6], ['RQ-037', 4]]],
       ['BOR-201', [['RQ-036', 4], ['RQ-037', 3]]],
       ['KBL-006', [['RQ-037', 5]], null, 2, 'Supplier kirim lebih 2 roll, dicatat terpisah'],
-    ], addDays(B, -7), WT)
+    ], addDays(B, -7), WI)
     // 2) Sebagian datang, ada barang ditutup sisanya
     srl('SRL-2611-008', 'Maintenance', addDays(B, -4), -10, { 'RQ-038': 'maya.mt', 'RQ-039': 'rina.mt' }, [
       ['BRG-205', [['RQ-038', 4], ['RQ-039', 6]], 6],
       ['SEL-601', [['RQ-038', 3], ['RQ-039', 5]]],
       ['CTR-801', [['RQ-038', 2]], 0, 0, '', 2, 'Supplier tidak bisa kirim, item discontinue'],
-    ], addDays(B, -3), JK)
+    ], addDays(B, -3), JI)
     // 3) Terlambat: estimasi sudah lewat, belum ada kedatangan
     srl('SRL-2611-009', 'Produksi', addDays(B, -3), -9, { 'RQ-040': 'dika.prod', 'RQ-041': 'rudi.prod' }, [
       ['LAS-021', [['RQ-040', 10], ['RQ-041', 5]], 0],
       ['OLI-010', [['RQ-040', 4]], 0],
-    ], B, WT)
+    ], B, WI)
     // 4) Belum waktunya datang (estimasi ke depan)
     srl('SRL-2611-010', 'Maintenance', addDays(B, 5), -3, { 'RQ-042': 'maya.mt' }, [
       ['LKT-101', [['RQ-042', 6]], 0],
       ['PNT-201', [['RQ-042', 3]], 0],
       ['KBL-006', [['RQ-042', 2]], 0],
-    ], B, JK)
+    ], B, JI)
     // 5) Datang sebagian hari ini, belum diserahkan
     srl('SRL-2611-011', 'Produksi', addDays(B, -1), -6, { 'RQ-043': 'andi.prod', 'RQ-044': 'dika.prod' }, [
       ['SLG-402', [['RQ-043', 8], ['RQ-044', 6]], 8],
       ['LMP-701', [['RQ-043', 2], ['RQ-044', 2]], 4],
       ['PNT-201', [['RQ-044', 5]], 0],
-    ], B, JK)
+    ], B, JI)
 
     // Serah terima: hitung jatah dengan aturan aplikasi supaya tidak melebihi jatah
     const sl = makeSel({ U, HP, M, R, I, K, L, KD, SR, RM: [] })
-    const to = it => nmOf(R.find(r => r.id == it.req).by)
+    const to = it => R.find(r => r.id == it.req).by
     const serah = (it, q, d) => q > 0 && SR.push({ item: it.id, qty: String(q), to: to(it), tgl: addDays(B, d) })
     I.filter(i => ['SRL-2611-007'].includes(sl.KN(i.kon)?.srl)).forEach((i, n) => serah(i, sl.siap(i), -6 + (n % 3)))
     I.filter(i => sl.KN(i.kon)?.srl == 'SRL-2611-008').forEach((i, n) => serah(i, n % 2 ? Math.ceil(sl.siap(i) / 2) : 0, -2))
