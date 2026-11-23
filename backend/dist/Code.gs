@@ -43,6 +43,9 @@ const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt
 // Format tanggal pendek Indonesia, tanpa Intl supaya sama di browser dan Google Apps Script
 const D = d => (d ? +d.slice(8, 10) + ' ' + BLN[+d.slice(5, 7) - 1] : 'belum diisi')
 
+// "2026-11" -> "Nov 2026"
+const monthLabel = ym => (ym ? BLN[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4) : '')
+
 const days = d =>
   Math.max(0, Math.round((Date.parse(TODAY) - Date.parse(d.slice(0, 10))) / 864e5))
 const dayDiff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
@@ -122,6 +125,7 @@ function makeSel(db, { cache = false } = {}) {
   const liveByKon = cache ? groupBy(() => I.filter(live), 'kon') : null
   const kdByKon = cache ? groupBy(() => KD, 'kon') : null
   const srByItem = cache ? groupBy(() => SR, 'item') : null
+  const itemsByReq = cache ? groupBy(() => I, 'req') : null
   const sortedMemo = new Map()
   const liveSorted = kon => {
     if (!cache) return I.filter(i => i.kon == kon && live(i)).sort(ord)
@@ -162,7 +166,9 @@ function makeSel(db, { cache = false } = {}) {
     }
     return 0
   }
-  const diambil = cache ? it => sum(srByItem(it.id), s => s.qty) : it => sum(SR.filter(s => s.item == it.id), s => s.qty)
+  const takenOf = cache ? id => srByItem(id) : id => SR.filter(s => s.item == id)
+  const itemsOf = cache ? id => itemsByReq(id) : id => I.filter(i => i.req == id)
+  const diambil = it => sum(takenOf(it.id), s => s.qty)
   const siap = it => berhak(it) - diambil(it)
   const deptOf = it => user(RQ(it.req)?.by)?.dept
   const kdOf = kon => (cache ? kdByKon(kon) : KD.filter(d => d.kon == kon))
@@ -218,6 +224,26 @@ function makeSel(db, { cache = false } = {}) {
     return 0
   }
 
+  // Barang sudah tuntas: tidak ada lagi yang perlu ditunggu atau diambil.
+  // Tuntas = ditolak/dibatalkan, sudah diambil semua, atau sisa ditutup dan semua yang datang sudah diambil.
+  const itemDone = it => {
+    if (!live(it)) return true
+    if (it.status != 'Sudah di ERO') return false
+    const a = diambil(it)
+    if (a >= +it.qty) return true
+    const k = KN(it.kon)
+    return !!k && +k.tutup > 0 && sisa(k) == 0 && berhak(it) - a <= 0
+  }
+
+  // Akhir riwayat sebuah request: 'Selesai' (semua barang tuntas), 'Ditolak', 'Dibatalkan', atau '' bila masih berjalan.
+  // Satu-satunya definisi "request selesai"; daftar aktif dan histori sama-sama memakainya.
+  const reqEnd = r => {
+    if (r.st == 'Ditolak' || r.st == 'Dibatalkan') return r.st
+    if (r.st != 'Disetujui') return ''
+    const its = itemsOf(r.id)
+    return its.length > 0 && its.every(itemDone) ? 'Selesai' : ''
+  }
+
   // Posisi antrian dalam konsolidasi yang sama (urutan kebutuhan), plus jumlah barang di depannya
   const antrian = it => {
     const k = KN(it.kon)
@@ -233,6 +259,7 @@ function makeSel(db, { cache = false } = {}) {
 
   return {
     user, nm, mi, KN, RQ, SRLof, live, total, datang, sisa, ord, berhak, diambil, siap,
+    itemsOf, takenOf, itemDone, reqEnd,
     deptOf, lastArrival, firstArrival, st, progress, antrian, poolAll, poolOf,
     reminders: itemId => RM.filter(x => x.item == itemId),
   }

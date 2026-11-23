@@ -1,16 +1,33 @@
 import { useState } from 'react'
 import { useApp, newLine } from '../store'
-import { Hd, Empty, Pill, ReqCard, Confirm } from '../components/ui'
+import { Hd, Empty, Pill, ReqCard, Confirm, useMore } from '../components/ui'
 import { lineErrors } from '../lib/actions'
+import { useOwnRequests } from '../lib/useOwnRequests'
 import { D, TODAY, addDays } from '../lib/utils'
 
+// Hanya request yang belum 100%. Yang sudah selesai, ditolak, atau dibatalkan pindah ke tab Histori.
 export function VReq() {
-  const { db, ui } = useApp()
-  const l = db.R.filter(r => r.by == ui.me).sort((a, b) => (b.tgl < a.tgl ? -1 : 1))
+  const { setUi } = useApp()
+  const { aktif, histori } = useOwnRequests()
+  const [rows, more] = useMore(aktif, 10)
   return (
     <>
-      <Hd t="Request saya" s="Pantau tiap barang dari pengajuan sampai diambil." />
-      {l.length ? l.map(r => <ReqCard key={r.id} r={r} mode="own" />) : <Empty>Belum ada request. Buka tab Buat request untuk mulai.</Empty>}
+      <Hd t="Request saya" s="Request yang masih berjalan. Yang sudah selesai ada di Histori." />
+      {aktif.length ? (
+        rows.map(r => <ReqCard key={r.id} r={r} mode="own" />)
+      ) : (
+        <Empty>
+          {histori.length
+            ? 'Tidak ada request yang sedang berjalan. Semua request Anda sudah selesai dan ada di Histori.'
+            : 'Belum ada request. Buka tab Buat request untuk mulai.'}
+        </Empty>
+      )}
+      {more}
+      {histori.length ? (
+        <div style={{ marginTop: 12 }}>
+          <button className="lnk" onClick={() => setUi({ tab: 'his' })}>Lihat Histori ({histori.length} request)</button>
+        </div>
+      ) : null}
     </>
   )
 }

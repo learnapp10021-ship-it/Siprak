@@ -23,7 +23,7 @@ const emptyLine = () => ({ kode: '', qty: '', datang: '', pakai: '' })
 export const newLine = emptyLine
 
 export const TABS = {
-  User: [['req', 'Request saya'], ['new', 'Buat request']],
+  User: [['req', 'Request saya'], ['new', 'Buat request'], ['his', 'Histori']],
   Atasan: [['appr', 'Persetujuan'], ['tim', 'Tim saya']],
   'Admin Dept': [['pool', 'Buat ERO'], ['kon', 'SRL'], ['allr', 'Semua request'], ['usr', 'Pengguna']],
   'Admin Warehouse': [['val', 'Validasi SRL'], ['dtg', 'Kedatangan'], ['srh', 'Serah terima'], ['mst', 'Master item'], ['usr', 'Pengguna']],

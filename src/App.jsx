@@ -3,6 +3,7 @@ import { AppProvider, TABS, useApp, useStatus } from './store'
 import { ThemeSwitch } from './components/ThemeSwitch'
 import { Drawer, UserSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
 import { VReq, VNew } from './views/UserViews'
+import { VHis } from './views/HistoriView'
 import { VAppr, VTim } from './views/AtasanViews'
 import { VPool, VKon, VAll } from './views/AdminDeptViews'
 import { VDtg, VSrh } from './views/WarehouseViews'
@@ -15,7 +16,7 @@ import { badgeCounts } from './lib/notes'
 
 // Tiap layar dimemo: berubahnya status simpan/toast di Shell tidak menggambar ulang daftar yang berat.
 const VIEWS = Object.fromEntries(
-  Object.entries({ dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }).map(([k, v]) => [k, memo(v)])
+  Object.entries({ dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, his: VHis, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }).map(([k, v]) => [k, memo(v)])
 )
 
 // Menu bawah (HP/tablet) hanya untuk pekerjaan harian; menu lain ada di menu samping (hamburger). Desktop tetap menampilkan semua.

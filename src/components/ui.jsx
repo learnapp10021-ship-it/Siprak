@@ -52,12 +52,13 @@ function Ring({ pct, tone, dead, wait }) {
 }
 
 export const ItemCard = memo(function ItemCard({ it }) {
-  const { sel, db } = useApp()
-  const m = sel.mi(it.kode)
+  const { sel } = useApp()
+  // Kode yang tidak ada di master (salah ketik di spreadsheet) tidak boleh mematikan kartu
+  const m = sel.mi(it.kode) || { n: it.kode, sat: '' }
   const [g, t, l] = sel.st(it)
   const dead = g < 0
   const pct = sel.progress(it)
-  const ss = db.SR.filter(s => s.item == it.id)
+  const ss = sel.takenOf(it.id)
   const k = sel.KN(it.kon)
   const srl = k && sel.SRLof(k.srl)
   const q = sel.antrian(it)
@@ -114,9 +115,9 @@ const TONE = { Draft: 't-gray', 'Menunggu Approval': 't-warn', Disetujui: 't-ok'
 
 // mode: 'own' (milik sendiri), 'appr' (untuk atasan menyetujui), 'tim' (hanya lihat)
 export const ReqCard = memo(function ReqCard({ r, mode }) {
-  const { db, sel, act } = useApp()
+  const { sel, act } = useApp()
   const [cat, setCat] = useState('')
-  const its = db.I.filter(i => i.req == r.id)
+  const its = sel.itemsOf(r.id)
   return (
     <div className="row">
       <div className="between">

@@ -36,6 +36,9 @@ const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt
 // Format tanggal pendek Indonesia, tanpa Intl supaya sama di browser dan Google Apps Script
 export const D = d => (d ? +d.slice(8, 10) + ' ' + BLN[+d.slice(5, 7) - 1] : 'belum diisi')
 
+// "2026-11" -> "Nov 2026"
+export const monthLabel = ym => (ym ? BLN[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4) : '')
+
 export const days = d =>
   Math.max(0, Math.round((Date.parse(TODAY) - Date.parse(d.slice(0, 10))) / 864e5))
 export const dayDiff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
