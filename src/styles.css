@@ -479,3 +479,23 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   main.v-kon .egrid th,main.v-kon .egrid td{padding:5px 6px}
   main.v-kon .egrid .pill{white-space:normal}
 }
+
+/* ===== Desktop semua peran: kulit konsisten ala aplikasi data (datar, padat, tanpa bayangan) ===== */
+@media (min-width:1024px){
+  main .row{border-radius:3px;box-shadow:none;padding:10px 14px;margin-top:8px}
+  main .item{border-radius:2px;padding:8px 10px;margin-top:8px}
+  main .btn{border-radius:3px;min-height:30px;padding:4px 14px;font-size:13px}
+  main input:not([type=checkbox]):not([type=radio]),main select,main textarea{border-radius:3px;font-size:13px;padding:5px 8px;min-height:30px}
+  main textarea{min-height:56px}
+  main label{font-size:12px}
+  main .pill{border-radius:2px;font-size:11px;padding:1px 6px}
+  main .hd h2{font-size:18px}
+  main .hd p{font-size:13px}
+  main .acts{gap:6px;margin-top:8px}
+  main .bar{height:5px}
+  main .srlpick .kbtn{border-radius:3px;padding:8px 10px;box-shadow:none}
+  main .kbtn.on{box-shadow:none;border-color:var(--brand);background:var(--soft)}
+  main .srlhd{border-radius:3px;box-shadow:none}
+  main .grid{gap:10px}
+  main .empty{border-radius:3px}
+}
