@@ -499,3 +499,15 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   main .grid{gap:10px}
   main .empty{border-radius:3px}
 }
+
+/* Layar login di desktop: lebih ringkas (HP tidak berubah) */
+@media (min-width:1024px){
+  .login-t{font-size:34px;margin:0 0 22px}
+  .login-sub{margin:-14px 0 16px;font-size:14px}
+  .login-card{max-width:340px;padding:22px 22px 16px}
+  .login-in{height:40px;min-height:40px;font-size:15px;margin-bottom:14px}
+  .login-btn{height:40px;min-height:40px;font-size:16px}
+  .login-logo{width:160px;margin:16px auto 2px}
+  .login-note{margin-top:10px;font-size:11px}
+  .login-err{margin-bottom:12px;padding:8px 10px;font-size:13px}
+}

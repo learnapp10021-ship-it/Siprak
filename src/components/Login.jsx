@@ -44,7 +44,7 @@ export function Login({ users, onPick }) {
           value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
         />
         <button type="submit" className="login-btn">Login</button>
-        <img className="login-logo" src={logo} alt="DBC, Inspired to Exceed" />
+        <img className="login-logo" src={logo} width="334" height="167" decoding="async" alt="DBC, Inspired to Exceed" />
         <p className="login-note">Mode uji coba: password belum diperiksa, boleh dikosongkan.</p>
       </form>
     </div>
