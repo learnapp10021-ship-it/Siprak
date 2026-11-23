@@ -1,6 +1,6 @@
-import { useDeferredValue, useMemo, useState } from 'react'
+import { memo, useDeferredValue, useMemo, useState } from 'react'
 import { useApp } from '../store'
-import { Hd, Empty, Pill, Confirm, SrlPicker, SrlHead, useSrlPick } from '../components/ui'
+import { Hd, Empty, Pill, Confirm, SrlPicker, SrlHead, useSrlPick, useMore } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
 import { SerahPenerima } from './SerahView'
 
@@ -19,7 +19,7 @@ function ItemSearch({ q, setQ, n }) {
 
 /* ------------------------------------------------------------------ Kedatangan */
 
-function DatangCard({ k }) {
+const DatangCard = memo(function DatangCard({ k }) {
   const { sel, me, act } = useApp()
   const [q, setQ] = useState('')
   const [l, setL] = useState('0')
@@ -38,7 +38,7 @@ function DatangCard({ k }) {
     if (await act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.id })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
   }
   return (
-    <div className="row">
+    <div className="row dtg">
       <div className="between"><b>{m.n}</b><Pill t={dt ? 't-info' : 't-gray'}>Sisa {sisa} {m.sat}</Pill></div>
       <div className="pbar" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100" aria-label="Progres kedatangan"><i style={{ width: pct + '%' }} /></div>
       <small className="mut">Datang {dt} dari {tot} {m.sat} ({k.id})</small>
@@ -67,48 +67,78 @@ function DatangCard({ k }) {
       </div>
     </div>
   )
-}
+})
 
-function DatangSrl({ no, items }) {
-  const { db, sel, me, act } = useApp()
+function DatangSrl({ no, items, p }) {
+  const { sel, me, act } = useApp()
   const [q, setQ] = useState('')
+  const [st, setSt] = useState('') // '', 'baru' (belum ada yang datang), 'sebagian'
   const key = useDeferredValue(q).trim().toLowerCase()
-  const shown = key ? items.filter(k => (sel.mi(k.kode).n + ' ' + k.kode + ' ' + k.id).toLowerCase().includes(key)) : items
-  const p = progDtg(db, sel)(no)
+  const nBaru = useMemo(() => items.filter(k => !sel.datang(k)).length, [items, sel])
+  const shown = useMemo(
+    () => items.filter(k => (!st || (st == 'baru' ? !sel.datang(k) : sel.datang(k) > 0)) &&
+      (!key || (sel.mi(k.kode).n + ' ' + k.kode + ' ' + k.id).toLowerCase().includes(key))),
+    [items, sel, key, st],
+  )
+  const [vis, more] = useMore(shown, 15)
   return (
     <>
       <SrlHead no={no} s={sel.SRLof(no)} pct={p.pct} sub={`${items.length} barang belum lengkap. ${p.text}.`}>
         <Confirm className="btn alt" onConfirm={() => act('datangAll', no, me.id)}>Semua datang sesuai jumlah ({items.length})</Confirm>
       </SrlHead>
       <ItemSearch q={q} setQ={setQ} n={items.length} />
-      {shown.map(k => <DatangCard key={k.id} k={k} />)}
-      {key && !shown.length ? <Empty>Tidak ada barang yang cocok dengan "{q.trim()}".</Empty> : null}
+      {items.length > BANYAK && nBaru > 0 && nBaru < items.length ? (
+        <div className="chips" role="group" aria-label="Filter status kedatangan">
+          <button className="chip" aria-pressed={st == 'baru'} onClick={() => setSt(st == 'baru' ? '' : 'baru')}>Belum datang ({nBaru})</button>
+          <button className="chip" aria-pressed={st == 'sebagian'} onClick={() => setSt(st == 'sebagian' ? '' : 'sebagian')}>Sebagian ({items.length - nBaru})</button>
+        </div>
+      ) : null}
+      {items.length > BANYAK ? <small className="mut" aria-live="polite">{shown.length == items.length ? items.length + ' barang' : shown.length + ' dari ' + items.length + ' barang'}</small> : null}
+      {vis.map(k => <DatangCard key={k.id} k={k} />)}
+      {more}
+      {(key || st) && !shown.length ? <Empty>Tidak ada barang yang cocok.</Empty> : null}
     </>
   )
 }
 
-// progres kedatangan seluruh barang di satu SRL (termasuk yang sudah lengkap)
-const progDtg = (db, sel) => no => {
-  const ks = db.K.filter(k => k.srl == no && k.tahap == 'Sudah di ERO')
-  const t = sum(ks, k => sel.total(k))
-  const d = sum(ks, k => sel.datang(k))
-  const pct = t ? Math.min(100, Math.round((d / t) * 100)) : 0
-  return { pct, text: pct + '% datang' }
+// Kemajuan kedatangan semua SRL sekaligus: satu kali jalan melewati db.K (bukan satu pindaian per SRL).
+const progDtgMap = (db, sel) => {
+  const m = new Map()
+  db.K.forEach(k => {
+    if (k.tahap != 'Sudah di ERO') return
+    const a = m.get(k.srl) || { t: 0, d: 0 }
+    a.t += sel.total(k)
+    a.d += sel.datang(k)
+    m.set(k.srl, a)
+  })
+  return no => {
+    const a = m.get(no) || { t: 0, d: 0 }
+    const pct = a.t ? Math.min(100, Math.round((a.d / a.t) * 100)) : 0
+    return { pct, text: pct + '% datang' }
+  }
 }
 
 export function VDtg() {
   const { db, sel } = useApp()
-  const l = db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0)
-  const g = {}
-  l.forEach(k => (g[k.srl] = g[k.srl] || []).push(k))
-  const pk = useSrlPick(g, sel, progDtg(db, sel))
+  // dihitung sekali per perubahan data, bukan setiap mengetik di kolom cari
+  const { n, g, prog } = useMemo(() => {
+    const g = {}
+    let n = 0
+    db.K.forEach(k => {
+      if (k.tahap != 'Sudah di ERO' || !(sel.sisa(k) > 0)) return
+      ;(g[k.srl] = g[k.srl] || []).push(k)
+      n++
+    })
+    return { n, g, prog: progDtgMap(db, sel) }
+  }, [db, sel])
+  const pk = useSrlPick(g, sel, prog)
   return (
     <>
       <Hd t="Kedatangan barang" s="Pilih nomor SRL, lalu catat barang yang tiba." />
-      {l.length ? (
+      {n ? (
         <>
           <SrlPicker {...pk} />
-          {pk.cur ? <DatangSrl key={pk.cur} no={pk.cur} items={g[pk.cur]} /> : null}
+          {pk.cur ? <DatangSrl key={pk.cur} no={pk.cur} items={g[pk.cur]} p={prog(pk.cur)} /> : null}
         </>
       ) : (
         <Empty>Semua barang di ERO sudah tiba.</Empty>

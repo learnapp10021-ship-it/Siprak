@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Confirm, SrlPicker, SrlHead, useSrlPick } from '../components/ui'
 import { D, sum } from '../lib/utils'
@@ -71,12 +71,15 @@ function ValSrl({ no, items }) {
 
 export function VVal() {
   const { db, sel } = useApp()
-  const l = db.I.filter(i => i.status == 'Validasi Warehouse').sort(sel.ord)
-  const g = {}
-  l.forEach(i => {
-    const no = sel.KN(i.kon)?.srl || '-'
-    ;(g[no] = g[no] || []).push(i)
-  })
+  const { l, g } = useMemo(() => {
+    const l = db.I.filter(i => i.status == 'Validasi Warehouse').sort(sel.ord)
+    const g = {}
+    l.forEach(i => {
+      const no = sel.KN(i.kon)?.srl || '-'
+      ;(g[no] = g[no] || []).push(i)
+    })
+    return { l, g }
+  }, [db, sel])
   const pk = useSrlPick(g, sel)
   return (
     <>

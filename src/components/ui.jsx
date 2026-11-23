@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { D, TODAY } from '../lib/utils'
 
@@ -180,30 +180,43 @@ export function useSrlPick(g, sel, prog) {
   const [f, setF] = useState({ pick: '', q: '', dept: '', late: false, sort: 'est', lim: PAGE, open: false })
   // ganti pilihan / buka-tutup / tampilkan lagi tidak mereset panjang daftar; ubah filter mereset
   const set = p => setF(x => ({ ...x, ...('pick' in p || 'lim' in p || 'open' in p ? {} : { lim: PAGE }), ...p }))
-  const meta = {}
-  Object.keys(g).forEach(no => {
-    const r = sel.SRLof(no)
-    const names = g[no].map(x => sel.mi(x.kode)?.n || '').join(' ')
-    meta[no] = { no, dept: r?.dept || '', est: r?.est || '', n: g[no].length, p: prog ? prog(no) : null,
-      late: !!(r?.est && r.est < TODAY), hay: (no + ' ' + (r?.dept || '') + ' ' + names).toLowerCase() }
-  })
-  const depts = [...new Set(Object.values(meta).map(m => m.dept).filter(Boolean))].sort()
-  const q = f.q.trim().toLowerCase()
+  // dihitung ulang hanya saat data berubah (bukan tiap ketikan); caller wajib memo-kan g dan prog
+  const meta = useMemo(() => {
+    const o = {}
+    Object.keys(g).forEach(no => {
+      const r = sel.SRLof(no)
+      o[no] = { no, dept: r?.dept || '', est: r?.est || '', n: g[no].length, p: prog ? prog(no) : null,
+        late: !!(r?.est && r.est < TODAY) }
+    })
+    return o
+  }, [g, sel, prog])
+  const depts = useMemo(() => [...new Set(Object.values(meta).map(m => m.dept).filter(Boolean))].sort(), [meta])
+  const lateN = useMemo(() => Object.values(meta).filter(m => m.late).length, [meta])
+  // teks pencarian dibuat sekali, malas: hanya saat ada kata kunci pertama kali
+  const q = useDeferredValue(f.q).trim().toLowerCase()
+  const hay = useMemo(() => {
+    if (!q) return null
+    const h = {}
+    Object.keys(meta).forEach(no => {
+      h[no] = (no + ' ' + meta[no].dept + ' ' + g[no].map(x => sel.mi(x.kode)?.n || '').join(' ')).toLowerCase()
+    })
+    return h
+  }, [!!q, meta, g, sel]) // eslint-disable-line react-hooks/exhaustive-deps
   const cmp = {
     est: (a, b) => ((a.est || '9') < (b.est || '9') ? -1 : (a.est || '9') > (b.est || '9') ? 1 : a.no < b.no ? -1 : 1),
     new: (a, b) => (a.no < b.no ? 1 : -1),
     big: (a, b) => b.n - a.n || (a.no < b.no ? -1 : 1),
   }[f.sort]
-  const list = Object.values(meta)
-    .filter(m => (!q || m.hay.includes(q)) && (!f.dept || m.dept == f.dept) && (!f.late || m.late))
-    .sort(cmp)
+  const list = useMemo(
+    () => Object.values(meta).filter(m => (!q || !hay || hay[m.no].includes(q)) && (!f.dept || m.dept == f.dept) && (!f.late || m.late)).sort(cmp),
+    [meta, hay, q, f.dept, f.late, f.sort], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   const nos = list.map(m => m.no)
   const cur = nos.includes(f.pick) ? f.pick : nos[0]
   const idx = nos.indexOf(cur)
-  const lateN = Object.values(meta).filter(m => m.late).length
   const go = no => { set({ pick: no, open: false }); goDetail() }
   const reset = () => set({ q: '', dept: '', late: false })
-  const active = !!(q || f.dept || f.late)
+  const active = !!(f.q.trim() || f.dept || f.late)
   return { list, cur, idx, prev: nos[idx - 1], next: nos[idx + 1], go, f, set, depts, lateN, total: Object.keys(g).length, active, reset }
 }
 
