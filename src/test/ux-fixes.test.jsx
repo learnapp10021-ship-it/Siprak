@@ -145,6 +145,13 @@ describe('pagar CSS: kontras dan teks kecil', () => {
   it('latar .t-* tidak bocor ke cincin progres dan label tahap', () => {
     expect(css).toMatch(/\.rg\[class\*="t-"\],\.itm-steps li\[class\*="t-"\]\{background:none\}/)
   })
+  it('kotak centang tabel Pool tidak mewarisi min-height/tepi/bayangan input global', () => {
+    const m = css.match(/\.egrid input\[type=checkbox\]\{[^}]*\}/)
+    expect(m, 'aturan .egrid input[type=checkbox] harus ada').toBeTruthy()
+    expect(m[0]).toMatch(/min-height:0/)
+    expect(m[0]).toMatch(/box-shadow:none/)
+    expect(m[0]).toMatch(/border:0/)
+  })
   it('tidak ada font-size di bawah 12px', () => {
     const kecil = [...css.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].filter(m => +m[1] < 12).map(m => m[0])
     expect(kecil).toEqual([])

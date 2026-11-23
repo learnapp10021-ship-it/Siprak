@@ -521,7 +521,10 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   .egrid tbody tr.held{color:var(--mut);background:var(--bg)}
   .egrid td.none{text-align:center;color:var(--mut);padding:16px}
   .egrid small{display:block;color:var(--mut);font-size:12px}
-  .egrid input[type=checkbox]{width:15px;height:15px;margin:0;vertical-align:middle}
+  /* min-height:0 wajib: gaya input global (min-height:42px) kalau tidak menang atas height dan memunculkan
+     persegi panjang samar (tepi + bayangan) di belakang kotak centang */
+  .egrid input[type=checkbox]{width:18px;height:18px;min-height:0;margin:0;padding:0;border:0;background:none;box-shadow:none;vertical-align:middle;cursor:pointer}
+  .egrid input[type=checkbox]:focus-visible{outline:2px solid var(--focus);outline-offset:2px;box-shadow:none}
   .egrid .it{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:2px 0}
   .egrid .it .pill{white-space:normal;text-align:left}
   .egrid .bar{min-width:110px;margin:2px 0}
@@ -662,7 +665,6 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
   .erp-det{grid-template-columns:minmax(0,1fr) 300px;max-height:190px}
   .erp-det>div:first-child{overflow:auto;max-height:166px}
   .erp-det .egrid thead th{top:0}
-  .egrid input[type=checkbox]{appearance:auto;border:0;box-shadow:none;min-height:0;padding:0;background:none}
   .erp-tab{margin-top:10px}
 }
 @media (min-width:1024px){
