@@ -511,3 +511,30 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
   .login-note{margin-top:10px;font-size:11px}
   .login-err{margin-bottom:12px;padding:8px 10px;font-size:13px}
 }
+/* ---- Kartu barang: cincin progres bulat + tahapan + info antrian ---- */
+.itm{border-left:1px solid var(--line);padding:12px}
+.itm-top{display:flex;gap:12px;align-items:center}
+.itm-main{flex:1;min-width:0}.itm-main .lbl{margin-top:2px}.itm-q{white-space:nowrap;color:var(--mut);font-size:13px}
+.rg{position:relative;width:56px;height:56px;flex:0 0 56px;color:var(--bd)}
+.rg.t-ok{color:var(--ok)}.rg.t-warn{color:var(--warn)}.rg.t-info{color:var(--info)}.rg.t-vio{color:var(--vio)}.rg.t-bad{color:var(--bad)}
+.rg svg{display:block}.rg circle{fill:none}
+.rg-t{stroke:var(--line);stroke-width:6}
+.rg-p{stroke:currentColor;stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .6s ease}
+.rg-w{stroke:currentColor;stroke-width:1.5;stroke-dasharray:2 7;opacity:.55;transform-origin:30px 30px;animation:rgSpin 6s linear infinite}
+.rg>span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--ink)}
+.rg.t-bad>span{color:var(--bad);font-size:16px}
+@keyframes rgSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.rg-w{animation:none}.rg-p{transition:none}}
+.itm-steps{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);position:relative}
+.itm-steps li{display:grid;justify-items:center;gap:4px;position:relative;font-size:11px;color:var(--mut);text-align:center}
+.itm-steps li::before{content:"";position:absolute;top:6px;right:50%;width:100%;height:2px;background:var(--line)}
+.itm-steps li:first-child::before{display:none}
+.itm-steps li.on::before,.itm-steps li.cur::before{background:var(--ok)}
+.itm-steps i{width:14px;height:14px;border-radius:50%;background:var(--paper);border:2px solid var(--line);position:relative;z-index:1}
+.itm-steps li.on i{background:var(--ok);border-color:var(--ok)}
+.itm-steps li.cur{color:var(--ink);font-weight:600}
+.itm-steps li.cur i{border-color:currentColor;background:var(--paper);box-shadow:0 0 0 3px var(--soft)}
+.itm-steps li.cur.t-warn i{border-color:var(--warn)}.itm-steps li.cur.t-info i{border-color:var(--info)}.itm-steps li.cur.t-vio i{border-color:var(--vio)}.itm-steps li.cur.t-ok i{border-color:var(--ok);background:var(--ok)}.itm-steps li.cur.t-gray i{border-color:var(--bd)}
+.itm-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.itm-facts div{min-width:0}.itm-facts dt{font-size:11px;color:var(--mut)}.itm-facts dd{margin:1px 0 0;font-size:13px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+@media(max-width:340px){.itm-facts{grid-template-columns:1fr}}
