@@ -26,8 +26,9 @@ const BARU = {
 // Mengembalikan daftar kalimat singkat (maksimal 3 baris), kosong bila tidak ada yang relevan.
 export function incomingNotes(prev, next, meId) {
   if (!prev?.U?.length || !next?.U?.length) return []
-  const sp = makeSel(prev)
-  const sn = makeSel(next)
+  // Snapshot tidak berubah: selector ber-indeks aman dan jauh lebih cepat untuk data besar
+  const sp = makeSel(prev, { cache: true })
+  const sn = makeSel(next, { cache: true })
   const me = sn.user(meId)
   if (!me || !sp.user(meId)) return []
   const out = []
@@ -44,6 +45,13 @@ export function incomingNotes(prev, next, meId) {
   next.I.filter(i => mine.has(i.req) && !rChanged.has(i.req) && iOld.has(i.id) && iOld.get(i.id) !== i.status).forEach(i =>
     out.push(`${sn.mi(i.kode)?.n || i.kode}: ${i.status}`)
   )
+
+  // 1b. Barang saya yang baru tiba (kedatangan dicatat Admin Warehouse), status barangnya sendiri tidak berubah
+  const iPrev = new Map(prev.I.map(i => [i.id, i]))
+  next.I.filter(i => mine.has(i.req) && i.status == 'Sudah di ERO' && iOld.get(i.id) == 'Sudah di ERO').forEach(i => {
+    const naik = sn.berhak(i) - sp.berhak(iPrev.get(i.id))
+    if (naik > 0) out.push(`${sn.mi(i.kode)?.n || i.kode}: telah tiba ${naik} ${sn.mi(i.kode)?.sat || ''}, siap diambil`.replace(/ ,/, ','))
+  })
 
   // 2. Antrean kerja yang bertambah
   const a = badgeCounts(prev, sp, sp.user(meId))

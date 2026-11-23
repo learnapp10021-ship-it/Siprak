@@ -236,6 +236,13 @@ describe('Kartu barang ringkas', () => {
     expect(itm.classList.contains('open')).toBe(false)
   })
 
+  it('stepper punya enam tahap: Di ERO, lalu Tiba, lalu Ambil', async () => {
+    const { container } = await open(mine)
+    container.querySelector('.itm-top').click()
+    const steps = [...container.querySelector('.itm-steps').querySelectorAll('li span')].map(e => e.textContent)
+    expect(steps).toEqual(['Ajuan', 'Setuju', 'Validasi', 'Di ERO', 'Tiba', 'Ambil'])
+  })
+
   it('barang ditolak tidak punya rincian untuk dibuka (tombol nonaktif)', async () => {
     await open('rudi.prod')
     tab('Histori')

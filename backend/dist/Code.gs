@@ -175,7 +175,7 @@ function makeSel(db, { cache = false } = {}) {
   const lastArrival = kon => kdOf(kon).map(d => d.tgl).sort().pop()
   const firstArrival = kon => kdOf(kon).map(d => d.tgl).sort()[0]
 
-  // [tahap 0-4, kelas warna, label]
+  // [tahap 0-5 (0 Diajukan, 1 Disetujui, 2 Validasi, 3 Di ERO, 4 Telah tiba, 5 Diambil), kelas warna, label]
   const st = it => {
     const s = it.status
     // Data bisa diedit manual di spreadsheet: kode yang salah ketik tidak boleh membuat seluruh layar mati
@@ -193,12 +193,13 @@ function makeSel(db, { cache = false } = {}) {
     if (s == 'Sudah di ERO') {
       const b = berhak(it)
       const a = diambil(it)
-      if (a >= +it.qty) return [4, 't-ok', 'Sudah diambil semua']
-      if (b - a > 0) return [4, 't-ok', `Siap diambil ${b - a} dari ${it.qty} ${sat}`]
+      if (a >= +it.qty) return [5, 't-ok', 'Sudah diambil semua']
+      // Admin Warehouse sudah mencatat kedatangan: barang telah tiba dan menunggu diambil
+      if (b - a > 0) return [4, 't-ok', `Telah tiba, siap diambil ${b - a} dari ${it.qty} ${sat}`]
       // Tidak ada lagi yang akan datang (sisa ditutup): jangan menunggu selamanya
       const kk = KN(it.kon)
       if (kk && sisa(kk) == 0 && +kk.tutup > 0)
-        return [4, 't-warn', `Sisa ditutup${kk.alasan ? ': ' + kk.alasan : ''}. Diambil ${a} dari ${it.qty} ${sat}`]
+        return [5, 't-warn', `Sisa ditutup${kk.alasan ? ': ' + kk.alasan : ''}. Diambil ${a} dari ${it.qty} ${sat}`]
       const srl = SRLof(kk?.srl)
       return [
         3,

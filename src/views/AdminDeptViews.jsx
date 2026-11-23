@@ -350,7 +350,7 @@ export function VAll() {
   const d = me.dept
   const q = useDeferredValue(ui.q).toLowerCase()
   const f = ui.sf
-  const names = ['Diajukan', 'Disetujui', 'Dikonsolidasi', 'Di ERO', 'Barang tiba']
+  const names = ['Diajukan', 'Disetujui', 'Dikonsolidasi', 'Di ERO', 'Telah tiba', 'Sudah diambil']
   const l = db.R.filter(
     r =>
       sel.user(r.by)?.dept == d && r.st != 'Draft' &&

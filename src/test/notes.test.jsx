@@ -57,3 +57,53 @@ describe('notifikasi perubahan dari orang lain', () => {
     Object.keys(actions).forEach(a => expect(AKSI[a], 'label untuk ' + a).toBeTruthy())
   })
 })
+
+describe('kedatangan dicatat Admin Warehouse', () => {
+  const db = buildSeed()
+  const sel = makeSel(db)
+  // barang yang masih menunggu kedatangan di SRL yang sudah di ERO
+  const item = db.I.find(i => i.status == 'Sudah di ERO' && sel.st(i)[0] == 3 && sel.KN(i.kon)?.tahap == 'Sudah di ERO')
+  const k = sel.KN(item.kon)
+  const owner = sel.RQ(item.req).by
+
+  it('status barang pindah ke tahap 4 "Telah tiba" dan menunggu diambil', () => {
+    expect(sel.st(item)[2]).toContain('menunggu barang datang')
+    const next = run(db, 'datang', { id: k.id, q: sel.sisa(k), l: 0, cat: '', by: 'wati.wh' })
+    const sn = makeSel(next)
+    const it2 = next.I.find(i => i.id == item.id)
+    const [tahap, tone, label] = sn.st(it2)
+    expect(tahap).toBe(4)
+    expect(tone).toBe('t-ok')
+    expect(label).toMatch(/^Telah tiba, siap diambil \d+ dari \d+/)
+  })
+
+  it('setelah diambil semua barulah tahap 5 "Diambil"', () => {
+    const tiba = run(db, 'datang', { id: k.id, q: sel.sisa(k), l: 0, cat: '', by: 'wati.wh' })
+    const siap = makeSel(tiba).siap(tiba.I.find(i => i.id == item.id))
+    const ambil = run(tiba, 'serah', item.id, siap)
+    const it3 = ambil.I.find(i => i.id == item.id)
+    const st = makeSel(ambil).st(it3)
+    expect(siap).toBe(+it3.qty)
+    expect(st[0]).toBe(5)
+    expect(st[2]).toBe('Sudah diambil semua')
+  })
+
+  it('pemilik barang diberi tahu saat barangnya tiba', () => {
+    const next = run(db, 'datang', { id: k.id, q: sel.sisa(k), l: 0, cat: '', by: 'wati.wh' })
+    const n = incomingNotes(db, next, owner)
+    const nama = sel.mi(item.kode).n
+    expect(n.some(t => t.startsWith(nama + ': telah tiba') && t.endsWith('siap diambil'))).toBe(true)
+  })
+
+  it('orang lain (bukan pemilik) tidak diberi tahu tentang barang itu', () => {
+    const next = run(db, 'datang', { id: k.id, q: sel.sisa(k), l: 0, cat: '', by: 'wati.wh' })
+    const lain = db.U.find(u => u.role == 'User' && u.id != owner && !db.I.some(i => i.kon == k.id && sel.RQ(i.req).by == u.id))
+    const nama = sel.mi(item.kode).n
+    expect(incomingNotes(db, next, lain.id).some(t => t.startsWith(nama + ': telah tiba'))).toBe(false)
+  })
+
+  it('tidak ada catatan tiba bila tidak ada kedatangan baru', () => {
+    expect(incomingNotes(db, clone(db), owner).some(t => t.includes('telah tiba'))).toBe(false)
+  })
+})
+

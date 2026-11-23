@@ -34,7 +34,7 @@ export function Confirm({ onConfirm, className = 'btn bad', children }) {
   )
 }
 
-const STAGES = ['Diajukan', 'Disetujui', 'Validasi', 'Di ERO', 'Ambil']
+const STAGES = ['Ajuan', 'Setuju', 'Validasi', 'Di ERO', 'Tiba', 'Ambil']
 
 // Cincin progres bulat: busur = persen proses; cincin putus-putus berputar pelan saat masih menunggu
 function Ring({ pct, tone, dead, wait }) {
@@ -66,7 +66,7 @@ export const ItemCard = memo(function ItemCard({ it }) {
   const mid = useId()
   const got = sel.berhak(it)
   const took = sel.diambil(it)
-  const done = !dead && g == 4 && took >= +it.qty
+  const done = !dead && g == 5 && took >= +it.qty
   // Masih menunggu sesuatu (persetujuan, proses ERO, barang datang): cincin berputar pelan
   const wait = !dead && !done && g <= 3 && it.status != 'Draft' && !(g == 1 && it.tahan)
 
