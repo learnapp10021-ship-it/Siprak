@@ -144,7 +144,7 @@ function Detail({ p, onBack }) {
             <div className="sh-gh">
               <Tri n={n} of={gr.a.length} onChange={v => setSrl(gr.a, v)} label={'Pilih semua barang di ' + gr.no} />
               <button className="sh-gt" aria-expanded={open} aria-controls={'g-' + gr.no} onClick={() => toggle(gr.no)} disabled={!!key}>
-                <span className="sh-chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                <span className="sh-chev" aria-hidden="true">▸</span>
                 <span className="sh-gn">
                   <b>{gr.no}</b>
                   <small className="mut">est. {D(gr.est)}, {n} dari {gr.a.length} barang dipilih</small>

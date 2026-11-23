@@ -43,3 +43,12 @@
   .sh-bar{bottom:0}
 }
 @media (prefers-reduced-motion:no-preference){.sh-p,.sh-i{transition:background-color .12s,border-color .12s,opacity .12s}}
+.sh-g.open .sh-chev{transform:rotate(90deg)}
+.sh-bar{box-shadow:0 -10px 12px -10px rgba(0,0,0,.18)}
+@media (prefers-reduced-motion:no-preference){
+  .sh-chev{display:inline-block;transition:transform .15s ease-out}
+  .sh-gt:active{transform:scale(.985)}
+  .sh-gh{transition:border-color .12s,background-color .12s}
+  @keyframes shIn{from{opacity:0;transform:translateY(4px)}}
+  .sh-det{animation:shIn .16s ease-out both}
+}
