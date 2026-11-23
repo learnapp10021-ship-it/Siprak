@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { TABS, useApp } from '../store'
 import { Pill } from './ui'
+import * as api from '../lib/api'
 import { D, TODAY, days, dayDiff, disp } from '../lib/utils'
 
 const age = w => (w >= 7 ? 't-bad' : w >= 3 ? 't-warn' : 't-gray')
@@ -24,6 +25,40 @@ export function Drawer({ cnt }) {
         <button className="mi mi-out" onClick={logout}>Keluar</button>
       </aside>
     </>
+  )
+}
+
+// Ganti PIN sendiri (hanya saat login PIN aktif). Server memeriksa PIN lama dan kekuatan PIN baru.
+function PinForm() {
+  const { toast } = useApp()
+  const [f, setF] = useState({ lama: '', baru: '', ulang: '' })
+  const [busy, setBusy] = useState(false)
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }))
+  const go = async () => {
+    if (busy) return
+    if (!f.lama || !f.baru) return toast('Isi PIN lama dan PIN baru.', true)
+    if (f.baru !== f.ulang) return toast('PIN baru dan ulangannya tidak sama.', true)
+    setBusy(true)
+    const r = await api.ubahPin(f.lama, f.baru)
+    setBusy(false)
+    if (r.ok) {
+      toast('PIN diganti.')
+      setF({ lama: '', baru: '', ulang: '' })
+    } else toast(r.err || 'Gagal mengganti PIN.', true)
+  }
+  const pin = (k, label, ac) => (
+    <label>{label}
+      <input type="password" inputMode="numeric" maxLength={12} autoComplete={ac} value={f[k]} onChange={e => set(k, e.target.value)} />
+    </label>
+  )
+  return (
+    <div className="f">
+      <h3>Ganti PIN</h3>
+      {pin('lama', 'PIN lama', 'current-password')}
+      {pin('baru', 'PIN baru (6 sampai 12 angka)', 'new-password')}
+      {pin('ulang', 'Ulangi PIN baru', 'new-password')}
+      <div className="acts"><button className="btn alt grow" disabled={busy} onClick={go}>{busy ? 'Menyimpan...' : 'Ganti PIN'}</button></div>
+    </div>
   )
 }
 

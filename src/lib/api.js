@@ -23,8 +23,41 @@ async function req(url, opts, timeoutMs) {
   }
 }
 
+// Token sesi login PIN (kosong bila server belum mengaktifkan login). Dibaca langsung dari penyimpanan
+// supaya selalu terbaru; hanya id pengguna + kedaluwarsa + tanda tangan, bukan PIN.
+const TOKEN_KEY = 'siprak.token'
+export const getToken = () => {
+  try { return localStorage.getItem(TOKEN_KEY) || '' } catch { return '' }
+}
+export const setToken = t => {
+  try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY) } catch { /* mode privat */ }
+}
+const postJson = (body, ms) =>
+  req(URL_, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: KEY, ...body }) }, ms)
+const OFFLINE = { ok: false, err: 'Tidak bisa terhubung ke server. Periksa koneksi lalu coba lagi.' }
+
+// Masuk dengan PIN. Sukses: { ok, token, id }. Gagal: { ok: false, err, locked? }
+export async function login(id, pin) {
+  try {
+    const r = await postJson({ action: 'login', id, pin }, 30000)
+    return r && r.busy ? { ok: false, err: 'Server sedang sibuk. Coba lagi sebentar lagi.' } : r
+  } catch {
+    return OFFLINE
+  }
+}
+export async function ubahPin(lama, baru) {
+  try {
+    return await postJson({ action: 'ubahPin', token: getToken(), lama, baru }, 30000)
+  } catch {
+    return OFFLINE
+  }
+}
+
 // Ambil snapshot data. `since` = versi yang sudah dimiliki; jika sama, server menjawab { same: true }.
+// Dengan token memakai POST (token tidak boleh ada di URL); tanpa token memakai GET seperti sebelumnya.
 export function sync(since) {
+  const token = getToken()
+  if (token) return postJson({ action: 'sync', since: since || '', token }, 30000)
   const q = new URLSearchParams({ action: 'sync', since: since || '', key: KEY, _: Date.now() })
   return req(URL_ + '?' + q, {}, 30000)
 }
@@ -39,7 +72,7 @@ export async function write({ tx, name, args, me }) {
     let r
     try {
       // text/plain menghindari preflight CORS (Apps Script tidak melayani OPTIONS)
-      r = await req(URL_, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: KEY, tx, name, args, me }) }, 70000)
+      r = await req(URL_, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: KEY, tx, name, args, me, token: getToken() }) }, 70000)
     } catch (e) {
       return {
         ok: false, retry: true, unknown: true,

@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import vm from 'node:vm'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -81,7 +82,7 @@ export function createBackend(codePath = path.join(root, 'backend/dist/Code.gs')
     getSheetByName: n => env.sheets.get(n) || null,
     insertSheet: n => { const s = new Sheet(n); env.sheets.set(n, s); return s },
     getSheets: () => [...env.sheets.values()],
-    deleteSheet: () => {},
+    deleteSheet: sh => { env.sheets.delete(sh.name) },
   }
   const mocks = {
     console,
@@ -98,7 +99,12 @@ export function createBackend(codePath = path.join(root, 'backend/dist/Code.gs')
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (env.props.has(k) ? env.props.get(k) : null), setProperty: (k, v) => env.props.set(k, v) }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: s => ({ setMimeType() { return this }, getContent: () => s }) },
-    Utilities: { formatDate: d => d.toISOString().slice(0, 16) },
+    Utilities: {
+      formatDate: d => d.toISOString().slice(0, 16),
+      // sama dengan Apps Script: mengembalikan byte bertanda (-128..127)
+      computeHmacSha256Signature: (value, key) => Array.from(crypto.createHmac('sha256', String(key)).update(String(value)).digest(), b => (b > 127 ? b - 256 : b)),
+      getUuid: () => crypto.randomUUID(),
+    },
     Session: { getScriptTimeZone: () => 'Asia/Jakarta' },
   }
   const ctx = vm.createContext({ ...mocks })

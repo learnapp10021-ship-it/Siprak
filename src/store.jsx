@@ -49,6 +49,14 @@ const readCache = () => {
     return c?.db?.U ? c : null
   } catch { return null }
 }
+// Server pernah meminta login PIN di perangkat ini: cache data tidak boleh dipakai tanpa token sah.
+const AUTH_FLAG = 'siprak.auth'
+const authSeen = () => {
+  try { return localStorage.getItem(AUTH_FLAG) === '1' } catch { return false }
+}
+const markAuth = () => {
+  try { localStorage.setItem(AUTH_FLAG, '1') } catch { /* abaikan */ }
+}
 const writeCache = (db, ver) => {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ db, ver })) } catch { /* kuota penuh: abaikan */ }
 }
@@ -73,7 +81,7 @@ export function AppProvider({ children, initialUi: init }) {
   // Demo (tanpa API): data contoh. Server: dari cache lokal bila ada (cepat), kalau tidak tunggu data server.
   const first = useRef(null)
   if (!first.current) {
-    const c = REMOTE ? readCache() : null
+    const c = REMOTE && !(authSeen() && !api.getToken()) ? readCache() : null
     first.current = REMOTE ? { db: c?.db || null, ver: c?.ver || 0, cached: !!c } : { db: buildSeed(), ver: 0, cached: false }
   }
   const [db, setDb] = useState(first.current.db)
@@ -92,6 +100,9 @@ export function AppProvider({ children, initialUi: init }) {
   const chain = useRef(Promise.resolve())
   const inflight = useRef(new Map())
   const decide = useRef(null)
+  const [loginInfo, setLoginInfo] = useState(null) // { users, notice } bila server meminta masuk dengan PIN
+  const authMode = useRef(!!api.getToken() || authSeen())
+  const noticeRef = useRef('')
 
   const setUi = useCallback(p => setUiState(s => ({ ...s, ...(typeof p == 'function' ? p(s) : p) })), [])
 
@@ -114,9 +125,32 @@ export function AppProvider({ children, initialUi: init }) {
     setDb(data)
   }, [])
 
+  // Sesi tidak ada/berakhir: buang token + data lokal milik pengguna sebelumnya, tampilkan layar masuk.
+  const needLogin = useCallback(r => {
+    authMode.current = true
+    markAuth()
+    api.setToken('')
+    writeSession('')
+    try { localStorage.removeItem(CACHE_KEY) } catch { /* abaikan */ }
+    dbRef.current = null
+    verRef.current = 0
+    trusted.current = true
+    setDb(null)
+    setUiState(u => ({ ...u, me: '' }))
+    const generic = !r.err || r.err === 'Silakan masuk.'
+    setLoginInfo({ users: r.users || [], notice: noticeRef.current || (generic ? '' : r.err) })
+    noticeRef.current = ''
+  }, [])
+
   const load = useCallback(async () => {
     try {
       const r = await api.sync(trusted.current ? verRef.current : 0)
+      if (r.auth) {
+        needLogin(r)
+        setNet({ ok: true })
+        setBoot({ state: 'ready', err: '' })
+        return
+      }
       if (!r.ok) throw new Error(r.err || 'Respons server kosong.')
       if (r.snap) applySnap(r.snap)
       else if (r.same) trusted.current = true
@@ -127,7 +161,7 @@ export function AppProvider({ children, initialUi: init }) {
       setNet({ ok: false })
       setBoot(b => (dbRef.current ? { state: 'ready', err: '' } : { state: 'error', err: e.message || String(e) }))
     }
-  }, [applySnap])
+  }, [applySnap, needLogin])
 
   useEffect(() => {
     if (REMOTE) load()
@@ -147,6 +181,11 @@ export function AppProvider({ children, initialUi: init }) {
       if (!document.hidden && !busyRef.current) {
         try {
           const r = await api.sync(verRef.current)
+          if (r.auth) {
+            noticeRef.current = 'Sesi berakhir. Silakan masuk lagi.'
+            needLogin(r)
+            return
+          }
           if (r.ok && r.snap && !busyRef.current) applySnap(r.snap)
           setNet(n => (n.ok ? n : { ok: true }))
         } catch {
@@ -161,7 +200,7 @@ export function AppProvider({ children, initialUi: init }) {
     }
     document.addEventListener('visibilitychange', vis)
     return () => { stop = true; clearTimeout(t); document.removeEventListener('visibilitychange', vis) }
-  }, [boot.state, applySnap])
+  }, [boot.state, applySnap, needLogin])
 
   const sel = useMemo(() => makeSel(db || emptyDb()), [db])
   // Pengguna aktif: id sesi harus ada di data dan aktif, kalau tidak -> layar masuk
@@ -217,6 +256,13 @@ export function AppProvider({ children, initialUi: init }) {
           outbox.del(entry.tx)
           busyRef.current = false
           setSaving(null)
+          if (r.auth) {
+            // sesi berakhir: tidak ada yang tertulis. Ambil ulang daftar login dari server lalu tampilkan layar masuk.
+            noticeRef.current = 'Sesi berakhir. Silakan masuk lagi, lalu ulangi aksi terakhir.'
+            api.setToken('')
+            load()
+            return false
+          }
           if (r.snap) applySnap(r.snap)
           toast(r.err, true)
           return false
@@ -231,7 +277,7 @@ export function AppProvider({ children, initialUi: init }) {
         }
       }
     },
-    [applySnap, localWrite, toast]
+    [applySnap, localWrite, toast, load]
   )
 
   // Antrean: penulisan dari satu klien berjalan satu per satu
@@ -248,7 +294,7 @@ export function AppProvider({ children, initialUi: init }) {
       const live = inflight.current.get(fp)
       if (live) return live // tombol ditekan berkali-kali: pakai hasil yang sama, jangan kirim lagi
       const p = enqueue(async () => {
-        const old = REMOTE ? outbox.find(fp) : null // klik ulang aksi yang belum pasti = retry (tx sama)
+        const old = REMOTE ? outbox.find(fp, uiRef.current.me) : null // klik ulang aksi yang belum pasti = retry (tx sama)
         if (REMOTE && !old) {
           const e = dry(name, args) // validasi cepat di klien; server tetap otoritatif
           if (e) { toast(e, true); return false }
@@ -263,13 +309,14 @@ export function AppProvider({ children, initialUi: init }) {
     [enqueue, runLoop, toast]
   )
 
-  // Setelah halaman dimuat ulang: selesaikan transaksi yang dulu belum terkonfirmasi (aman: tx sama)
-  const resumed = useRef(false)
+  // Setelah halaman dimuat ulang / masuk: selesaikan transaksi milik pengguna INI yang dulu belum terkonfirmasi
+  // (aman: tx sama). Entri milik pengguna lain di perangkat yang sama tidak pernah dijalankan atas nama kita.
+  const resumedFor = useRef('')
   useEffect(() => {
-    if (!REMOTE || boot.state != 'ready' || resumed.current) return
-    resumed.current = true
-    outbox.all().forEach(e => enqueue(() => runLoop(e)))
-  }, [boot.state, enqueue, runLoop])
+    if (!REMOTE || boot.state != 'ready' || !meId || resumedFor.current === meId) return
+    resumedFor.current = meId
+    outbox.all().filter(e => e.me === meId).forEach(e => enqueue(() => runLoop(e)))
+  }, [boot.state, meId, enqueue, runLoop])
 
   const retry = useCallback(() => decide.current?.('retry'), [])
   const skip = useCallback(() => decide.current?.('skip'), [])
@@ -281,11 +328,45 @@ export function AppProvider({ children, initialUi: init }) {
     },
     [setUi]
   )
+  // Masuk dengan PIN (hanya bila server mengaktifkan login). Mengembalikan pesan galat, atau '' bila berhasil.
+  const doLogin = useCallback(
+    async (id, pin) => {
+      const r = await api.login(id, pin)
+      if (!r.ok) return r.err || 'Gagal masuk.'
+      api.setToken(r.token)
+      authMode.current = true
+      markAuth()
+      writeSession(r.id)
+      setUiState(u => ({ ...u, me: r.id, tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null }))
+      setLoginInfo(null)
+      setBoot({ state: 'loading', err: '' })
+      verRef.current = 0
+      trusted.current = true
+      await load()
+      return ''
+    },
+    [load]
+  )
   const logout = useCallback(() => {
+    if (REMOTE && (authMode.current || api.getToken())) {
+      // login PIN aktif: keluar = buang token dan data lokal, lalu minta daftar login baru dari server
+      api.setToken('')
+      writeSession('')
+      try { localStorage.removeItem(CACHE_KEY) } catch { /* abaikan */ }
+      dbRef.current = null
+      verRef.current = 0
+      trusted.current = true
+      setDb(null)
+      setUiState(u => ({ ...u, me: '', tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null }))
+      setBoot({ state: 'loading', err: '' })
+      load()
+      return
+    }
     writeSession('')
     setUi({ me: '', tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
-  }, [setUi])
+  }, [setUi, load])
 
+  if (loginInfo) return <Login users={loginInfo.users} requirePin notice={loginInfo.notice} onLogin={doLogin} />
   if (boot.state != 'ready' || !db)
     return <Boot state={boot.state == 'error' ? 'error' : 'loading'} err={boot.err} retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
   if (!me && db.U.length) return <Login users={db.U} onPick={login} />

@@ -461,6 +461,13 @@ function write_(req) {
     return JSON.stringify({ ok: false, rejected: true, err: 'Aksi tidak dikenal.' })
   const args = Array.isArray(req.args) ? req.args : []
 
+  // Identitas: bila login PIN aktif, pelaku SELALU diambil dari token bertanda tangan, bukan dari klien.
+  let actorId = String(req.me || '')
+  if (authOn_()) {
+    actorId = parseToken_(req.token)
+    if (!actorId) return JSON.stringify({ ok: false, rejected: true, auth: true, err: 'Sesi berakhir. Silakan masuk lagi.' })
+  }
+
   // jalur cepat: tx ini sudah sukses sebelumnya
   const hit = CacheService.getScriptCache().get('tx:' + txId)
   if (hit) {
@@ -473,7 +480,7 @@ function write_(req) {
   if (!lock.tryLock(LOCK_WAIT_MS))
     return retry_('Server sedang melayani banyak pengguna. Coba lagi sebentar lagi.', { busy: true })
   try {
-    return locked_(txId, name, args, String(req.me || ''), t0)
+    return locked_(txId, name, args, actorId, t0)
   } catch (e) {
     return retry_('Terjadi kesalahan di server: ' + (e && e.message ? e.message : e))
   } finally {
@@ -579,26 +586,46 @@ function cacheDrop_() {
 }
 
 // ---------- baca (sync) ----------
-function sync_(since) {
+// Snapshot terkini dari cache; bila kosong satu pemohon membangun ulang di dalam lock. null = server sibuk.
+function snapNow_() {
   let c = cacheGet_()
-  if (!c) {
-    const lock = LockService.getScriptLock()
-    if (!lock.tryLock(LOCK_WAIT_MS)) return retry_('Server sibuk, coba lagi.', { busy: true })
-    try {
-      c = cacheGet_()
-      if (!c) {
-        recoverOrphans_() // jangan terbitkan data setengah jadi dari eksekusi yang mati
-        const all = readAll_()
-        const ver = bumpVer_()
-        const json = snapJson_(all, ver)
-        cachePut_(ver, json)
-        c = { ver: ver, json: json }
-      }
-    } finally {
-      lock.releaseLock()
+  if (c) return c
+  const lock = LockService.getScriptLock()
+  if (!lock.tryLock(LOCK_WAIT_MS)) return null
+  try {
+    c = cacheGet_()
+    if (!c) {
+      recoverOrphans_() // jangan terbitkan data setengah jadi dari eksekusi yang mati
+      const all = readAll_()
+      const ver = bumpVer_()
+      const json = snapJson_(all, ver)
+      cachePut_(ver, json)
+      c = { ver: ver, json: json }
     }
+  } finally {
+    lock.releaseLock()
   }
+  return c
+}
+function authFail_(msg) {
+  let users = []
+  try {
+    const c = snapNow_()
+    if (c) users = JSON.parse(c.json).U.filter(u => !u.off).map(u => ({ id: u.id, n: u.n, dept: u.dept, role: u.role }))
+  } catch (e) {}
+  return { ok: false, rejected: true, auth: true, err: msg || 'Silakan masuk.', users: users }
+}
+function sync_(since, token) {
+  if (authOn_() && !parseToken_(token)) return authFail_()
+  const c = snapNow_()
+  if (!c) return retry_('Server sibuk, coba lagi.', { busy: true })
   if (since && String(since) === String(c.ver)) return JSON.stringify({ ok: true, same: true, ver: c.ver })
+  if (authOn_()) {
+    // akun yang dinonaktifkan kehilangan akses baca begitu ada perubahan data
+    const id = parseToken_(token)
+    const u = JSON.parse(c.json).U.find(x => x.id === id)
+    if (!u || u.off) return authFail_('Akun tidak aktif.')
+  }
   return withSnap_({ ok: true }, c)
 }
 
@@ -612,6 +639,8 @@ function doGet(e) {
     const p = (e && e.parameter) || {}
     if (!authOk_(p.key)) return out_({ ok: false, rejected: true, err: 'Akses ditolak.' })
     if (p.action === 'ping') return out_({ ok: true, time: nowStr() })
+    // dengan login aktif, token tidak boleh lewat URL: sync memakai POST (api.js). GET hanya mengembalikan daftar login.
+    if (authOn_()) return out_(authFail_())
     return out_(sync_(p.since))
   } catch (err) {
     return out_(retry_('Gagal membaca data: ' + (err && err.message ? err.message : err)))
@@ -623,6 +652,9 @@ function doPost(e) {
     if (raw.length > MAX_BODY) return out_({ ok: false, rejected: true, err: 'Permintaan terlalu besar.' })
     const req = JSON.parse(raw)
     if (!authOk_(req.key)) return out_({ ok: false, rejected: true, err: 'Akses ditolak.' })
+    if (req.action === 'login') return out_(login_(req))
+    if (req.action === 'sync') return out_(sync_(req.since, req.token))
+    if (req.action === 'ubahPin') return out_(ubahPin_(req))
     return out_(write_(req))
   } catch (err) {
     return out_(retry_('Permintaan tidak dapat diproses: ' + (err && err.message ? err.message : err)))
@@ -631,6 +663,238 @@ function doPost(e) {
 // Edit manual di spreadsheet harus terlihat oleh semua pengguna aplikasi
 function onEdit() {
   cacheDrop_()
+}
+
+// =====================================================================================
+// Login PIN
+// -------------------------------------------------------------------------------------
+//  - Identitas pelaku diambil dari TOKEN bertanda tangan (HMAC-SHA256 dengan rahasia di Script Properties),
+//    bukan dari data yang dikirim klien. Memalsukan nama pengguna lain tidak lagi mungkin.
+//  - PIN tidak pernah disimpan polos: sheet Akses hanya berisi salt + HMAC(rahasia, salt + PIN).
+//    Bocornya spreadsheet saja tidak cukup untuk menebak PIN, karena rahasia ada di Script Properties.
+//  - Percobaan salah dibatasi per akun (MAX_FAIL per 10 menit).
+//  - Login nonaktif secara bawaan (perilaku lama). Aktifkan dengan aktifkanLogin() setelah semua punya PIN.
+// =====================================================================================
+const AKSES_SHEET = 'Akses'
+const AKSES_COLS = ['id', 'salt', 'hash', 'diubah']
+const PIN_SHEET = 'PIN_AWAL'
+const TOKEN_TTL_MS = 12 * 3600e3
+const MAX_FAIL = 5
+const FAIL_SEC = 600
+
+function authOn_() {
+  return prop_('AUTH') === '1'
+}
+function hex_(bytes) {
+  let o = ''
+  for (let i = 0; i < bytes.length; i++) o += ('0' + (bytes[i] & 0xff).toString(16)).slice(-2)
+  return o
+}
+// Tanpa rahasia yang kuat, HMAC bisa dipalsukan: gagal tertutup, jangan pernah memakai kunci kosong.
+function hmac_(msg) {
+  const k = prop_('AUTH_SECRET')
+  if (!k || k.length < 32) throw new Error('AUTH_SECRET belum diatur. Jalankan aktifkanLogin().')
+  return hex_(Utilities.computeHmacSha256Signature(msg, k))
+}
+function safeEq_(a, b) {
+  a = String(a)
+  b = String(b)
+  if (a.length !== b.length) return false
+  let d = 0
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return d === 0
+}
+function pinHash_(salt, pin) {
+  return hmac_('pin:' + salt + ':' + pin)
+}
+function mkToken_(id, ttlMs) {
+  const exp = Date.now() + (ttlMs == null ? TOKEN_TTL_MS : ttlMs)
+  const body = encodeURIComponent(id).replace(/\./g, '%2E') + '.' + exp
+  return body + '.' + hmac_('tok:' + body)
+}
+// Mengembalikan id pengguna bila token sah dan belum kedaluwarsa, selain itu ''
+function parseToken_(t) {
+  const p = String(t || '').split('.')
+  if (p.length !== 3) return ''
+  const body = p[0] + '.' + p[1]
+  if (!safeEq_(p[2], hmac_('tok:' + body))) return ''
+  if (!(+p[1] > Date.now())) return ''
+  try {
+    return decodeURIComponent(p[0])
+  } catch (e) {
+    return ''
+  }
+}
+function pinWeak_(p) {
+  p = String(p || '')
+  if (!/^\d{6,12}$/.test(p)) return 'PIN harus 6 sampai 12 angka.'
+  if (/^(\d)\1+$/.test(p)) return 'PIN terlalu mudah ditebak (angka kembar).'
+  let seq = true
+  for (let i = 1; i < p.length; i++) {
+    const d = +p[i] - +p[i - 1]
+    if (d !== 1 && d !== -1 && !(+p[i - 1] === 9 && +p[i] === 0)) seq = false
+  }
+  if (seq) return 'PIN terlalu mudah ditebak (angka berurutan).'
+  return ''
+}
+
+function aksesRow_(id) {
+  const sh = ss_().getSheetByName(AKSES_SHEET)
+  if (!sh) return null
+  const last = sh.getLastRow()
+  if (last < 2) return null
+  const v = sh.getRange(2, 1, last - 1, AKSES_COLS.length).getValues()
+  for (let i = 0; i < v.length; i++) if (String(v[i][0]) === id) return { row: i + 2, salt: String(v[i][1]), hash: String(v[i][2]) }
+  return null
+}
+// Rahasia penanda tangan dibuat sekali (dengan lock dipegang) dan tidak pernah diganti otomatis.
+function ensureSecret_() {
+  const k = prop_('AUTH_SECRET')
+  if (k && k.length >= 32) return
+  PropertiesService.getScriptProperties().setProperty('AUTH_SECRET', Utilities.getUuid() + Utilities.getUuid())
+}
+// Dipanggil dengan lock dipegang
+function setPin_(id, pin) {
+  ensureSecret_()
+  const sh = ss_().getSheetByName(AKSES_SHEET)
+  if (!sh) throw new Error('Sheet Akses tidak ada. Jalankan setup().')
+  const salt = Utilities.getUuid().replace(/-/g, '')
+  const vals = [id, salt, pinHash_(salt, pin), nowStr()]
+  const a = aksesRow_(id)
+  const r = a ? a.row : Math.max(sh.getLastRow(), 1) + 1
+  if (sh.getMaxRows() < r) sh.insertRowsAfter(sh.getMaxRows(), 100)
+  const rg = sh.getRange(r, 1, 1, AKSES_COLS.length)
+  rg.setNumberFormat('@')
+  rg.setValues([vals])
+}
+function failKey_(id) {
+  return 'pinfail:' + id
+}
+
+function login_(req) {
+  if (!authOn_()) return { ok: false, rejected: true, err: 'Login PIN belum diaktifkan di server.' }
+  const id = String(req.id || '').trim()
+  const pin = String(req.pin || '')
+  const cache = CacheService.getScriptCache()
+  const fails = +(cache.get(failKey_(id)) || 0)
+  if (fails >= MAX_FAIL) return { ok: false, rejected: true, locked: true, err: 'Terlalu banyak percobaan salah. Coba lagi 10 menit lagi.' }
+  const a = id ? aksesRow_(id) : null
+  if (!a || !safeEq_(a.hash, pinHash_(a.salt, pin))) {
+    cache.put(failKey_(id), String(fails + 1), FAIL_SEC)
+    return { ok: false, rejected: true, err: 'Pengguna atau PIN salah.' }
+  }
+  const snap = snapNow_()
+  if (!snap) return retry_('Server sibuk, coba lagi.', { busy: true })
+  const u = JSON.parse(snap.json).U.find(x => x.id === id)
+  if (!u || u.off) return { ok: false, rejected: true, err: 'Akun tidak aktif. Hubungi admin.' }
+  cache.remove(failKey_(id))
+  return { ok: true, token: mkToken_(id), id: id }
+}
+
+function ubahPin_(req) {
+  if (!authOn_()) return { ok: false, rejected: true, err: 'Login PIN belum diaktifkan di server.' }
+  const id = parseToken_(req.token)
+  if (!id) return { ok: false, rejected: true, auth: true, err: 'Sesi berakhir. Silakan masuk lagi.' }
+  const weak = pinWeak_(req.baru)
+  if (weak) return { ok: false, rejected: true, err: weak }
+  const cache = CacheService.getScriptCache()
+  const fails = +(cache.get(failKey_(id)) || 0)
+  if (fails >= MAX_FAIL) return { ok: false, rejected: true, locked: true, err: 'Terlalu banyak percobaan salah. Coba lagi 10 menit lagi.' }
+  const lock = LockService.getScriptLock()
+  if (!lock.tryLock(LOCK_WAIT_MS)) return retry_('Server sibuk, coba lagi.', { busy: true })
+  try {
+    const a = aksesRow_(id)
+    if (!a || !safeEq_(a.hash, pinHash_(a.salt, String(req.lama || '')))) {
+      cache.put(failKey_(id), String(fails + 1), FAIL_SEC)
+      return { ok: false, rejected: true, err: 'PIN lama salah.' }
+    }
+    setPin_(id, String(req.baru))
+    cache.remove(failKey_(id))
+    return { ok: true, msg: 'PIN diganti.' }
+  } finally {
+    lock.releaseLock()
+  }
+}
+
+function randPin_() {
+  for (;;) {
+    const n = parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 12), 16) % 900000 + 100000
+    if (!pinWeak_(String(n))) return String(n)
+  }
+}
+
+// --- jalankan manual dari editor Apps Script ---
+// Urutan go-live: setup() -> buatPinAwal() -> bagikan PIN dari sheet PIN_AWAL -> hapusPinAwal() -> aktifkanLogin()
+function buatPinAwal() {
+  const lock = LockService.getScriptLock()
+  lock.waitLock(30000)
+  try {
+    const users = readTable_('U').filter(u => !u.off)
+    const todo = users.filter(u => !aksesRow_(u.id))
+    if (!todo.length) return 'Tidak ada pengguna aktif yang belum punya PIN.'
+    const ss = ss_()
+    let sh = ss.getSheetByName(PIN_SHEET)
+    if (!sh) {
+      sh = ss.insertSheet(PIN_SHEET)
+      sh.getRange(1, 1, 1, 4).setValues([['id', 'nama', 'dept', 'pin']])
+    }
+    const out = todo.map(u => {
+      const pin = randPin_()
+      setPin_(u.id, pin)
+      return [u.id, u.n, u.dept, pin]
+    })
+    const r = Math.max(sh.getLastRow(), 1) + 1
+    if (sh.getMaxRows() < r + out.length) sh.insertRowsAfter(sh.getMaxRows(), out.length + 50)
+    const rg = sh.getRange(r, 1, out.length, 4)
+    rg.setNumberFormat('@')
+    rg.setValues(out)
+    SpreadsheetApp.flush()
+    return 'PIN dibuat untuk ' + out.length + ' pengguna. Bagikan dari sheet ' + PIN_SHEET + ', lalu jalankan hapusPinAwal().'
+  } finally {
+    lock.releaseLock()
+  }
+}
+function hapusPinAwal() {
+  const ss = ss_()
+  const sh = ss.getSheetByName(PIN_SHEET)
+  if (sh) ss.deleteSheet(sh)
+  return 'Sheet ' + PIN_SHEET + ' dihapus.'
+}
+function aturPin(id, pin) {
+  id = String(id || '').trim()
+  const weak = pinWeak_(pin)
+  if (weak) throw new Error(weak)
+  const lock = LockService.getScriptLock()
+  lock.waitLock(30000)
+  try {
+    if (!readTable_('U').some(u => u.id === id)) throw new Error('Pengguna "' + id + '" tidak ditemukan di sheet Users.')
+    setPin_(id, String(pin))
+    CacheService.getScriptCache().remove(failKey_(id))
+    return 'PIN ' + id + ' diatur.'
+  } finally {
+    lock.releaseLock()
+  }
+}
+function aktifkanLogin() {
+  const lock = LockService.getScriptLock()
+  lock.waitLock(30000)
+  try {
+    const p = PropertiesService.getScriptProperties()
+    const belum = readTable_('U').filter(u => !u.off && !aksesRow_(u.id)).map(u => u.id)
+    if (belum.length) throw new Error('Pengguna belum punya PIN (jalankan buatPinAwal() atau aturPin): ' + belum.join(', '))
+    ensureSecret_()
+    p.setProperty('AUTH', '1')
+    cacheDrop_()
+    return 'Login PIN AKTIF. Semua pengguna harus masuk dengan PIN.'
+  } finally {
+    lock.releaseLock()
+  }
+}
+// Darurat (mis. semua lupa PIN admin): kembali ke perilaku tanpa login. Jangan dibiarkan menyala.
+function matikanLogin() {
+  PropertiesService.getScriptProperties().setProperty('AUTH', '')
+  cacheDrop_()
+  return 'Login PIN DIMATIKAN. Aplikasi terbuka untuk siapa pun yang punya URL.'
 }
 
 // =====================================================================================
@@ -651,6 +915,7 @@ function setup() {
   TABLES.forEach(t => make(SCHEMA[t].sheet, SCHEMA[t].cols, t !== 'M'))
   make(TX_SHEET, TX_COLS, true)
   make(JR_SHEET, JR_COLS, true)
+  make(AKSES_SHEET, AKSES_COLS, true)
   const def = ss.getSheetByName('Sheet1')
   if (def && def.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(def)
   cacheDrop_()

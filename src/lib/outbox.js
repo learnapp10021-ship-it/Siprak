@@ -22,7 +22,8 @@ const save = a => {
 export const outbox = {
   all: load,
   // entri yang sama persis (aksi + argumen) dan masih baru dipakai ulang, supaya klik ulang = retry
-  find: fp => load().find(e => e.fp === fp && Date.now() - e.at < REUSE_MS),
+  // `me`: entri milik pengguna lain di perangkat yang sama tidak boleh dipakai ulang atas nama kita
+  find: (fp, me) => load().find(e => e.fp === fp && (me === undefined || e.me === me) && Date.now() - e.at < REUSE_MS),
   put: e => save([...load().filter(x => x.tx !== e.tx), e]),
   del: tx => save(load().filter(x => x.tx !== tx)),
 }
