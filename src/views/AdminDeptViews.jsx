@@ -118,11 +118,9 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
           </table>
         </div>
         <div className="erp-form">
-          <div className="stp"><i>1</i><b>Salin daftar, buat SRL di ERO</b></div>
-          <div className="stp"><i>2</i><b>Isi nomor SRL dari ERO</b></div>
-          <label>No. SRL<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
+          <small className="mut">1. Salin daftar (tombol di atas) dan buat SRL di ERO. 2. Isi nomor SRL dari ERO. 3. Simpan; Admin Warehouse akan memvalidasi.</small>
+          <label>No. SRL dari ERO<input value={no} onChange={e => setNo(e.target.value)} placeholder="SRL-2611-003" /></label>
           <label>Estimasi datang (opsional)<input type="date" min={TODAY} value={est} onChange={e => setEst(e.target.value)} /></label>
-          <div className="stp"><i>3</i><b>Simpan, lalu divalidasi Admin Warehouse</b></div>
           <button className="btn" disabled={!ready.length} onClick={simpan}>Simpan SRL ({ready.length} request)</button>
         </div>
       </div>

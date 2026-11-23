@@ -657,3 +657,25 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 
 /* Tombol melayang (mis. "Tambah pengguna") tidak boleh menutupi baris terakhir daftar */
 #app:has(.fabw) main{padding-bottom:96px}
+@media (min-width:1024px){
+  .erp-grid{max-height:calc(100vh - var(--hh) - 440px);min-height:190px}
+  .erp-det{grid-template-columns:minmax(0,1fr) 300px;max-height:190px}
+  .erp-det>div:first-child{overflow:auto;max-height:166px}
+  .erp-det .egrid thead th{top:0}
+  .egrid input[type=checkbox]{appearance:auto;border:0;box-shadow:none;min-height:0;padding:0;background:none}
+  .erp-tab{margin-top:10px}
+}
+@media (min-width:1024px){
+  .erp-det{grid-template-columns:minmax(0,1fr) 380px;max-height:none;align-items:start}
+  .erp-form{grid-template-columns:1fr 1fr;gap:6px 10px}
+  .erp-form>small,.erp-form>.btn{grid-column:1/-1}
+  .erp-grid{max-height:calc(100vh - var(--hh) - 410px)}
+  .erp-det>div:first-child{max-height:150px}
+  .erp-grid .egrid td:nth-child(3){white-space:nowrap}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  .erp-grid .egrid th,.erp-grid .egrid td{padding:5px 5px}
+  .erp-grid .egrid .c{width:28px}
+  .erp-grid .egrid td:nth-child(3){white-space:normal}
+  .erp-det{grid-template-columns:minmax(0,1fr) 330px}
+}
