@@ -20,7 +20,7 @@ const VIEWS = Object.fromEntries(
 )
 
 // Menu bawah (HP/tablet) hanya untuk pekerjaan harian; menu lain ada di menu samping (hamburger). Desktop tetap menampilkan semua.
-const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'], 'Admin Dept': ['pool', 'kon'] }
+const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'], 'Admin Dept': ['pool', 'kon'], User: ['req', 'new'] }
 
 export function Shell() {
   const { db, sel, ui, setUi, me } = useApp()

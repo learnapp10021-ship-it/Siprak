@@ -218,6 +218,27 @@ describe('Barang 100% di dalam request yang masih berjalan', () => {
   })
 })
 
+describe('Histori tidak ada di navbar bawah', () => {
+  beforeAll(() => load())
+
+  it('di HP navbar bawah hanya Request saya dan Buat request; Histori ada di menu samping', async () => {
+    const { container } = await open(mine)
+    const nav = [...container.querySelectorAll('nav button')]
+    const shown = nav.filter(b => !b.classList.contains('nv-x')).map(b => b.textContent.trim())
+    expect(shown).toEqual(['Request saya', 'Buat request'])
+    expect(nav.find(b => b.textContent.startsWith('Histori')).classList.contains('nv-x')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /^Buka menu/ }))
+    const drawer = await screen.findByRole('dialog', { name: 'Menu' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /^Histori/ }))
+    await waitFor(() => expect(screen.getByRole('list', { name: /histori/i })).toBeTruthy())
+  })
+
+  it('peran lain tidak terpengaruh: Atasan tetap menampilkan semua menunya di navbar bawah', async () => {
+    const { container } = await open('budi.spv')
+    expect(container.querySelectorAll('nav button.nv-x').length).toBe(0)
+  })
+})
+
 describe('Kartu barang ringkas', () => {
   beforeAll(() => load())
 
