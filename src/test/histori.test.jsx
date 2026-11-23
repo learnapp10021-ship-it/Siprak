@@ -67,6 +67,36 @@ describe('reqEnd: kapan request dianggap selesai', () => {
   }
 })
 
+describe('progress: angka 100 sama persis dengan aturan Histori', () => {
+  for (const cache of [false, true]) {
+    const mk = d => makeSel(d, { cache })
+    const tag = cache ? ' (selector ber-indeks)' : ''
+    const barang = (over = {}) => ({ id: 'I1', req: 'R1', qty: '10', status: 'Sudah di ERO', kon: 'K1', appr: '2026-11-01', pakai: '', ...over })
+    const K = [{ id: 'K1', tutup: '0', srl: 'S1' }]
+
+    it('sudah datang semua tetapi belum diambil: 90, bukan 100' + tag, () => {
+      const sel = mk(db({ K, KD: [{ kon: 'K1', qty: '10' }], I: [barang()] }))
+      expect(sel.progress(barang())).toBe(90)
+      expect(sel.itemDone(barang())).toBe(false)
+    })
+    it('diambil penuh: 100 dan tuntas' + tag, () => {
+      const sel = mk(db({ K, KD: [{ kon: 'K1', qty: '10' }], I: [barang()], SR: [{ item: 'I1', qty: '10' }] }))
+      expect(sel.progress(barang())).toBe(100)
+      expect(sel.itemDone(barang())).toBe(true)
+    })
+    it('sisa ditutup dan semua yang datang sudah diambil: 100' + tag, () => {
+      const sel = mk(db({ K: [{ id: 'K1', tutup: '4', srl: 'S1' }], KD: [{ kon: 'K1', qty: '6' }], I: [barang()], SR: [{ item: 'I1', qty: '6' }] }))
+      expect(sel.progress(barang())).toBe(100)
+    })
+    it('sebagian datang dan diambil naik bertahap, tidak pernah 100 sebelum tuntas' + tag, () => {
+      const sel = mk(db({ K, KD: [{ kon: 'K1', qty: '9' }], I: [barang()], SR: [{ item: 'I1', qty: '9' }] }))
+      const p = sel.progress(barang())
+      expect(p).toBeGreaterThan(65)
+      expect(p).toBeLessThan(100)
+    })
+  }
+})
+
 // ---------- UI ----------
 const media = q => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })
 const base = buildSeed()
@@ -163,6 +193,28 @@ describe('Request saya vs Histori (data contoh)', () => {
     await open(mine)
     fireEvent.click(screen.getByRole('button', { name: /Lihat Histori \(\d+ request\)/ }))
     await waitFor(() => expect(screen.getByRole('list', { name: /histori/i })).toBeTruthy())
+  })
+})
+
+describe('Barang 100% di dalam request yang masih berjalan', () => {
+  beforeAll(() => load())
+
+  it('dilipat di bawah satu baris ringkas; yang belum tuntas tetap di atas', async () => {
+    const sel = makeSel(base)
+    const r = base.R.find(x => x.id == 'RQ-013') // siti.prod: sebagian barang sudah diambil penuh
+    const its = sel.itemsOf(r.id)
+    const fin = its.filter(i => sel.itemDone(i))
+    expect(fin.length).toBeGreaterThan(0)
+    expect(fin.length).toBeLessThan(its.length)
+
+    const { container } = await open(mine)
+    const card = [...container.querySelectorAll('main > .row')].find(c => c.textContent.includes('RQ-013'))
+    expect(card.querySelectorAll('.itm').length).toBe(its.length - fin.length)
+    const btn = within(card).getByRole('button', { name: new RegExp(`${fin.length} barang sudah selesai`) })
+    expect(btn.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(btn)
+    expect(btn.getAttribute('aria-expanded')).toBe('true')
+    expect(card.querySelectorAll('.itm').length).toBe(its.length)
   })
 })
 

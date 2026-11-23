@@ -128,7 +128,12 @@ const TONE = { Draft: 't-gray', 'Menunggu Approval': 't-warn', Disetujui: 't-ok'
 export const ReqCard = memo(function ReqCard({ r, mode }) {
   const { sel, act } = useApp()
   const [cat, setCat] = useState('')
-  const its = sel.itemsOf(r.id)
+  const [showDone, setShowDone] = useState(false)
+  // Fokus ke yang belum tuntas: barang yang sudah 100% dilipat di bawah satu baris ringkas
+  const all = sel.itemsOf(r.id)
+  const its = all.filter(i => !sel.itemDone(i) || i.status != 'Sudah di ERO')
+  const fin = all.filter(i => sel.itemDone(i) && i.status == 'Sudah di ERO')
+  const doneId = useId()
   return (
     <div className="row">
       <div className="between">
@@ -137,6 +142,15 @@ export const ReqCard = memo(function ReqCard({ r, mode }) {
       </div>
       {r.cat ? <small className="mut">Catatan atasan: {r.cat}</small> : null}
       {its.map(i => <ItemCard key={i.id} it={i} />)}
+      {fin.length ? (
+        <div className="fin">
+          <button type="button" className="fin-btn" aria-expanded={showDone} aria-controls={doneId} onClick={() => setShowDone(o => !o)}>
+            <span>{fin.length} barang sudah selesai (100%)</span>
+            <i className="itm-ch" aria-hidden="true" />
+          </button>
+          {showDone ? <div id={doneId}>{fin.map(i => <ItemCard key={i.id} it={i} />)}</div> : null}
+        </div>
+      ) : null}
       {mode == 'own' && r.st == 'Draft' && (
         <div className="acts">
           <button className="btn" onClick={() => act('ajukan', r.id)}>Ajukan</button>

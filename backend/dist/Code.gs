@@ -210,7 +210,9 @@ function makeSel(db, { cache = false } = {}) {
     return [-1, s == 'Ditolak' ? 't-bad' : 't-gray', s]
   }
 
-  // Persen proses 0-100 untuk cincin progres: tahap alur, lalu (setelah masuk ERO) porsi barang yang sudah datang
+  // Persen proses 0-100 untuk cincin progres: tahap alur, lalu (setelah masuk ERO) barang datang (sampai 90) dan diambil (sampai 100).
+  // 100 HANYA bila barang tuntas (itemDone): angka di cincin selalu sama dengan aturan "pindah ke Histori".
+  // Barang yang sudah datang tetapi belum diambil berhenti di 90 supaya tetap terlihat butuh tindakan.
   const progress = it => {
     const s = it.status
     if (s == 'Draft') return 0
@@ -218,8 +220,11 @@ function makeSel(db, { cache = false } = {}) {
     if (s == 'Approved') return 35
     if (s == 'Validasi Warehouse' || s == 'Masuk Konsolidasi') return 50
     if (s == 'Sudah di ERO') {
+      if (itemDone(it)) return 100
       const q = +it.qty || 1
-      return Math.round(65 + 35 * Math.min(1, Math.max(berhak(it), diambil(it)) / q))
+      const tiba = Math.min(1, Math.max(berhak(it), diambil(it)) / q)
+      const ambil = Math.min(1, diambil(it) / q)
+      return Math.min(99, Math.round(65 + 25 * tiba + 10 * ambil))
     }
     return 0
   }

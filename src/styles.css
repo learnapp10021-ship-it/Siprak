@@ -962,3 +962,9 @@ main.v-new>.acts .btn{min-height:44px;font-weight:600}
   .his-det{animation:fIn .2s ease-out}
 }
 @media(prefers-reduced-motion:reduce){.itm-more,.itm-ch{transition:none}}
+
+/* Barang yang sudah 100% di dalam request yang masih berjalan: dilipat, bukan dicampur dengan yang masih ditunggu */
+.fin{margin-top:8px;border-top:1px solid var(--line)}
+.fin-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:8px 0;font:inherit;font-size:13px;font-weight:600;color:var(--ok);background:none;border:0;cursor:pointer;text-align:left}
+.fin-btn[aria-expanded=true] .itm-ch{margin-top:3px;transform:rotate(-135deg)}
+.fin-btn:active{background:var(--soft)}
