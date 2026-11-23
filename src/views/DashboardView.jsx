@@ -20,11 +20,52 @@ const rowKey = fn => e => {
   }
 }
 
+// Grafik batang harian: barang tiba vs diserahkan. Sorot batang dengan hover atau fokus; nilai tampil di bawah grafik.
+function Trend({ kd, sr, ps, pe }) {
+  const [hi, setHi] = useState(null)
+  const n = Math.min(35, dayDiff(ps, pe) + 1)
+  const rows = Array.from({ length: n }, (_, k) => {
+    const d = addDays(ps, k)
+    return { d, a: sum(kd.filter(x => x.tgl.slice(0, 10) == d), x => x.qty), h: sum(sr.filter(x => x.tgl.slice(0, 10) == d), x => x.qty) }
+  })
+  const mx = Math.max(1, ...rows.flatMap(r => [r.a, r.h]))
+  const H = 110
+  const cur = hi != null ? rows[hi] : null
+  return (
+    <div className="trend" style={{ gridColumn: '1/-1' }}>
+      <div className="trend-h">
+        <b>Tiba dan diserahkan per hari</b>
+        <span className="trend-lg"><i className="a" /> Tiba <i className="h" /> Diserahkan</span>
+      </div>
+      <svg viewBox={`0 0 ${n * 24} ${H}`} preserveAspectRatio="none" role="group" aria-label="Grafik harian barang tiba dan diserahkan" onMouseLeave={() => setHi(null)}>
+        {rows.map((r, k) => (
+          <g key={r.d} tabIndex={0} role="img" aria-label={`${D(r.d)}: tiba ${r.a}, diserahkan ${r.h}`}
+            onMouseEnter={() => setHi(k)} onFocus={() => setHi(k)} onBlur={() => setHi(null)} className={hi == k ? 'on' : ''}>
+            <rect className="hit" x={k * 24} y="0" width="24" height={H} />
+            <rect className="ba" x={k * 24 + 3} y={H - (r.a / mx) * H} width="8" height={(r.a / mx) * H} rx="1" />
+            <rect className="bh" x={k * 24 + 12} y={H - (r.h / mx) * H} width="8" height={(r.h / mx) * H} rx="1" />
+          </g>
+        ))}
+      </svg>
+      <div className="trend-x" aria-hidden="true">{rows.map((r, k) => <span key={r.d}>{n <= 8 || k % Math.ceil(n / 8) == 0 ? D(r.d).split(' ').slice(0, 2).join(' ') : ''}</span>)}</div>
+      <small className="mut trend-v">{cur ? `${D(cur.d)}: tiba ${cur.a}, diserahkan ${cur.h}` : 'Arahkan kursor ke batang untuk melihat angka harian.'}</small>
+    </div>
+  )
+}
+
+const SORT = {
+  w: (a, b) => a.w - b.w,
+  q: (a, b) => a.b - b.b,
+  n: (a, b) => a.m.n.localeCompare(b.m.n),
+}
+
 export function VDash() {
   const { db, sel, ui, setUi } = useApp()
   const f = ui.df
   const pr = ui.dp
   const [qs, setQs] = useState('')
+  const [fd, setFd] = useState('')
+  const [so, setSo] = useState({ k: 'w', dir: -1 })
 
   const m = useMemo(() => {
     const dayOfWeek = new Date(TODAY + 'T00:00:00Z').getUTCDay()
@@ -81,8 +122,10 @@ export function VDash() {
   const { ps, pe, inP, w, kd, sr, rmP, pkP, slP, slT, ot, deps, adm } = m
   const qq = qs.trim().toLowerCase()
   const lw = w
-    .filter(x => (f == 'late' ? x.w >= 3 : f == 'none' ? !x.rm.length : true))
+    .filter(x => (f == 'late' ? x.w >= 3 : f == 'none' ? !x.rm.length : f == 'a0' ? x.w < 3 : f == 'a1' ? x.w >= 3 && x.w < 7 : f == 'a2' ? x.w >= 7 : true))
+    .filter(x => !fd || x.d == fd)
     .filter(x => !qq || (x.m.n + ' ' + x.i.id + ' ' + x.by + ' ' + x.d).toLowerCase().includes(qq))
+    .sort((x, y) => so.dir * SORT[so.k](x, y))
   const pics = Object.values(lw.reduce((o, x) => ((o[x.u] = o[x.u] || []).push(x), o), {}))
     .sort((p, q) => Math.max(...q.map(x => x.w)) - Math.max(...p.map(x => x.w)))
   const [lwV, lwMore] = useMore(lw)
@@ -118,15 +161,20 @@ export function VDash() {
         <Kpi l="PIC belum mengambil" v={new Set(w.map(x => x.u)).size} s="orang peminta" />
       </div>
       <div style={{ gridColumn: '1/-1', marginTop: 10 }}>
-        <div className="agb" role="img" aria-label={`Aging: ${a0} kurang dari 3 hari, ${a1} 3 sampai 6 hari, ${a2} 7 hari atau lebih`}>
-          <i style={{ width: pct(a0) + '%', background: 'var(--gray)' }} />
-          <i style={{ width: pct(a1) + '%', background: 'var(--warn)' }} />
-          <i style={{ width: pct(a2) + '%', background: 'var(--bad)' }} />
+        <div className="agb" role="group" aria-label="Lama barang di gudang. Ketuk bagian untuk menyaring tabel">
+          {[['a0', a0, 'var(--gray)', 'Kurang dari 3 hari'], ['a1', a1, 'var(--warn)', '3 sampai 6 hari'], ['a2', a2, 'var(--bad)', '7 hari atau lebih']].map(([k, n, c, t]) => (
+            <button key={k} type="button" style={{ width: pct(n) + '%', background: c }} aria-pressed={f == k} title={t + ': ' + n + ' barang'} aria-label={t + ': ' + n + ' barang'} onClick={() => setUi({ df: f == k ? '' : k })} />
+          ))}
         </div>
-        <small className="mut">Lama di gudang: {a0} kurang dari 3 hari, {a1} 3 sampai 6 hari, {a2} 7 hari atau lebih</small>
+        <div className="chips agl">
+          {[['a0', a0, 'Kurang dari 3 hari'], ['a1', a1, '3 sampai 6 hari'], ['a2', a2, '7 hari atau lebih']].map(([k, n, t]) => (
+            <button key={k} type="button" className="chip" aria-pressed={f == k} onClick={() => setUi({ df: f == k ? '' : k })}>{t} ({n})</button>
+          ))}
+        </div>
       </div>
 
       <Srl>Kinerja periode</Srl>
+      <Trend kd={kd} sr={sr} ps={ps} pe={pe} />
       <div className="kpis">
         <Kpi l="Barang tiba" v={sum(kd, d => d.qty)} s={kd.length + ' pencatatan'} />
         <Kpi l="Diserahkan" v={sum(sr, s => s.qty)} s={sr.length + ' serah terima'} />
@@ -143,17 +191,33 @@ export function VDash() {
             <option value="">Semua</option>
             <option value="late">Menunggu 3 hari atau lebih</option>
             <option value="none">Belum pernah diingatkan</option>
+            <option value="a0">Kurang dari 3 hari</option>
+            <option value="a1">3 sampai 6 hari</option>
+            <option value="a2">7 hari atau lebih</option>
           </select>
         </label>
         <label>Cari
           <input type="search" value={qs} placeholder="Barang, PIC, departemen" onChange={e => setQs(e.target.value)} />
         </label>
       </div>
-      <p className="mut" style={{ gridColumn: '1/-1', margin: '0 0 6px' }}>{lw.length} barang. Ketuk kartu di atas untuk menyaring, atau ketuk baris untuk melihat detail barang.</p>
+      <div className="chips" style={{ gridColumn: '1/-1' }}>
+        <button type="button" className="chip" aria-pressed={!fd} onClick={() => setFd('')}>Semua dept</button>
+        {deps.map(d => <button key={d} type="button" className="chip" aria-pressed={fd == d} onClick={() => setFd(fd == d ? '' : d)}>{d} ({w.filter(x => x.d == d).length})</button>)}
+        {(f || fd || qs) && <button type="button" className="chip lnk-reset" onClick={() => { setUi({ df: '' }); setFd(''); setQs('') }}>Hapus semua filter</button>}
+      </div>
+      <p className="mut" style={{ gridColumn: '1/-1', margin: '6px 0 6px' }}>{lw.length} dari {w.length} barang. Ketuk kartu atau grafik untuk menyaring, klik judul kolom untuk mengurutkan, ketuk baris untuk detail barang.</p>
       {lw.length ? (
         <div className="tw" tabIndex={0} role="region" aria-label="Barang yang sudah sampai dan belum diambil">
           <table className="tbl">
-            <thead><Th a={['Barang', 'Qty', 'Peminta', 'Datang', 'Di gudang', 'Pengingat', 'Dipakai']} /></thead>
+            <thead>
+              <tr>
+                {[['Barang', 'n'], ['Qty', 'q'], ['Peminta'], ['Datang'], ['Di gudang', 'w'], ['Pengingat'], ['Dipakai']].map(([t, k]) => (
+                  <th key={t} aria-sort={k && so.k == k ? (so.dir > 0 ? 'ascending' : 'descending') : undefined}>
+                    {k ? <button type="button" className="sortb" onClick={() => setSo(o => ({ k, dir: o.k == k ? -o.dir : k == 'w' || k == 'q' ? -1 : 1 }))}>{t}{so.k == k ? (so.dir > 0 ? ' ▲' : ' ▼') : ''}</button> : t}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {lwV.map(x => {
                 const l = x.rm[x.rm.length - 1]

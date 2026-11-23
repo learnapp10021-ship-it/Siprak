@@ -710,3 +710,29 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 .eropanel .pool-sum td:last-child{text-align:right;font-weight:600;white-space:nowrap;padding-left:10px}
 .eropanel .pool-sum small{display:block}
 @media (min-width:1024px){.erp-grid .egrid td small{white-space:nowrap}}
+
+/* ===== Dashboard interaktif ===== */
+.agb button{display:block;height:100%;border:0;padding:0;cursor:pointer;min-width:0;opacity:.9;transition:opacity .15s,filter .15s}
+@media (hover:hover){.agb button:hover{opacity:1;filter:brightness(1.1)}}
+.agb button[aria-pressed=true]{outline:2px solid var(--ink);outline-offset:-2px;opacity:1}
+.agb:has(button){height:14px;cursor:default}
+.agl{margin:4px 0 0}
+.agl .chip{min-height:30px;padding:4px 10px;font-weight:500}
+.lnk-reset{border-style:dashed;color:var(--bad);font-weight:500}
+.sortb{font:inherit;font-weight:600;background:none;border:0;padding:0;color:inherit;cursor:pointer}
+@media (hover:hover){.sortb:hover{color:var(--brand)}}
+.trend{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-top:10px}
+.trend-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:13px}
+.trend-lg{color:var(--mut);font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.trend-lg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.trend-lg .a,.trend .ba{background:var(--brand);fill:var(--brand)}
+.trend-lg .h,.trend .bh{background:var(--ok);fill:var(--ok)}
+.trend svg{width:100%;height:150px;display:block;overflow:visible}
+.trend .hit{fill:transparent}
+.trend g{outline:none;cursor:default}
+.trend g.on .hit{fill:var(--soft)}
+.trend g.on .ba,.trend g.on .bh{opacity:1}
+.trend g:not(.on) .ba,.trend g:not(.on) .bh{opacity:.85}
+.trend-x{display:flex;font-size:12px;color:var(--mut)}.trend-x span{flex:1;text-align:center;white-space:nowrap;overflow:visible;min-width:0}
+.trend-v{display:block;min-height:18px;margin-top:6px}
+@media (min-width:1024px){.agb:has(button){height:16px}.trend svg{height:170px}}
