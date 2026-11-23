@@ -220,9 +220,72 @@ export function useSrlPick(g, sel, prog) {
   return { list, cur, idx, prev: nos[idx - 1], next: nos[idx + 1], go, f, set, depts, lateN, total: Object.keys(g).length, active, reset }
 }
 
+// Daftar gulir tervirtualisasi: ribuan SRL tetap mulus karena hanya baris yang terlihat yang dirender.
+const ROW = 72 // tinggi tetap satu baris (termasuk jarak)
+const VIEW = 432 // tinggi jendela daftar (6 baris)
+const OVER = 4 // baris cadangan di atas/bawah agar tidak berkedip saat menggulir cepat
+
+function SrlList({ list, cur, go, unit, resetKey }) {
+  const box = useRef(null)
+  const raf = useRef(0)
+  const [top, setTop] = useState(0)
+  const h = Math.min(VIEW, list.length * ROW)
+  const ci = list.findIndex(m => m.no == cur)
+  const a = Math.max(0, Math.floor(top / ROW) - OVER)
+  const z = Math.min(list.length, Math.ceil((top + h) / ROW) + OVER)
+
+  // filter/urutan berubah: kembali ke atas. Data berubah (mis. selesai catat): posisi gulir dipertahankan.
+  useEffect(() => { if (box.current) box.current.scrollTop = 0; setTop(0) }, [resetKey])
+  // baris terpilih (mis. lewat tombol sebelum/berikutnya atau panah) selalu terlihat
+  useEffect(() => {
+    const el = box.current
+    if (!el || ci < 0) return
+    const y = ci * ROW
+    if (y < el.scrollTop) el.scrollTop = y
+    else if (y + ROW > el.scrollTop + h) el.scrollTop = y + ROW - h
+  }, [ci, h])
+  useEffect(() => () => cancelAnimationFrame(raf.current), [])
+
+  const onScroll = e => {
+    const t = e.currentTarget.scrollTop
+    cancelAnimationFrame(raf.current)
+    raf.current = requestAnimationFrame(() => setTop(t))
+  }
+  const onKey = e => {
+    const d = { ArrowDown: 1, ArrowUp: -1, PageDown: 6, PageUp: -6 }[e.key]
+    const to = d ? Math.min(list.length - 1, Math.max(0, (ci < 0 ? 0 : ci) + d)) : e.key == 'Home' ? 0 : e.key == 'End' ? list.length - 1 : -1
+    if (to < 0) return
+    e.preventDefault()
+    go(list[to].no)
+    requestAnimationFrame(() => box.current?.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true }))
+  }
+
+  return (
+    <div ref={box} role="listbox" aria-label="Daftar SRL" className="pk-vl" style={{ height: h }} onScroll={onScroll} onKeyDown={onKey}>
+      <div style={{ height: list.length * ROW, position: 'relative' }}>
+        {list.slice(a, z).map((m, k) => (
+          <button
+            key={m.no} role="option" aria-selected={m.no == cur} aria-setsize={list.length} aria-posinset={a + k + 1} tabIndex={m.no == cur || (ci < 0 && a + k == 0) ? 0 : -1}
+            className={'pk-row' + (m.no == cur ? ' on' : '')} style={{ top: (a + k) * ROW }} onClick={() => go(m.no)}
+          >
+            <span className="pk-l">
+              <b>{m.no}</b>
+              <small className="mut">{m.dept || '-'}, est. {D(m.est)}</small>
+              {m.p ? <span className="pbar" aria-hidden="true"><i style={{ width: m.p.pct + '%' }} /></span> : null}
+            </span>
+            <span className="pk-r">
+              {m.late ? <Pill t="t-bad">Terlambat</Pill> : null}
+              <small className="mut">{m.n} {unit}{m.p ? ', ' + m.p.pct + '%' : ''}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN, total, active, reset, unit = 'barang' }) {
   if (!total) return null
-  const vis = list.slice(0, f.lim)
   const fold = total > 5 // SRL sedikit: cukup daftar saja, tanpa cari, filter, dan lipat
   const c = list.find(m => m.no == cur)
   const hide = fold && !f.open && !!c
@@ -269,27 +332,7 @@ export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN
           {fold && active && <button className="lnk" onClick={reset}>Hapus filter</button>}
         </div>
         {list.length ? (
-          <div role="listbox" aria-label="Daftar SRL">
-            {vis.map(m => (
-              <button key={m.no} role="option" aria-selected={m.no == cur} className={'pk-row' + (m.no == cur ? ' on' : '')} onClick={() => go(m.no)}>
-                <span className="pk-l">
-                  <b>{m.no}</b>
-                  <small className="mut">{m.dept || '-'}, est. {D(m.est)}</small>
-                  {m.p ? <span className="pbar" aria-hidden="true"><i style={{ width: m.p.pct + '%' }} /></span> : null}
-                </span>
-                <span className="pk-r">
-                  {m.late ? <Pill t="t-bad">Terlambat</Pill> : null}
-                  <small className="mut">{m.n} {unit}</small>
-                  {m.p ? <small className="mut">{m.p.text}</small> : null}
-                </span>
-              </button>
-            ))}
-            {list.length > vis.length && (
-              <button className="btn alt" style={{ width: '100%' }} onClick={() => set({ lim: f.lim + PAGE })}>
-                Tampilkan {Math.min(PAGE, list.length - vis.length)} lagi ({list.length - vis.length} tersisa)
-              </button>
-            )}
-          </div>
+          <SrlList list={list} cur={cur} go={go} unit={unit} resetKey={f.q + '|' + f.dept + '|' + f.late + '|' + f.sort} />
         ) : (
           <div className="empty">Tidak ada SRL yang cocok. Ubah kata kunci atau filter.</div>
         )}

@@ -738,6 +738,9 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 @media (min-width:1024px){.agb:has(button){height:16px}.trend svg{height:170px}}
 
 /* Daftar panjang (ratusan SRL / barang): lewati render baris di luar layar */
-.pk-row{content-visibility:auto;contain-intrinsic-size:auto 64px}
 .row.dtg{content-visibility:auto;contain-intrinsic-size:auto 170px;padding:12px 14px}
 .row.dtg .pbar{margin:6px 0 2px}
+.pk-vl{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg);scrollbar-gutter:stable}
+.pk-vl .pk-row{position:absolute;left:0;right:0;width:auto;height:calc(72px - 6px);margin:0 4px;min-height:0;overflow:hidden;padding:8px 12px;box-sizing:border-box}
+.pk-vl .pk-l small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-vl:focus-within{box-shadow:0 0 0 2px var(--ring)}

@@ -1,6 +1,6 @@
 // Kedatangan dengan seribu SRL: daftar bertahap, tidak merender semua, dan tetap cepat.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-library/react'
 import { makeSel } from '../lib/selectors'
 
 const N = 1000 // SRL
@@ -30,19 +30,35 @@ describe('Kedatangan dengan seribu SRL', () => {
     render(<VDtg />)
     const ms = performance.now() - t0
     const list = screen.getByRole('listbox', { name: 'Daftar SRL' })
-    expect(within(list).getAllByRole('option').length).toBeLessThanOrEqual(8) // satu halaman, bukan 400
+    expect(within(list).getAllByRole('option').length).toBeLessThan(20) // jendela, bukan 1000
     expect(screen.getByText(N + ' SRL')).toBeTruthy()
     expect(screen.getAllByRole('progressbar', { name: 'Progres kedatangan' }).length).toBeLessThanOrEqual(PER)
     expect(ms).toBeLessThan(500)
   })
 
-  it('cari SRL menyaring daftar dan tombol tampilkan lagi menambah satu halaman', async () => {
+  it('semua SRL bisa digulir (bukan tombol tampilkan lagi) dan hanya baris terlihat yang dirender', async () => {
     const { VDtg } = await import('../views/WarehouseViews')
     render(<VDtg />)
     const list = screen.getByRole('listbox', { name: 'Daftar SRL' })
-    const n0 = within(list).getAllByRole('option').length
-    fireEvent.click(within(list).getByRole('button', { name: /Tampilkan 8 lagi/ }))
-    expect(within(list).getAllByRole('option').length).toBe(n0 + 8)
+    const rows = () => within(list).getAllByRole('option')
+    expect(rows().length).toBeLessThan(20)
+    expect(rows()[0].getAttribute('aria-setsize')).toBe(String(N))
+    expect(screen.queryByRole('button', { name: /Tampilkan .* lagi/ })).toBeNull()
+    // gulir jauh ke bawah: baris di sekitar posisi itu muncul, yang lama dibuang
+    list.scrollTop = 500 * 72
+    fireEvent.scroll(list)
+    await waitFor(() => expect(rows().some(r => r.getAttribute('aria-posinset') == '501')).toBe(true))
+    expect(rows().length).toBeLessThan(20)
+  })
+
+  it('navigasi panah memindahkan pilihan; cari SRL menyaring daftar', async () => {
+    const { VDtg } = await import('../views/WarehouseViews')
+    render(<VDtg />)
+    const list = screen.getByRole('listbox', { name: 'Daftar SRL' })
+    const sel0 = () => within(list).getAllByRole('option').find(r => r.getAttribute('aria-selected') == 'true')
+    const n0 = sel0().getAttribute('aria-posinset')
+    fireEvent.keyDown(sel0(), { key: 'ArrowDown' })
+    await waitFor(() => expect(sel0().getAttribute('aria-posinset')).toBe(String(+n0 + 1)))
     fireEvent.change(screen.getByLabelText('Cari SRL'), { target: { value: 'SRL-0123' } })
     expect(await screen.findByText('1 dari ' + N + ' SRL')).toBeTruthy()
   })
