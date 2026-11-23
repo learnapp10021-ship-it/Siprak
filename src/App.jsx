@@ -10,6 +10,7 @@ import { VMst } from './views/MasterView'
 import { VVal } from './views/ValidasiView'
 import { VDash } from './views/DashboardView'
 import { SaveBar } from './components/SaveBar'
+import { badgeCounts } from './lib/notes'
 
 const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }
 
@@ -17,21 +18,12 @@ const VIEWS = { dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, appr: 
 const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'], 'Admin Dept': ['pool', 'kon'] }
 
 export function Shell() {
-  const { db, sel, ui, setUi, me, toastS, sync, saving } = useApp()
+  const { db, sel, ui, setUi, me, toastS, sync, saving, dismissToast } = useApp()
   const tabs = TABS[me.role]
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : BOTTOM[me.role]?.[0] || tabs[0][0]
   const View = VIEWS[tab]
 
-  const ad = me.role == 'Admin Dept'
-  const aw = me.role == 'Admin Warehouse'
-  const cnt = {
-    appr: db.R.filter(r => r.st == 'Menunggu Approval' && sel.user(r.by)?.boss == me.id).length,
-    pool: ad ? sel.poolOf(me.dept).length : 0,
-    kon: ad ? db.K.filter(k => k.dept == me.dept && k.tahap == 'Konsolidasi').length : 0,
-    val: aw ? new Set(db.K.filter(k => k.tahap == 'Validasi Warehouse').map(k => k.srl)).size : 0,
-    dtg: aw ? db.K.filter(k => k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0).length : 0,
-    srh: aw ? db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).length : 0,
-  }
+  const cnt = badgeCounts(db, sel, me)
 
   const bottom = BOTTOM[me.role]
   const hidden = k => (bottom && !bottom.includes(k) ? 'nv-x' : undefined)
@@ -75,7 +67,13 @@ export function Shell() {
           ))}
         </nav>
       </div>
-      <div id="toast" role={toastS.bad ? 'alert' : 'status'} className={toastS.show ? 'show' + (toastS.bad ? ' err' : '') : ''}>{toastS.text}</div>
+      <div
+        id="toast" role={toastS.kind == 'err' ? 'alert' : 'status'} aria-live={toastS.kind == 'err' ? 'assertive' : 'polite'}
+        className={toastS.show ? 'show ' + toastS.kind : ''} onClick={dismissToast}
+      >
+        {toastS.text}
+        {toastS.show ? <span className="tx" aria-hidden="true">ketuk untuk tutup</span> : null}
+      </div>
     </>
   )
 }

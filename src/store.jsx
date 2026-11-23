@@ -6,6 +6,7 @@ import { actions } from './lib/actions'
 import * as api from './lib/api'
 import { outbox } from './lib/outbox'
 import { POLL_MS } from './config'
+import { incomingNotes } from './lib/notes'
 import { Login } from './components/Login'
 
 const Ctx = createContext(null)
@@ -53,18 +54,37 @@ const writeCache = (db, ver) => {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ db, ver })) } catch { /* kuota penuh: abaikan */ }
 }
 
+// Layar muat awal: menjelaskan apa yang terjadi, dan memberi petunjuk bila lambat atau gagal.
 function Boot({ state, err, retry }) {
+  const [sec, setSec] = useState(0)
+  useEffect(() => {
+    if (state != 'loading') { setSec(0); return }
+    const t = setInterval(() => setSec(x => x + 1), 1000)
+    return () => clearInterval(t)
+  }, [state])
   return (
-    <div id="app" className="mob" style={{ padding: 24 }}>
-      <div className="hd"><h2>Request barang</h2></div>
-      {state == 'loading' ? (
-        <div className="empty" role="status">Memuat data dari server…</div>
-      ) : (
-        <>
-          <div className="empty" role="alert">Tidak bisa memuat data. {err}</div>
-          <div className="acts"><button className="btn grow" onClick={retry}>Coba lagi</button></div>
-        </>
-      )}
+    <div className="boot" role={state == 'loading' ? 'status' : 'alert'} aria-live="polite">
+      <div className="boot-card">
+        <h1>Request barang</h1>
+        {state == 'loading' ? (
+          <>
+            <div className="spin big" aria-hidden="true" />
+            <p><b>Menghubungkan ke server…</b></p>
+            <p className="mut">
+              {sec < 6 && 'Mengambil data terbaru dari Google Sheets.'}
+              {sec >= 6 && sec < 15 && 'Masih memuat. Google Sheets kadang butuh beberapa detik, terutama saat ramai.'}
+              {sec >= 15 && 'Lebih lama dari biasanya. Periksa koneksi internet Anda; aplikasi akan terus mencoba.'}
+            </p>
+          </>
+        ) : (
+          <>
+            <p><b>Data belum bisa dimuat.</b></p>
+            <p className="mut">{err || 'Terjadi kesalahan yang tidak diketahui.'}</p>
+            <p className="mut">Periksa koneksi internet, lalu coba lagi. Data Anda di server tidak terpengaruh.</p>
+            <button className="btn" onClick={retry}>Coba lagi</button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -84,9 +104,9 @@ export function AppProvider({ children, initialUi: init }) {
   const [ui, setUiState] = useState({ ...initialUi, me: readSession(), ...init })
   const uiRef = useRef(ui)
   uiRef.current = ui
-  const [toastS, setToastS] = useState({ text: '', bad: false, show: false })
+  const [toastS, setToastS] = useState({ text: '', kind: 'ok', bad: false, show: false })
   const [saving, setSaving] = useState(null) // { tx, phase: 'sending' | 'failed', err? }
-  const [net, setNet] = useState({ ok: true })
+  const [net, setNet] = useState({ ok: true, at: Date.now() })
   const timer = useRef()
   const busyRef = useRef(false)
   const chain = useRef(Promise.resolve())
@@ -95,10 +115,17 @@ export function AppProvider({ children, initialUi: init }) {
 
   const setUi = useCallback(p => setUiState(s => ({ ...s, ...(typeof p == 'function' ? p(s) : p) })), [])
 
-  const toast = useCallback((text, bad = false) => {
+  // kind: 'ok' (default) | 'info' | 'err' (atau true). Galat tampil lebih lama; ketuk untuk menutup.
+  const toast = useCallback((text, k) => {
+    const kind = k === true || k === 'err' ? 'err' : k === 'info' ? 'info' : 'ok'
     clearTimeout(timer.current)
-    setToastS({ text, bad, show: true })
-    timer.current = setTimeout(() => setToastS(t => ({ ...t, show: false })), bad ? 6000 : 3200)
+    setToastS({ text, kind, bad: kind == 'err', show: true })
+    const ms = kind == 'err' ? 8000 : kind == 'info' ? 6000 : 3600
+    timer.current = setTimeout(() => setToastS(t => ({ ...t, show: false })), ms)
+  }, [])
+  const dismissToast = useCallback(() => {
+    clearTimeout(timer.current)
+    setToastS(t => ({ ...t, show: false }))
   }, [])
 
   // ---------- data dari server ----------
@@ -120,11 +147,11 @@ export function AppProvider({ children, initialUi: init }) {
       if (!r.ok) throw new Error(r.err || 'Respons server kosong.')
       if (r.snap) applySnap(r.snap)
       else if (r.same) trusted.current = true
-      setNet({ ok: true })
+      setNet({ ok: true, at: Date.now() })
       setBoot({ state: 'ready', err: '' })
     } catch (e) {
       // dengan cache: tetap tampil dan tandai offline; tanpa cache: tampilkan galat + Coba lagi
-      setNet({ ok: false })
+      setNet(n => ({ ...n, ok: false, err: e.message }))
       setBoot(b => (dbRef.current ? { state: 'ready', err: '' } : { state: 'error', err: e.message || String(e) }))
     }
   }, [applySnap])
@@ -147,10 +174,19 @@ export function AppProvider({ children, initialUi: init }) {
       if (!document.hidden && !busyRef.current) {
         try {
           const r = await api.sync(verRef.current)
-          if (r.ok && r.snap && !busyRef.current) applySnap(r.snap)
-          setNet(n => (n.ok ? n : { ok: true }))
-        } catch {
-          setNet({ ok: false })
+          if (r.ok && r.snap && !busyRef.current) {
+            const prev = dbRef.current
+            const wasTrusted = trusted.current
+            applySnap(r.snap)
+            // beri tahu perubahan dari orang lain yang relevan bagi pengguna ini
+            if (wasTrusted && dbRef.current !== prev) {
+              const notes = incomingNotes(prev, dbRef.current, uiRef.current.me)
+              if (notes.length) toast(notes.join('\n'), 'info')
+            }
+          }
+          setNet({ ok: true, at: Date.now() })
+        } catch (e) {
+          setNet(n => ({ ...n, ok: false, err: e.message }))
         }
       }
       if (!stop) t = setTimeout(tick, POLL_MS + Math.random() * POLL_MS * 0.4) // jitter agar 40 klien tidak serempak
@@ -161,7 +197,7 @@ export function AppProvider({ children, initialUi: init }) {
     }
     document.addEventListener('visibilitychange', vis)
     return () => { stop = true; clearTimeout(t); document.removeEventListener('visibilitychange', vis) }
-  }, [boot.state, applySnap])
+  }, [boot.state, applySnap, toast])
 
   const sel = useMemo(() => makeSel(db || emptyDb()), [db])
   // Pengguna aktif: id sesi harus ada di data dan aktif, kalau tidak -> layar masuk
@@ -202,15 +238,17 @@ export function AppProvider({ children, initialUi: init }) {
       for (;;) {
         busyRef.current = true
         setSaving({ tx: entry.tx, phase: 'sending', name: entry.name })
-        const r = await (REMOTE ? api.write(entry) : localWrite(entry))
+        const onWait = n =>
+          setSaving(x => (x && x.tx == entry.tx ? { ...x, note: `Server sedang ramai, mengantre… (percobaan ${n} dari 3)` } : x))
+        const r = await (REMOTE ? api.write(entry, onWait) : localWrite(entry))
         if (r.ok) {
           outbox.del(entry.tx)
           busyRef.current = false
           setSaving(null)
           if (r.snap) applySnap(r.snap)
           if (!REMOTE) { if (r.msg) toast(r.msg) }
-          else if (r.replay) toast('Sudah tersimpan sebelumnya dan terverifikasi. ' + (r.msg || ''))
-          else if (r.msg) toast(r.msg + ' Tersimpan dan terverifikasi.')
+          else if (r.replay) toast((r.msg ? r.msg + '\n' : '') + 'Sudah tersimpan sebelumnya (terverifikasi).')
+          else if (r.msg) toast(r.msg + '\nTersimpan dan terverifikasi di spreadsheet.')
           return true
         }
         if (r.rejected) {
@@ -294,6 +332,7 @@ export function AppProvider({ children, initialUi: init }) {
 
   // 'sync' dipertahankan untuk header (teks status kecil di bawah nama)
   const sync = { pending: saving ? 1 : 0, err: net.ok ? '' : 'offline' }
-  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, saving, net, sync, retry, skip, remote: REMOTE, logout }
+  const refresh = () => load()
+  const value = { db, sel, ui: uiEff, setUi, me, act, toast, toastS, dismissToast, saving, net, sync, retry, skip, refresh, remote: REMOTE, logout }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

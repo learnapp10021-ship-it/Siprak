@@ -33,7 +33,7 @@ export function sync(since) {
 //   { ok: true, verified: true, msg, snap, replay? }   tersimpan DAN terverifikasi di spreadsheet
 //   { ok: false, rejected: true, err, snap? }          ditolak aturan bisnis (tidak ada yang tertulis)
 //   { ok: false, retry: true, err, unknown? }          belum pasti: aman dikirim ulang dengan tx yang sama
-export async function write({ tx, name, args, me }) {
+export async function write({ tx, name, args, me }, onWait) {
   let attempt = 0
   for (;;) {
     let r
@@ -49,6 +49,7 @@ export async function write({ tx, name, args, me }) {
     // Antrean penuh: coba otomatis lagi (aman, tx sama) sebelum menyerahkan ke pengguna
     if (r && r.busy && attempt < 2) {
       attempt++
+      if (onWait) onWait(attempt, 3)
       await sleep(1500 * attempt + Math.random() * 1500)
       continue
     }
