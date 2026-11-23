@@ -19,16 +19,25 @@ const setR = (d, id, s) => {
 // Dua entri identik dalam rentang ini dianggap input ganda (klik ulang, dua admin menginput hal yang sama)
 const DUP_MENIT = 2
 
-// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat atau ''.
+// Galat per kolom untuk satu baris barang: { kode?, qty?, datang?, pakai? }. Satu-satunya sumber aturan baris;
+// dipakai server (lewat checkLines) dan layar Buat request (untuk menandai kolom yang salah).
+export const lineErrors = (sel, x) => {
+  const m = x.kode && sel.mi(x.kode)
+  if (!m) return { kode: 'Pilih barang di setiap baris.' }
+  const e = {}
+  if (!(+x.qty > 0) || !isFinite(+x.qty)) e.qty = 'Jumlah harus lebih dari 0.'
+  if (!x.datang || x.datang < addDays(TODAY, +m.lead)) e.datang = `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
+  if (m.buf == '0' && !x.pakai) e.pakai = `${m.n}: tgl pakai wajib untuk barang non buffer.`
+  else if (x.pakai && x.pakai < x.datang) e.pakai = `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+  return e
+}
+
+// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat pertama atau ''.
 const checkLines = (sel, lines) => {
   for (const x of lines) {
-    const m = x.kode && sel.mi(x.kode)
-    if (!m) return 'Pilih barang di setiap baris.'
-    if (!(+x.qty > 0) || !isFinite(+x.qty)) return 'Jumlah harus lebih dari 0.'
-    if (!x.datang || x.datang < addDays(TODAY, +m.lead))
-      return `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
-    if (m.buf == '0' && !x.pakai) return `${m.n}: tgl pakai wajib untuk barang non buffer.`
-    if (x.pakai && x.pakai < x.datang) return `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+    const e = lineErrors(sel, x)
+    const k = ['kode', 'qty', 'datang', 'pakai'].find(f => e[f])
+    if (k) return e[k]
   }
   return ''
 }

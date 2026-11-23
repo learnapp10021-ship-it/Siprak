@@ -295,7 +295,7 @@ export function SrlHead({ no, s, pct, sub, children }) {
           <span><b>{no}</b> <small className="mut">{s ? s.dept + ', est. ' + D(s.est) : ''}</small></span>
           {late ? <Pill t="t-bad">Terlambat</Pill> : null}
         </div>
-        {pct != null ? <div className="pbar" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100"><i style={{ width: pct + '%' }} /></div> : null}
+        {pct != null ? <div className="pbar" role="progressbar" aria-label={'Progres ' + no} aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100"><i style={{ width: pct + '%' }} /></div> : null}
         {sub ? <small className="mut">{sub}</small> : null}
       </div>
       {children ? <div className="srlact">{children}</div> : null}

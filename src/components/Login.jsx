@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import logo from '../assets/logo-dbc.png'
 
 const ORDER = ['User', 'Atasan', 'Admin Dept', 'Admin Warehouse', 'Spv Warehouse']
@@ -8,6 +8,7 @@ export function Login({ users, onPick }) {
   const [uid, setUid] = useState('')
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
+  const sel = useRef(null)
 
   const roles = [...new Set([...ORDER, ...users.map(u => u.role)])]
     .map(r => [r, users.filter(u => u.role == r).sort((a, b) => a.n.localeCompare(b.n))])
@@ -17,6 +18,7 @@ export function Login({ users, onPick }) {
     e.preventDefault()
     if (!uid) {
       setErr('Pilih pengguna terlebih dahulu.')
+      sel.current?.focus()
       return
     }
     onPick(uid)
@@ -29,7 +31,7 @@ export function Login({ users, onPick }) {
       <form className="login-card" onSubmit={submit} noValidate>
         {err ? <div className="login-err" role="alert">{err}</div> : null}
         <select
-          className="login-in" value={uid} aria-label="Pengguna" aria-invalid={err ? 'true' : undefined}
+          ref={sel} className="login-in" value={uid} aria-label="Pengguna" aria-invalid={err ? 'true' : undefined}
           onChange={e => { setUid(e.target.value); setErr('') }}
         >
           <option value="">Pilih pengguna</option>

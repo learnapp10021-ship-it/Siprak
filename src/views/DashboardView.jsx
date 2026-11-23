@@ -96,6 +96,7 @@ export function VDash() {
   return (
     <>
       <Hd t="Dashboard Warehouse" s="Monitoring untuk OPR mingguan. Pengingat dilakukan Admin Warehouse." />
+      <p className="print-only"><b>Periode: {D(ps)} sampai {D(pe)}</b>. Posisi barang per {D(TODAY)}. Dicetak {D(TODAY)}.</p>
       <div className="grid" style={{ gridColumn: '1/-1' }}>
         <label>Periode ({D(ps)} sampai {D(pe)})
           <select value={pr} onChange={e => setUi({ dp: e.target.value })}>
@@ -150,7 +151,7 @@ export function VDash() {
       </div>
       <p className="mut" style={{ gridColumn: '1/-1', margin: '0 0 6px' }}>{lw.length} barang. Ketuk kartu di atas untuk menyaring, atau ketuk baris untuk melihat detail barang.</p>
       {lw.length ? (
-        <div className="tw">
+        <div className="tw" tabIndex={0} role="region" aria-label="Barang yang sudah sampai dan belum diambil">
           <table className="tbl">
             <thead><Th a={['Barang', 'Qty', 'Peminta', 'Datang', 'Di gudang', 'Pengingat', 'Dipakai']} /></thead>
             <tbody>
@@ -158,7 +159,7 @@ export function VDash() {
                 const l = x.rm[x.rm.length - 1]
                 const open = () => setUi({ di: x.i.id })
                 return (
-                  <tr key={x.i.id} className="clk" onClick={open} onKeyDown={rowKey(open)} tabIndex={0} role="button" aria-label={'Detail ' + x.m.n}>
+                  <tr key={x.i.id} className="clk" onClick={open} onKeyDown={rowKey(open)} tabIndex={0} role="button">
                     <td>{x.m.n} <small className="mut">{x.i.id}</small></td>
                     <td>{x.b} {x.m.sat}</td>
                     <td>{x.by}<br /><small className="mut">{x.d}</small></td>
@@ -181,7 +182,7 @@ export function VDash() {
 
       <Srl>PIC yang belum mengambil ({pics.length} orang)</Srl>
       {pics.length ? (
-        <div className="tw">
+        <div className="tw" tabIndex={0} role="region" aria-label="Barang menunggu per peminta">
           <table className="tbl">
             <thead><Th a={['PIC', 'Barang', 'Isi', 'Terlama', 'Pengingat']} /></thead>
             <tbody>
@@ -191,7 +192,7 @@ export function VDash() {
                 const nr = a.filter(y => !y.rm.length && y.w >= 3).length
                 const open = () => setUi({ dpic: x.u })
                 return (
-                  <tr key={x.u} className="clk" onClick={open} onKeyDown={rowKey(open)} tabIndex={0} role="button" aria-label={'Detail ' + x.by}>
+                  <tr key={x.u} className="clk" onClick={open} onKeyDown={rowKey(open)} tabIndex={0} role="button">
                     <td>{x.by}<br /><small className="mut">{x.d}</small></td>
                     <td>{a.length}</td>
                     <td style={{ whiteSpace: 'normal', minWidth: 200 }}>
@@ -212,7 +213,7 @@ export function VDash() {
 
       <Srl>Lead time kedatangan per SRL</Srl>
       {slT.length ? (
-        <div className="tw">
+        <div className="tw" tabIndex={0} role="region" aria-label="Kinerja kedatangan per SRL">
           <table className="tbl">
             <thead><Th a={['SRL', 'Dept', 'Disetujui', 'Datang pertama', 'Lead time', 'Estimasi', 'Status', 'Datang']} /></thead>
             <tbody>
@@ -240,7 +241,7 @@ export function VDash() {
       {slMore}
 
       <Srl>Per departemen</Srl>
-      <div className="tw">
+      <div className="tw" tabIndex={0} role="region" aria-label="Ringkasan per departemen">
         <table className="tbl">
           <thead><Th a={['Dept', 'Belum diambil', 'Rata-rata menunggu', 'Pengingat (periode)', 'Lead time pengambilan (periode)']} /></thead>
           <tbody>
@@ -261,7 +262,7 @@ export function VDash() {
       </div>
 
       <Srl>Aktivitas admin warehouse (periode)</Srl>
-      <div className="tw">
+      <div className="tw" tabIndex={0} role="region" aria-label="Kinerja admin warehouse">
         <table className="tbl">
           <thead><Th a={['Admin', 'Kedatangan dicatat', 'Pengingat terkirim']} /></thead>
           <tbody>

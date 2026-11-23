@@ -69,18 +69,18 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
           <thead>
             <tr>
               <th className="c"><input type="checkbox" checked={allOn} onChange={toggleAll} aria-label="Pilih semua yang tampil" /></th>
-              <th>Request</th><th>Peminta</th><th>Barang</th><th className="n">Qty</th><th>Dibutuhkan</th><th className="n">Tunggu</th><th>Status</th><th />
+              <th>Request</th><th>Peminta</th><th>Barang</th><th className="n">Qty</th><th>Dibutuhkan</th><th className="n">Tunggu</th><th>Status</th><th><span className="sr-only">Aksi</span></th>
             </tr>
             <tr className="flt">
-              <th />
+              <th role="presentation" />
               <th colSpan="3"><input value={fq} onChange={e => setFq(e.target.value)} placeholder="Cari request, peminta, barang" aria-label="Cari di pool" /></th>
-              <th colSpan="3" />
+              <th role="presentation" colSpan="3" />
               <th>
                 <select value={fs} onChange={e => setFs(e.target.value)} aria-label="Filter status">
                   <option value="">Semua</option><option value="ok">Siap</option><option value="late">Terlewat</option><option value="hold">Ditahan</option>
                 </select>
               </th>
-              <th />
+              <th role="presentation" />
             </tr>
           </thead>
           <tbody>
@@ -337,7 +337,7 @@ export function VKon() {
         wide ? (
           <div className="erp-grid">
             <table className="egrid">
-              <thead><tr><th>Barang</th><th>No. SRL</th><th>Peminta</th><th className="n">Total</th><th>Progres datang</th><th>Status</th><th /></tr></thead>
+              <thead><tr><th>Barang</th><th>No. SRL</th><th>Peminta</th><th className="n">Total</th><th>Progres datang</th><th>Status</th><th><span className="sr-only">Aksi</span></th></tr></thead>
               <tbody>{vis.map(x => <KonRow key={x.k.id} k={x.k} />)}</tbody>
             </table>
           </div>
