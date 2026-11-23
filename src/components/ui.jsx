@@ -253,7 +253,7 @@ export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN
             <button className="chip" aria-pressed={f.late} onClick={() => set({ late: !f.late })}>Terlambat ({lateN})</button>
           )}
           <small className="mut">{list.length == total ? total + ' SRL' : list.length + ' dari ' + total + ' SRL'}</small>
-          {fold && active && <button className="lnk" style={{ minHeight: 32, padding: '4px 0' }} onClick={reset}>Hapus filter</button>}
+          {fold && active && <button className="lnk" onClick={reset}>Hapus filter</button>}
         </div>
         {list.length ? (
           <div role="listbox" aria-label="Daftar SRL">

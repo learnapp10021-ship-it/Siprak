@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { TABS, useApp } from '../store'
 import { Pill } from './ui'
+import { Dialog } from './Dialog'
 import { D, TODAY, days, dayDiff, disp } from '../lib/utils'
 
 const age = w => (w >= 7 ? 't-bad' : w >= 3 ? 't-warn' : 't-gray')
@@ -12,7 +13,7 @@ export function Drawer({ cnt }) {
   return (
     <>
       <div className="scrim" onClick={close} />
-      <aside className="drawer" aria-label="Menu">
+      <Dialog as="aside" className="drawer" label="Menu">
         <div className="dh"><b>{me.n}</b><small>{me.role}, {me.dept}</small></div>
         {tabs.map(t => (
           <button key={t[0]} className="mi" aria-current={t[0] == ui.tab ? 'true' : undefined} onClick={() => setUi({ tab: t[0], menu: false, eu: null })}>
@@ -22,7 +23,7 @@ export function Drawer({ cnt }) {
         <button className="mi" onClick={() => setUi({ help: true, menu: false })}>Cara pakai</button>
         <button className="mi" onClick={() => setUi({ eu: me.id, self: true, menu: false })}>Profil saya</button>
         <button className="mi mi-out" onClick={logout}>Keluar</button>
-      </aside>
+      </Dialog>
     </>
   )
 }
@@ -52,7 +53,7 @@ export function UserSheet() {
   return (
     <>
       <div className="scrim" onClick={close} />
-      <section className="sheet" role="dialog" aria-label={ttl}>
+      <Dialog label={ttl}>
         <h2>{ttl}</h2>
         <div className="f">
           <label>Nama<input value={f.n} onChange={e => set('n', e.target.value)} /></label>
@@ -89,7 +90,7 @@ export function UserSheet() {
           <button className="btn alt grow" onClick={close}>Batal</button>
           <button className="btn grow" onClick={save}>Simpan</button>
         </div>
-      </section>
+      </Dialog>
     </>
   )
 }
@@ -106,7 +107,7 @@ export function PicSheet() {
   return (
     <>
       <div className="scrim" onClick={close} />
-      <section className="sheet" role="dialog" aria-label={'Barang ' + u.n}>
+      <Dialog label={'Barang ' + u.n}>
         <h2>{u.n}</h2>
         <small className="mut">{u.dept}{u.boss ? ', atasan ' + sel.nm(u.boss) : ''}{db.HP[u.id] ? ', WA ' + disp(db.HP[u.id]) : ''}</small>
         <div className="between" style={{ marginTop: 10 }}>
@@ -121,7 +122,7 @@ export function PicSheet() {
           </button>
         )) : <small className="mut">Semua barang sudah diambil.</small>}
         <div className="acts"><button className="btn grow" onClick={close}>Tutup</button></div>
-      </section>
+      </Dialog>
     </>
   )
 }
@@ -149,7 +150,7 @@ export function DetailSheet() {
   return (
     <>
       <div className="scrim" onClick={close} />
-      <section className="sheet" role="dialog" aria-label={'Detail ' + m.n}>
+      <Dialog label={'Detail ' + m.n}>
         <h2>{m.n}</h2>
         <small className="mut">{m.k}, {i.id}, {r.id}</small>
         <div className="between" style={{ marginTop: 10 }}>
@@ -174,7 +175,7 @@ export function DetailSheet() {
         <h3>Riwayat pengambilan</h3>
         <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + x.to])} e="Belum ada yang diambil." />
         <div className="acts"><button className="btn grow" onClick={close}>Tutup</button></div>
-      </section>
+      </Dialog>
     </>
   )
 }
@@ -193,14 +194,14 @@ export function HelpSheet() {
   return (
     <>
       <div className="scrim" onClick={close} />
-      <section className="sheet" role="dialog" aria-label="Cara pakai">
+      <Dialog label="Cara pakai">
         <h2>Cara pakai</h2>
         <ol style={{ paddingLeft: 20, margin: '0 0 14px', display: 'grid', gap: 8 }}>
           {/* teks bantuan statis milik aplikasi (bukan input pengguna) */}
           {HELP[me.role].map((s, n) => <li key={n} dangerouslySetInnerHTML={{ __html: s }} />)}
         </ol>
         <div className="acts"><button className="btn grow" onClick={close}>Mengerti</button></div>
-      </section>
+      </Dialog>
     </>
   )
 }

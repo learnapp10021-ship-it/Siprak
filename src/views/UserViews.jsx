@@ -1,5 +1,5 @@
 import { useApp, newLine } from '../store'
-import { Hd, Empty, Pill, ReqCard } from '../components/ui'
+import { Hd, Empty, Pill, ReqCard, Confirm } from '../components/ui'
 import { D, TODAY, addDays } from '../lib/utils'
 
 export function VReq() {
@@ -68,7 +68,7 @@ export function VNew() {
             </div>
             {f.length > 1 && (
               <div className="acts">
-                <button className="btn bad" onClick={() => setUi(s => ({ draft: s.draft.filter((_, n) => n != i) }))}>Hapus barang ini</button>
+                <Confirm className="btn bad" onConfirm={() => setUi(s => ({ draft: s.draft.filter((_, n) => n != i) }))}>Hapus barang ini</Confirm>
               </div>
             )}
           </div>
