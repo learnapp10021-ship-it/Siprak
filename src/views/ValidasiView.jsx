@@ -77,7 +77,7 @@ export function VVal() {
     const no = sel.KN(i.kon)?.srl || '-'
     ;(g[no] = g[no] || []).push(i)
   })
-  const pk = useSrlPick(g, sel)
+  const pk = useSrlPick(g, sel, undefined, 'val')
   return (
     <>
       <Hd t="Validasi SRL" s="Periksa barang di SRL dari Admin Dept. Keluarkan yang tidak sesuai, lalu validasi." />

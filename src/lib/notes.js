@@ -60,6 +60,6 @@ export const AKSI = {
   saveUser: 'data pengguna', saveRequest: 'request', ajukan: 'pengajuan request', batal: 'pembatalan request',
   setuju: 'persetujuan', setujuAll: 'persetujuan massal', tolak: 'penolakan', tahan: 'penahanan barang',
   lepas: 'pelepasan tahan', simpanSrl: 'SRL', tutup: 'penutupan sisa', datang: 'kedatangan barang',
-  datangAll: 'kedatangan barang', serah: 'serah terima', serahAll: 'serah terima', saveMaster: 'master item',
+  datangAll: 'kedatangan barang', datangBatch: 'kedatangan barang', serah: 'serah terima', serahAll: 'serah terima', saveMaster: 'master item',
   importMaster: 'impor master item', keluarkan: 'pengeluaran barang dari SRL', validasiSrl: 'validasi SRL', ingat: 'pengingat',
 }

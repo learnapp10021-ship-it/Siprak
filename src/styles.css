@@ -749,3 +749,16 @@ button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-ac
 .sumline.warn{background:var(--warnbg);color:var(--warn)}
 .note{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border-radius:var(--r);background:var(--infobg);color:var(--info);font-size:13px}
 .empty .acts{margin-top:14px}
+
+/* ---------- Kedatangan: ratusan SRL, entri cepat ---------- */
+.pk-tools{display:grid;gap:8px}
+.pk-keys{display:none}
+@media(hover:hover) and (min-width:1024px){.pk-keys{display:block}}
+.qin{width:96px;text-align:right}
+.egrid td .qin{height:28px;min-height:0;padding:2px 8px;font-size:13px}
+.egrid tr.on td{background:var(--okbg)}
+.egrid tr.err td{background:var(--badbg)}
+.egrid td.c3{white-space:nowrap}
+.egrid .bad,small.bad{color:var(--bad)}
+.qrow-l{display:grid;gap:3px;font-size:12px;font-weight:600}
+.erp-bar.dtg-foot{border-top:0;border-bottom:1px solid var(--line);border-radius:0 0 3px 3px;margin-top:-1px;position:sticky;bottom:0;z-index:2}

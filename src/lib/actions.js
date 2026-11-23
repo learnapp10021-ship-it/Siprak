@@ -44,6 +44,20 @@ const checkLines = (sel, lines) => {
 
 const sidik = ls => ls.map(x => [x.kode, +x.qty, x.datang, x.pakai || ''].join('~')).sort().join('|')
 
+// Pemeriksaan satu catatan kedatangan (dipakai datang dan datangBatch). Mengembalikan teks galat atau ''.
+const cekDatang = (sel, d, { id, q, l, cat }) => {
+  const k = sel.KN(id)
+  if (!k) return 'Konsolidasi tidak ditemukan.'
+  if (k.tahap != 'Sudah di ERO') return 'SRL ini belum divalidasi. Kedatangan belum bisa dicatat.'
+  if (!(q > 0) && !(l > 0)) return 'Isi Qty datang.'
+  if (q < 0 || l < 0) return 'Qty tidak boleh negatif.'
+  if (q > sel.sisa(k)) return 'Qty datang melebihi sisa (' + sel.sisa(k) + ').'
+  if (l > 0 && !cat) return 'Isi catatan untuk kelebihan.'
+  const kembar = d.KD.find(x => x.kon == id && +x.qty == +q && +x.lebih == +l && minsAgo(x.at) <= DUP_MENIT)
+  if (kembar) return 'Kedatangan yang sama baru saja dicatat. Tidak dicatat ganda. Periksa jumlah datang terbaru.'
+  return ''
+}
+
 export const actions = {
   saveUser(sel, d, f) {
     const { mode, self, id, n, rawWa, email, role, boss, dept, active, me, baseV } = f
@@ -233,19 +247,33 @@ export const actions = {
   },
 
   datang(sel, d, { id, q, l, cat, by }) {
-    const k = sel.KN(id)
-    if (!k) return { err: 'Konsolidasi tidak ditemukan.' }
-    if (k.tahap != 'Sudah di ERO') return { err: 'SRL ini belum divalidasi. Kedatangan belum bisa dicatat.' }
-    if (!(q > 0) && !(l > 0)) return { err: 'Isi Qty datang.' }
-    if (q < 0 || l < 0) return { err: 'Qty tidak boleh negatif.' }
-    if (q > sel.sisa(k)) return { err: 'Qty datang melebihi sisa (' + sel.sisa(k) + ').' }
-    if (l > 0 && !cat) return { err: 'Isi catatan untuk kelebihan.' }
-    const kembar = d.KD.find(
-      x => x.kon == id && +x.qty == +q && +x.lebih == +l && minsAgo(x.at) <= DUP_MENIT
-    )
-    if (kembar) return { err: 'Kedatangan yang sama baru saja dicatat. Tidak dicatat ganda. Periksa jumlah datang terbaru.' }
+    const e = cekDatang(sel, d, { id, q, l, cat })
+    if (e) return { err: e }
     d.KD.push({ id: nextId(d.KD, 'KD-'), kon: id, qty: String(q), lebih: String(l), by, cat, tgl: TODAY, at: nowStr() })
     return { ok: 'Kedatangan dicatat.' }
+  },
+  // Banyak barang sekaligus (entri cepat): semua baris diperiksa dulu; satu saja salah, tidak ada yang dicatat.
+  // rows = [{ id, q, l?, cat? }]
+  datangBatch(sel, d, { rows, by }) {
+    if (!Array.isArray(rows) || !rows.length) return { err: 'Belum ada kedatangan yang diisi.' }
+    if (rows.length > 200) return { err: 'Maksimal 200 barang sekali catat.' }
+    const seen = new Set()
+    for (const r of rows) {
+      if (seen.has(r.id)) return { err: 'Barang ' + r.id + ' muncul dua kali.' }
+      seen.add(r.id)
+      const e = cekDatang(sel, d, { id: r.id, q: +r.q || 0, l: +r.l || 0, cat: String(r.cat || '').trim() })
+      if (e) {
+        const k = sel.KN(r.id)
+        return { err: (k ? (sel.mi(k.kode)?.n || k.kode) + ': ' : '') + e + ' Tidak ada yang dicatat.' }
+      }
+    }
+    rows.forEach(r =>
+      d.KD.push({
+        id: nextId(d.KD, 'KD-'), kon: r.id, qty: String(+r.q || 0), lebih: String(+r.l || 0), by,
+        cat: String(r.cat || '').trim(), tgl: TODAY, at: nowStr(),
+      })
+    )
+    return { ok: rows.length + ' kedatangan dicatat.' }
   },
   datangAll(sel, d, no, by) {
     const a = d.K.filter(k => k.srl == no && k.tahap == 'Sudah di ERO' && sel.sisa(k) > 0)

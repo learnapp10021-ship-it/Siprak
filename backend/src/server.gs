@@ -427,6 +427,7 @@ const PERM = {
   validasiSrl: a => PERM.saveMaster(a),
   serahAll: a => PERM.saveMaster(a),
   datangAll: a => PERM.datang(a),
+  datangBatch: a => PERM.datang(a),
   serah: a => PERM.datang(a),
   ingat: a => PERM.datang(a),
 }
@@ -438,6 +439,7 @@ const BIND = {
   simpanSrl: (a, x) => [Object.assign({}, x[0], { me: a })],
   datang: (a, x) => [Object.assign({}, x[0], { by: a.id })],
   datangAll: (a, x) => [x[0], a.id],
+  datangBatch: (a, x) => [{ rows: x[0] && x[0].rows, by: a.id }],
   keluarkan: (a, x) => [Object.assign({}, x[0], { by: a.n })],
   ingat: (a, x) => [x[0], a.id],
   setujuAll: (a, x) => [a.id, x[1]],

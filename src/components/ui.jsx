@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
-import { D, TODAY } from '../lib/utils'
+import { D, TODAY, addDays } from '../lib/utils'
 
 export const Pill = ({ t, children }) => <span className={`pill ${t}`}>{children}</span>
 export const Hd = ({ t, s }) => (
@@ -162,13 +162,35 @@ export function copyText(t, toast) {
   try { navigator.clipboard.writeText(t).then(ok, fb) } catch { fb() }
 }
 
-// Pemilih SRL untuk jumlah banyak (puluhan SRL): cari, filter dept / terlambat, urutkan, daftar bertahap.
-// HP: hanya satu kartu "SRL aktif" + tombol sebelumnya/berikutnya; daftar & pencarian dibuka lewat "Cari / ganti SRL".
+// Pemilih SRL untuk jumlah banyak (ratusan SRL): cari (juga lewat tombol "/"), chip filter dengan jumlah
+// (terlambat, hari ini, 7 hari ke depan, belum mulai, sebagian), urutkan, daftar bertahap, panah atas/bawah di
+// kolom cari untuk pindah SRL, dan otomatis lanjut ke SRL berikutnya saat yang dikerjakan selesai.
+// HP: satu kartu "SRL aktif" + tombol sebelumnya/berikutnya; daftar dibuka lewat "Cari / ganti SRL".
 // Desktop: daftar selalu tampil di kolom kiri.
 // g = { [noSRL]: [item, ...] }. SRL teratas hasil filter otomatis terpilih.
-// prog(no) opsional -> { pct, text } untuk bilah progres tiap SRL.
-const PAGE = 8
-const SORTS = { est: 'Estimasi terdekat', new: 'SRL terbaru', big: 'Barang terbanyak' }
+// prog(no) opsional -> { pct, text } untuk bilah progres dan filter progres.
+// key opsional: nama untuk mengingat pencarian dan filter selama sesi (sessionStorage), mis. saat pindah tab.
+const PAGE = 20
+const SORTS = { est: 'Estimasi terdekat', new: 'SRL terbaru', big: 'Barang terbanyak', prog: 'Progres terendah' }
+const FKEYS = ['q', 'dept', 'when', 'prg', 'sort']
+const BLANK = { pick: '', q: '', dept: '', when: '', prg: '', sort: 'est', lim: PAGE, open: false }
+
+const readPk = key => {
+  if (!key) return {}
+  try {
+    const v = JSON.parse(sessionStorage.getItem('siprak.pk.' + key))
+    if (!v || typeof v != 'object') return {}
+    const o = {}
+    FKEYS.forEach(k => {
+      if (typeof v[k] == 'string' && (k != 'sort' || SORTS[v[k]])) o[k] = v[k]
+    })
+    return o
+  } catch { return {} }
+}
+const writePk = (key, f) => {
+  if (!key) return
+  try { sessionStorage.setItem('siprak.pk.' + key, JSON.stringify(Object.fromEntries(FKEYS.map(k => [k, f[k]])))) } catch { /* mode privat: abaikan */ }
+}
 
 function goDetail() {
   if (typeof window == 'undefined' || window.innerWidth >= 1024) return
@@ -176,45 +198,111 @@ function goDetail() {
   requestAnimationFrame(() => document.getElementById('srl-detail')?.scrollIntoView({ block: 'start', behavior: sm }))
 }
 
-export function useSrlPick(g, sel, prog) {
-  const [f, setF] = useState({ pick: '', q: '', dept: '', late: false, sort: 'est', lim: PAGE, open: false })
-  // ganti pilihan / buka-tutup / tampilkan lagi tidak mereset panjang daftar; ubah filter mereset
-  const set = p => setF(x => ({ ...x, ...('pick' in p || 'lim' in p || 'open' in p ? {} : { lim: PAGE }), ...p }))
+export function useSrlPick(g, sel, prog, key) {
+  const [f, setF] = useState(() => ({ ...BLANK, ...readPk(key) }))
+  const last = useRef(0)
+  useEffect(() => writePk(key, f), [key, f.q, f.dept, f.when, f.prg, f.sort]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Mengubah cari/filter/urutan kembali ke SRL teratas hasilnya dan panjang daftar awal; pindah, buka-tutup, dan tampilkan lagi tidak.
+  const set = p => setF(x => ({ ...x, ...(FKEYS.some(k => k in p) ? { pick: '', lim: PAGE } : {}), ...p }))
+  const t7 = addDays(TODAY, 7)
   const meta = {}
   Object.keys(g).forEach(no => {
     const r = sel.SRLof(no)
-    const names = g[no].map(x => sel.mi(x.kode)?.n || '').join(' ')
-    meta[no] = { no, dept: r?.dept || '', est: r?.est || '', n: g[no].length, p: prog ? prog(no) : null,
-      late: !!(r?.est && r.est < TODAY), hay: (no + ' ' + (r?.dept || '') + ' ' + names).toLowerCase() }
+    const names = g[no].map(x => (sel.mi(x.kode)?.n || '') + ' ' + (x.kode || '')).join(' ')
+    const est = r?.est || ''
+    meta[no] = {
+      no, dept: r?.dept || '', est, n: g[no].length, p: prog ? prog(no) : null,
+      late: !!(est && est < TODAY), today: est == TODAY, week: !!(est && est >= TODAY && est <= t7),
+      hay: (no + ' ' + (r?.dept || '') + ' ' + names).toLowerCase(),
+    }
   })
-  const depts = [...new Set(Object.values(meta).map(m => m.dept).filter(Boolean))].sort()
+  const all = Object.values(meta)
+  const depts = [...new Set(all.map(m => m.dept).filter(Boolean))].sort()
   const q = f.q.trim().toLowerCase()
+  const e9 = m => m.est || '9'
   const cmp = {
-    est: (a, b) => ((a.est || '9') < (b.est || '9') ? -1 : (a.est || '9') > (b.est || '9') ? 1 : a.no < b.no ? -1 : 1),
+    est: (a, b) => (e9(a) < e9(b) ? -1 : e9(a) > e9(b) ? 1 : a.no < b.no ? -1 : 1),
     new: (a, b) => (a.no < b.no ? 1 : -1),
     big: (a, b) => b.n - a.n || (a.no < b.no ? -1 : 1),
+    prog: (a, b) => (a.p?.pct ?? 0) - (b.p?.pct ?? 0) || (e9(a) < e9(b) ? -1 : e9(a) > e9(b) ? 1 : a.no < b.no ? -1 : 1),
   }[f.sort]
-  const list = Object.values(meta)
-    .filter(m => (!q || m.hay.includes(q)) && (!f.dept || m.dept == f.dept) && (!f.late || m.late))
+  const zero = m => !!m.p && m.p.pct === 0
+  const part = m => !!m.p && m.p.pct > 0 && m.p.pct < 100
+  const list = all
+    .filter(m => (!q || m.hay.includes(q)) && (!f.dept || m.dept == f.dept) && (!f.when || m[f.when]) && (!f.prg || (f.prg == 'zero' ? zero(m) : part(m))))
     .sort(cmp)
   const nos = list.map(m => m.no)
-  const cur = nos.includes(f.pick) ? f.pick : nos[0]
+  // SRL yang sedang dikerjakan selesai (hilang dari daftar): lanjut ke SRL di posisi yang sama, bukan loncat ke paling atas
+  const cur = nos.includes(f.pick) ? f.pick : f.pick ? nos[Math.min(last.current, nos.length - 1)] : nos[0]
   const idx = nos.indexOf(cur)
-  const lateN = Object.values(meta).filter(m => m.late).length
+  useEffect(() => { if (idx >= 0) last.current = idx })
+  const cnt = {
+    late: all.filter(m => m.late).length, today: all.filter(m => m.today).length, week: all.filter(m => m.week).length,
+    zero: all.filter(zero).length, part: all.filter(part).length,
+  }
   const go = no => { set({ pick: no, open: false }); goDetail() }
-  const reset = () => set({ q: '', dept: '', late: false })
-  const active = !!(q || f.dept || f.late)
-  return { list, cur, idx, prev: nos[idx - 1], next: nos[idx + 1], go, f, set, depts, lateN, total: Object.keys(g).length, active, reset }
+  // pindah SRL lewat keyboard: tanpa menutup daftar dan tanpa menggulir halaman; daftar diperpanjang bila perlu
+  const move = no => setF(x => ({ ...x, pick: no, lim: Math.max(x.lim, nos.indexOf(no) + 6) }))
+  const reset = () => set({ q: '', dept: '', when: '', prg: '' })
+  const active = !!(q || f.dept || f.when || f.prg)
+  return { list, cur, idx, prev: nos[idx - 1], next: nos[idx + 1], go, move, f, set, depts, cnt, hasProg: !!prog, lateN: cnt.late, total: all.length, active, reset }
 }
 
-export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN, total, active, reset, unit = 'barang' }) {
+export function SrlPicker({ list, cur, idx, prev, next, go, move, f, set, depts, cnt, hasProg, total, active, reset, unit = 'barang' }) {
+  const box = useRef()
+  // "/" memindahkan fokus ke kolom cari (seperti di banyak aplikasi web), kecuali sedang mengetik
+  useEffect(() => {
+    if (!total) return
+    const h = e => {
+      if (e.key != '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target
+      if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return
+      const el = box.current?.querySelector('input[type=search]')
+      if (el) { e.preventDefault(); set({ open: true }); el.focus() }
+    }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [total]) // eslint-disable-line react-hooks/exhaustive-deps
+  // SRL terpilih lewat keyboard harus tetap terlihat di daftar
+  useEffect(() => { box.current?.querySelector('.pk-row.on')?.scrollIntoView?.({ block: 'nearest' }) }, [cur])
   if (!total) return null
   const vis = list.slice(0, f.lim)
+  const rest = list.length - vis.length
   const fold = total > 5 // SRL sedikit: cukup daftar saja, tanpa cari, filter, dan lipat
   const c = list.find(m => m.no == cur)
   const hide = fold && !f.open && !!c
+  const onKey = e => {
+    if (e.key == 'ArrowDown' && next) { e.preventDefault(); move(next) }
+    else if (e.key == 'ArrowUp' && prev) { e.preventDefault(); move(prev) }
+    else if (e.key == 'Enter' && cur) {
+      e.preventDefault()
+      go(cur)
+      requestAnimationFrame(() => document.querySelector('[data-first-input]')?.focus())
+    } else if (e.key == 'Escape' && f.q) { e.stopPropagation(); set({ q: '' }) }
+  }
+  const chip = (k, v, label, n) =>
+    n > 0 || f[k] == v ? (
+      <button key={v} className="chip" aria-pressed={f[k] == v} onClick={() => set({ [k]: f[k] == v ? '' : v })}>{label} ({n})</button>
+    ) : null
   return (
-    <div className="f srlpick" style={{ gridColumn: '1/-1' }}>
+    <div className="f srlpick" style={{ gridColumn: '1/-1' }} ref={box}>
+      {fold && (
+        <div className="pk-tools">
+          <label>Cari SRL
+            <input type="search" value={f.q} placeholder="No. SRL, departemen, atau barang (tekan / untuk mencari)" aria-keyshortcuts="/"
+              onChange={e => set({ q: e.target.value, open: true })} onKeyDown={onKey} />
+          </label>
+          <div className="chips" role="group" aria-label="Filter SRL" style={{ marginTop: 0, alignItems: 'center' }}>
+            {chip('when', 'late', 'Terlambat', cnt.late)}
+            {chip('when', 'today', 'Hari ini', cnt.today)}
+            {chip('when', 'week', '7 hari ke depan', cnt.week)}
+            {hasProg && chip('prg', 'zero', 'Belum mulai', cnt.zero)}
+            {hasProg && chip('prg', 'part', 'Sebagian', cnt.part)}
+            {active && <button className="lnk" onClick={reset}>Hapus filter</button>}
+          </div>
+          <small className="mut pk-keys">Di kolom cari: panah atas/bawah pindah SRL, Enter mulai mencatat.</small>
+        </div>
+      )}
       {fold && c && (
         <div className="pk-cur">
           <button className="pk-nav" disabled={!prev} onClick={() => go(prev)} aria-label="SRL sebelumnya">‹</button>
@@ -222,63 +310,60 @@ export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN
             <small>SRL {idx + 1} dari {list.length}{list.length < total ? ' (terfilter)' : ''}</small>
             <b>{c.no}</b>
             <small>{c.dept || '-'}, est. {D(c.est)}, {c.n} {unit}{c.late ? ', terlambat' : ''}</small>
-            <span className="pk-chg">{f.open ? 'Tutup daftar' : 'Cari / ganti SRL'}</span>
+            <span className="pk-chg">{f.open ? 'Tutup daftar' : 'Lihat daftar SRL'}</span>
           </button>
           <button className="pk-nav" disabled={!next} onClick={() => go(next)} aria-label="SRL berikutnya">›</button>
         </div>
       )}
       <div className={'pk-body' + (hide ? ' pk-hide' : '')}>
         {fold && (
-          <>
-            <label>Cari SRL
-              <input type="search" value={f.q} placeholder="No. SRL, departemen, atau nama barang" onChange={e => set({ q: e.target.value })} />
+          <div className="grid" style={{ marginTop: 0 }}>
+            <label>Departemen
+              <select value={f.dept} onChange={e => set({ dept: e.target.value })}>
+                <option value="">Semua</option>
+                {depts.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </label>
-            <div className="grid" style={{ marginTop: 0 }}>
-              <label>Departemen
-                <select value={f.dept} onChange={e => set({ dept: e.target.value })}>
-                  <option value="">Semua</option>
-                  {depts.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </label>
-              <label>Urutkan
-                <select value={f.sort} onChange={e => set({ sort: e.target.value })}>
-                  {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </label>
-            </div>
-          </>
-        )}
-        <div className="chips" style={{ marginTop: 0, alignItems: 'center' }}>
-          {fold && lateN > 0 && (
-            <button className="chip" aria-pressed={f.late} onClick={() => set({ late: !f.late })}>Terlambat ({lateN})</button>
-          )}
-          <small className="mut">{list.length == total ? total + ' SRL' : list.length + ' dari ' + total + ' SRL'}</small>
-          {fold && active && <button className="lnk" onClick={reset}>Hapus filter</button>}
-        </div>
-        {list.length ? (
-          <div role="listbox" aria-label="Daftar SRL">
-            {vis.map(m => (
-              <button key={m.no} role="option" aria-selected={m.no == cur} className={'pk-row' + (m.no == cur ? ' on' : '')} onClick={() => go(m.no)}>
-                <span className="pk-l">
-                  <b>{m.no}</b>
-                  <small className="mut">{m.dept || '-'}, est. {D(m.est)}</small>
-                  {m.p ? <span className="pbar" aria-hidden="true"><i style={{ width: m.p.pct + '%' }} /></span> : null}
-                </span>
-                <span className="pk-r">
-                  {m.late ? <Pill t="t-bad">Terlambat</Pill> : null}
-                  <small className="mut">{m.n} {unit}</small>
-                  {m.p ? <small className="mut">{m.p.text}</small> : null}
-                </span>
-              </button>
-            ))}
-            {list.length > vis.length && (
-              <button className="btn alt" style={{ width: '100%' }} onClick={() => set({ lim: f.lim + PAGE })}>
-                Tampilkan {Math.min(PAGE, list.length - vis.length)} lagi ({list.length - vis.length} tersisa)
-              </button>
-            )}
+            <label>Urutkan
+              <select value={f.sort} onChange={e => set({ sort: e.target.value })}>
+                {Object.entries(SORTS).filter(([k]) => k != 'prog' || hasProg).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
           </div>
+        )}
+        <small className="mut">{list.length == total ? total + ' SRL' : list.length + ' dari ' + total + ' SRL'}</small>
+        {list.length ? (
+          <>
+            <div role="listbox" aria-label="Daftar SRL">
+              {vis.map(m => (
+                <button key={m.no} role="option" aria-selected={m.no == cur} className={'pk-row' + (m.no == cur ? ' on' : '')} onClick={() => go(m.no)}>
+                  <span className="pk-l">
+                    <b>{m.no}</b>
+                    <small className="mut">{m.dept || '-'}, est. {D(m.est)}</small>
+                    {m.p ? <span className="pbar" aria-hidden="true"><i style={{ width: m.p.pct + '%' }} /></span> : null}
+                  </span>
+                  <span className="pk-r">
+                    {m.late ? <Pill t="t-bad">Terlambat</Pill> : m.today ? <Pill t="t-warn">Hari ini</Pill> : null}
+                    <small className="mut">{m.n} {unit}</small>
+                    {m.p ? <small className="mut">{m.p.text}</small> : null}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {rest > 0 && (
+              <div className="acts" style={{ marginTop: 0, alignItems: 'center' }}>
+                <button className="btn alt grow" onClick={() => set({ lim: f.lim + PAGE })}>
+                  Tampilkan {Math.min(PAGE, rest)} lagi ({rest} tersisa)
+                </button>
+                {rest > PAGE * 2 && <button className="lnk" onClick={() => set({ lim: list.length })}>Tampilkan semua</button>}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="empty">Tidak ada SRL yang cocok. Ubah kata kunci atau filter.</div>
+          <div className="empty">
+            Tidak ada SRL yang cocok. Ubah kata kunci atau filter.
+            {active ? <div className="acts" style={{ justifyContent: 'center' }}><button className="btn alt" onClick={reset}>Hapus filter</button></div> : null}
+          </div>
         )}
       </div>
     </div>

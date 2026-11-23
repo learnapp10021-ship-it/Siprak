@@ -168,6 +168,28 @@ ok(rows('Kedatangan').length === KD0 + 1, 'hanya 1 baris kedatangan')
 ok(post({ tx: TX(), name: 'datang', me: 'andi.prod', args: [{ id: kon.id, q: 1, l: 0 }] }).err.includes('Hanya Admin Warehouse'), 'user biasa tidak boleh mencatat kedatangan')
 const kd = rows('Kedatangan'); ok(new Set(kd.map(x => x.id)).size === kd.length, 'ID kedatangan unik')
 
+sec('9b. Kedatangan massal (entri cepat): semua dicatat atau tidak sama sekali')
+{
+  const S9 = snap(); const sl = $('makeSel')(S9)
+  const lain = S9.K.filter(k => k.tahap === 'Sudah di ERO' && k.id !== kon.id && sl.sisa(k) >= 1).slice(0, 2)
+  ok(lain.length >= 1, 'seed punya konsolidasi lain untuk uji massal')
+  const batch = (rowsArg, me = 'wati.wh') => post({ tx: TX(), name: 'datangBatch', me, args: [{ rows: rowsArg, by: 'PALSU' }] })
+  const n0 = rows('Kedatangan').length
+  const salah = batch([{ id: lain[0].id, q: 1 }, { id: lain[0].id === kon.id ? lain[0].id : kon.id, q: 9999 }])
+  ok(!salah.ok && /melebihi sisa/i.test(salah.err) && /Tidak ada yang dicatat/.test(salah.err), 'satu baris salah -> seluruh batch ditolak: ' + salah.err)
+  ok(rows('Kedatangan').length === n0, 'tidak ada baris kedatangan yang masuk saat batch ditolak')
+  ok(/dua kali/.test(batch([{ id: lain[0].id, q: 1 }, { id: lain[0].id, q: 1 }]).err || ''), 'barang yang sama dua kali dalam satu batch ditolak')
+  ok(!batch([]).ok, 'batch kosong ditolak')
+  ok(/Hanya Admin Warehouse/.test(batch([{ id: lain[0].id, q: 1 }], 'andi.prod').err || ''), 'user biasa tidak boleh kedatangan massal')
+  const good = batch(lain.map(k => ({ id: k.id, q: 1 })))
+  ok(good.ok, 'batch valid dicatat: ' + good.err)
+  const kdAfter = rows('Kedatangan')
+  ok(kdAfter.length === n0 + lain.length, 'jumlah baris kedatangan bertambah sesuai batch')
+  ok(kdAfter.slice(-lain.length).every(x => x.by === 'wati.wh'), 'pencatat batch diambil dari server (PALSU diabaikan)')
+  const ulang = batch(lain.map(k => ({ id: k.id, q: 1 })), 'joko.wh')
+  ok(!ulang.ok && /tidak dicatat ganda/i.test(ulang.err), 'batch yang sama dikirim ulang ditolak sebagai duplikat')
+}
+
 sec('10. Pool dan SRL: daftar yang kedaluwarsa')
 const appr = post({ tx: TX(), name: 'setuju', me: 'tono.spv', args: [m2id] })
 const S2 = snap(); const sel2 = $('makeSel')(S2)
