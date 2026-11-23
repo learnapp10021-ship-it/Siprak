@@ -1,5 +1,6 @@
 import { memo, useEffect } from 'react'
 import { AppProvider, TABS, useApp, useStatus } from './store'
+import { ThemeSwitch } from './components/ThemeSwitch'
 import { Drawer, UserSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
 import { VReq, VNew } from './views/UserViews'
 import { VAppr, VTim } from './views/AtasanViews'
@@ -55,6 +56,7 @@ export function Shell() {
             {hamCnt ? <span className="bdg ham-bdg">{hamCnt}</span> : null}
           </button>
           <div style={{ flex: 1 }}><h1>Request barang</h1><small>{me.n}, {me.role}{me.role.endsWith(me.dept) ? '' : ' ' + me.dept}{sync.pending ? ' · menyimpan…' : sync.err ? ' · offline' : ''}</small></div>
+          <div className="hd-tema"><ThemeSwitch /></div>
           <button className="ham" onClick={() => setUi({ help: true, menu: false })} aria-label="Cara pakai" style={{ margin: '0 -8px 0 0', fontSize: 20, fontWeight: 700 }}>?</button>
         </header>
         {ui.menu && <Drawer cnt={cnt} />}

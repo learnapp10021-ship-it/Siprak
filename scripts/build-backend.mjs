@@ -14,13 +14,14 @@ const strip = s => s.replace(/^import .*$/gm, '').replace(/^export /gm, '')
 const parts = [
   '// ============================================================================',
   '// FILE HASIL BUILD -- JANGAN DIEDIT LANGSUNG.',
-  '// Sumber: src/lib/utils.js, selectors.js, actions.js, src/data/seed.js, backend/src/server.gs',
+  '// Sumber: src/lib/utils.js, selectors.js, actions.js, src/data/seed.js, backend/src/server.gs, backend/src/rules.gs',
   '// Bangun ulang: npm run build:backend',
   '// ============================================================================',
   ...['src/lib/utils.js', 'src/lib/selectors.js', 'src/lib/actions.js', 'src/data/seed.js'].map(
     f => `\n// ---------- ${f} ----------\n` + strip(rd(f))
   ),
   '\n// ---------- backend/src/server.gs ----------\n' + rd('backend/src/server.gs'),
+  '\n// ---------- backend/src/rules.gs ----------\n' + rd('backend/src/rules.gs'),
 ]
 const out = parts.join('\n') + '\n'
 const dest = path.join(root, 'backend/dist/Code.gs')

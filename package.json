@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "build:backend": "node scripts/build-backend.mjs",
     "check:backend": "node scripts/build-backend.mjs --check",
-    "test:backend": "node backend/test/sim.mjs && node backend/test/audit.mjs",
+    "test:backend": "node backend/test/sim.mjs && node backend/test/audit.mjs && node backend/test/relasi.mjs",
     "test": "npm run check:backend && npm run test:backend && vitest run"
   },
   "dependencies": {

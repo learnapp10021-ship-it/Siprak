@@ -3,6 +3,7 @@ import { TABS, useApp } from '../store'
 import { Pill } from './ui'
 import { Dialog } from './Dialog'
 import { D, TODAY, days, dayDiff, disp } from '../lib/utils'
+import { ThemeSwitch } from './ThemeSwitch'
 
 const age = w => (w >= 7 ? 't-bad' : w >= 3 ? 't-warn' : 't-gray')
 
@@ -20,6 +21,7 @@ export function Drawer({ cnt }) {
             {t[1]}{cnt[t[0]] ? ' (' + cnt[t[0]] + ')' : ''}
           </button>
         ))}
+        <div className="mi-tema"><span>Tema tampilan</span><ThemeSwitch inline /></div>
         <button className="mi" onClick={() => setUi({ help: true, menu: false })}>Cara pakai</button>
         <button className="mi" onClick={() => setUi({ eu: me.id, self: true, menu: false })}>Profil saya</button>
         <button className="mi mi-out" onClick={logout}>Keluar</button>
@@ -169,11 +171,11 @@ export function DetailSheet() {
           ['SRL', k ? k.srl + (s ? ', estimasi ' + D(s.est) : '') : '-'],
         ]} />
         <h3>Riwayat kedatangan SRL</h3>
-        <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + d.by])} e="Belum ada barang datang." />
+        <Tl a={kd.map(d => [D(d.tgl), d.qty + ' ' + m.sat + (+d.lebih > 0 ? ', lebih ' + d.lebih : '') + ', oleh ' + sel.nm(d.by)])} e="Belum ada barang datang." />
         <h3>Riwayat pengingat</h3>
-        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), x.by])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
+        <Tl a={rm.map(x => [D(x.at) + ' ' + x.at.slice(11, 16), sel.nm(x.by)])} e="Belum pernah diingatkan. Pengingat dikirim oleh Admin Warehouse." />
         <h3>Riwayat pengambilan</h3>
-        <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + x.to])} e="Belum ada yang diambil." />
+        <Tl a={sr.map(x => [x.tgl ? D(x.tgl) : '-', x.qty + ' ' + m.sat + ' oleh ' + sel.nm(x.to)])} e="Belum ada yang diambil." />
         <div className="acts"><button className="btn grow" onClick={close}>Tutup</button></div>
       </Dialog>
     </>
@@ -184,7 +186,7 @@ const HELP = {
   'Spv Warehouse': ['<b>Dashboard</b>: pantau barang yang sudah sampai tapi belum diambil, urut dari yang paling lama.', 'Lihat sudah berapa kali diingatkan. Pengingat dikirim oleh Admin Warehouse, bukan Anda.', 'Pilih periode (minggu ini, minggu lalu, 4 minggu) untuk OPR, lalu <b>Cetak atau simpan PDF</b>.'],
   User: ['Buka <b>Buat request</b>, pilih barang, isi jumlah dan tanggal.', 'Tekan <b>Ajukan ke atasan</b>, atau <b>Simpan draft</b> kalau belum siap.', 'Pantau status tiap barang di <b>Request saya</b>.', 'Saat statusnya <b>Siap diambil</b>, ambil barang di Warehouse.'],
   Atasan: ['Buka <b>Persetujuan</b> untuk melihat request tim Anda.', 'Tekan <b>Setujui</b>, atau <b>Tolak</b> dengan catatan.', 'Banyak request sekaligus? Tekan <b>Setujui semua</b>.', 'Pantau semua request tim di <b>Tim saya</b>.'],
-  'Admin Dept': ['<b>Buat ERO</b>: salin daftar barang ke ERO, lalu simpan nomor SRL di sini. SRL lalu divalidasi Admin Warehouse; barang yang dikeluarkan kembali ke Pool.', '<b>SRL</b>: pantau barang yang sudah datang. Tutup sisa jika supplier tidak mengirim.', '<b>Semua request</b>: cari request departemen Anda.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],
+  'Admin Dept': ['<b>Buat ERO</b>: centang request, input article dan qty ke ERO, lalu simpan nomor SRL di sini. SRL lalu divalidasi Admin Warehouse; barang yang dikeluarkan kembali ke Pool.', '<b>SRL</b>: pantau barang yang sudah datang. Tutup sisa jika supplier tidak mengirim.', '<b>Semua request</b>: cari request departemen Anda.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],
   'Admin Warehouse': ['<b>Validasi SRL</b>: periksa barang di SRL dari Admin Dept. Barang yang tidak sesuai bisa <b>dikeluarkan</b> (wajib alasan, kembali ke Pool Admin Dept), lalu tekan <b>Validasi SRL</b>.', '<b>Kedatangan</b>: pilih SRL (cari, filter, atau tombol ‹ ›), lalu catat barang yang tiba. Lengkap semua? Tekan <b>Semua datang sesuai jumlah</b>.', '<b>Serah terima</b>: barang dikelompokkan per penerima. Tekan <b>Serahkan semua</b> untuk satu penerima, atau kirim pengingat WA.', '<b>Master item</b>: tambah atau ubah barang (kode, satuan, lead time, buffer). Data asli bisa ditempel dari Excel lewat <b>Impor dari Excel</b>.', '<b>Pengguna</b>: kelola akun dan nomor WhatsApp.'],
 }
 

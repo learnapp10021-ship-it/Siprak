@@ -19,16 +19,25 @@ const setR = (d, id, s) => {
 // Dua entri identik dalam rentang ini dianggap input ganda (klik ulang, dua admin menginput hal yang sama)
 const DUP_MENIT = 2
 
-// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat atau ''.
+// Galat per kolom untuk satu baris barang: { kode?, qty?, datang?, pakai? }. Satu-satunya sumber aturan baris;
+// dipakai server (lewat checkLines) dan layar Buat request (untuk menandai kolom yang salah).
+export const lineErrors = (sel, x) => {
+  const m = x.kode && sel.mi(x.kode)
+  if (!m) return { kode: 'Pilih barang di setiap baris.' }
+  const e = {}
+  if (!(+x.qty > 0) || !isFinite(+x.qty)) e.qty = 'Jumlah harus lebih dari 0.'
+  if (!x.datang || x.datang < addDays(TODAY, +m.lead)) e.datang = `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
+  if (m.buf == '0' && !x.pakai) e.pakai = `${m.n}: tgl pakai wajib untuk barang non buffer.`
+  else if (x.pakai && x.pakai < x.datang) e.pakai = `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+  return e
+}
+
+// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat pertama atau ''.
 const checkLines = (sel, lines) => {
   for (const x of lines) {
-    const m = x.kode && sel.mi(x.kode)
-    if (!m) return 'Pilih barang di setiap baris.'
-    if (!(+x.qty > 0) || !isFinite(+x.qty)) return 'Jumlah harus lebih dari 0.'
-    if (!x.datang || x.datang < addDays(TODAY, +m.lead))
-      return `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
-    if (m.buf == '0' && !x.pakai) return `${m.n}: tgl pakai wajib untuk barang non buffer.`
-    if (x.pakai && x.pakai < x.datang) return `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+    const e = lineErrors(sel, x)
+    const k = ['kode', 'qty', 'datang', 'pakai'].find(f => e[f])
+    if (k) return e[k]
   }
   return ''
 }
@@ -201,7 +210,7 @@ export const actions = {
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
     Object.entries(g).forEach(([k, a]) => {
       const id = nextId(d.K, 'KON-')
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      d.K.push({ id, dept, by: me.id, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
         i.status = 'Validasi Warehouse'
         i.kon = id
@@ -255,7 +264,7 @@ export const actions = {
     if (!(q > 0) || q > mx) return { err: 'Qty harus antara 1 dan ' + mx + '. (Mungkin sudah diserahkan oleh admin lain.)' }
     const kembar = d.SR.find(x => x.item == id && +x.qty == +q && minsAgo(x.at) <= DUP_MENIT)
     if (kembar) return { err: 'Serah terima yang sama baru saja dicatat. Tidak dicatat ganda.' }
-    d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY, at: nowStr() })
+    d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.RQ(i.req).by, tgl: TODAY, at: nowStr() })
     return { ok: 'Diserahkan.' }
   },
 
@@ -332,21 +341,33 @@ export const actions = {
     return { ok: `${no} divalidasi: ${n} barang menunggu kedatangan.` }
   },
 
-  serahAll(sel, d, ids) {
+  // qtys (opsional) = { [idBarang]: jumlah } untuk serah terima sebagian; tanpa itu, semua yang siap diserahkan.
+  // Jumlah tidak pernah melebihi yang siap; baris yang tidak valid dilewati, sisanya tetap diproses.
+  serahAll(sel, d, ids, qtys) {
     let n = 0
-    let to = ''
+    const to = new Set()
     ;(ids || []).forEach(id => {
       const i = d.I.find(x => x.id == id)
-      const q = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      const mx = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      const want = qtys && qtys[id] != null ? +qtys[id] : mx
+      const q = Math.min(mx, want)
       if (!(q > 0)) return
-      to = sel.nm(sel.RQ(i.req).by)
-      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to, tgl: TODAY, at: nowStr() })
+      const by = sel.RQ(i.req).by
+      to.add(by)
+      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: by, tgl: TODAY, at: nowStr() })
       n++
     })
     if (!n) return { err: 'Tidak ada barang yang siap diserahkan (mungkin sudah diserahkan admin lain).' }
-    return { ok: n + ' barang diserahkan ke ' + to + '.' }
+    return { ok: n + ' barang diserahkan ke ' + [...to].map(u => sel.nm(u)).join(', ') + '.' }
   },
-
+  // Pengingat untuk banyak barang sekaligus (satu pesan WA ke satu penerima): satu panggilan, bukan satu per barang.
+  ingatAll(sel, d, ids, by) {
+    ;(ids || []).forEach(id => {
+      if (!d.I.find(x => x.id == id)) return
+      if (d.RM.find(x => x.item == id && x.by == by && minsAgo(x.at) <= 1)) return
+      d.RM.push({ id: nextId(d.RM, 'RM-'), item: id, by, at: nowStr() })
+    })
+  },
   ingat(sel, d, id, by) {
     if (!d.I.find(x => x.id == id)) return { err: 'Barang tidak ditemukan.' }
     // pengingat berulang dari orang yang sama dalam 1 menit tidak dicatat ganda (tanpa pesan)

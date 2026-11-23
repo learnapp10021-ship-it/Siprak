@@ -1,6 +1,6 @@
 // ============================================================================
 // FILE HASIL BUILD -- JANGAN DIEDIT LANGSUNG.
-// Sumber: src/lib/utils.js, selectors.js, actions.js, src/data/seed.js, backend/src/server.gs
+// Sumber: src/lib/utils.js, selectors.js, actions.js, src/data/seed.js, backend/src/server.gs, backend/src/rules.gs
 // Bangun ulang: npm run build:backend
 // ============================================================================
 
@@ -235,16 +235,25 @@ const setR = (d, id, s) => {
 // Dua entri identik dalam rentang ini dianggap input ganda (klik ulang, dua admin menginput hal yang sama)
 const DUP_MENIT = 2
 
-// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat atau ''.
+// Galat per kolom untuk satu baris barang: { kode?, qty?, datang?, pakai? }. Satu-satunya sumber aturan baris;
+// dipakai server (lewat checkLines) dan layar Buat request (untuk menandai kolom yang salah).
+const lineErrors = (sel, x) => {
+  const m = x.kode && sel.mi(x.kode)
+  if (!m) return { kode: 'Pilih barang di setiap baris.' }
+  const e = {}
+  if (!(+x.qty > 0) || !isFinite(+x.qty)) e.qty = 'Jumlah harus lebih dari 0.'
+  if (!x.datang || x.datang < addDays(TODAY, +m.lead)) e.datang = `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
+  if (m.buf == '0' && !x.pakai) e.pakai = `${m.n}: tgl pakai wajib untuk barang non buffer.`
+  else if (x.pakai && x.pakai < x.datang) e.pakai = `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+  return e
+}
+
+// Validasi baris barang (dipakai saat simpan dan saat Ajukan draft). Mengembalikan pesan galat pertama atau ''.
 const checkLines = (sel, lines) => {
   for (const x of lines) {
-    const m = x.kode && sel.mi(x.kode)
-    if (!m) return 'Pilih barang di setiap baris.'
-    if (!(+x.qty > 0) || !isFinite(+x.qty)) return 'Jumlah harus lebih dari 0.'
-    if (!x.datang || x.datang < addDays(TODAY, +m.lead))
-      return `${m.n}: tgl datang paling cepat ${D(addDays(TODAY, +m.lead))}.`
-    if (m.buf == '0' && !x.pakai) return `${m.n}: tgl pakai wajib untuk barang non buffer.`
-    if (x.pakai && x.pakai < x.datang) return `${m.n}: tgl pakai tidak boleh sebelum tgl datang.`
+    const e = lineErrors(sel, x)
+    const k = ['kode', 'qty', 'datang', 'pakai'].find(f => e[f])
+    if (k) return e[k]
   }
   return ''
 }
@@ -417,7 +426,7 @@ const actions = {
     p.forEach(i => (g[i.kode] = g[i.kode] || []).push(i))
     Object.entries(g).forEach(([k, a]) => {
       const id = nextId(d.K, 'KON-')
-      d.K.push({ id, dept, by: me.n, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
+      d.K.push({ id, dept, by: me.id, kode: k, tahap: 'Validasi Warehouse', srl: no, ero: String(sum(a, i => i.qty)), tutup: '0', alasan: '' })
       a.forEach(i => {
         i.status = 'Validasi Warehouse'
         i.kon = id
@@ -471,7 +480,7 @@ const actions = {
     if (!(q > 0) || q > mx) return { err: 'Qty harus antara 1 dan ' + mx + '. (Mungkin sudah diserahkan oleh admin lain.)' }
     const kembar = d.SR.find(x => x.item == id && +x.qty == +q && minsAgo(x.at) <= DUP_MENIT)
     if (kembar) return { err: 'Serah terima yang sama baru saja dicatat. Tidak dicatat ganda.' }
-    d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.nm(sel.RQ(i.req).by), tgl: TODAY, at: nowStr() })
+    d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: sel.RQ(i.req).by, tgl: TODAY, at: nowStr() })
     return { ok: 'Diserahkan.' }
   },
 
@@ -548,21 +557,33 @@ const actions = {
     return { ok: `${no} divalidasi: ${n} barang menunggu kedatangan.` }
   },
 
-  serahAll(sel, d, ids) {
+  // qtys (opsional) = { [idBarang]: jumlah } untuk serah terima sebagian; tanpa itu, semua yang siap diserahkan.
+  // Jumlah tidak pernah melebihi yang siap; baris yang tidak valid dilewati, sisanya tetap diproses.
+  serahAll(sel, d, ids, qtys) {
     let n = 0
-    let to = ''
+    const to = new Set()
     ;(ids || []).forEach(id => {
       const i = d.I.find(x => x.id == id)
-      const q = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      const mx = i && i.status == 'Sudah di ERO' ? sel.siap(i) : 0
+      const want = qtys && qtys[id] != null ? +qtys[id] : mx
+      const q = Math.min(mx, want)
       if (!(q > 0)) return
-      to = sel.nm(sel.RQ(i.req).by)
-      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to, tgl: TODAY, at: nowStr() })
+      const by = sel.RQ(i.req).by
+      to.add(by)
+      d.SR.push({ id: nextId(d.SR, 'SR-'), item: id, qty: String(q), to: by, tgl: TODAY, at: nowStr() })
       n++
     })
     if (!n) return { err: 'Tidak ada barang yang siap diserahkan (mungkin sudah diserahkan admin lain).' }
-    return { ok: n + ' barang diserahkan ke ' + to + '.' }
+    return { ok: n + ' barang diserahkan ke ' + [...to].map(u => sel.nm(u)).join(', ') + '.' }
   },
-
+  // Pengingat untuk banyak barang sekaligus (satu pesan WA ke satu penerima): satu panggilan, bukan satu per barang.
+  ingatAll(sel, d, ids, by) {
+    ;(ids || []).forEach(id => {
+      if (!d.I.find(x => x.id == id)) return
+      if (d.RM.find(x => x.item == id && x.by == by && minsAgo(x.at) <= 1)) return
+      d.RM.push({ id: nextId(d.RM, 'RM-'), item: id, by, at: nowStr() })
+    })
+  },
   ingat(sel, d, id, by) {
     if (!d.I.find(x => x.id == id)) return { err: 'Barang tidak ditemukan.' }
     // pengingat berulang dari orang yang sama dalam 1 menit tidak dicatat ganda (tanpa pesan)
@@ -657,17 +678,16 @@ SRL-2611-002|Maintenance|2026-11-17`,
     ['no', 'dept', 'est']
   )
   const KD = T(
-    `KON-001|15|0|Wati Handayani||2026-11-16
-KON-002|20|5|Wati Handayani|Supplier kirim 25, kelebihan 5 dicatat terpisah|2026-11-16
-KON-003|4|0|Joko Susilo||2026-11-17`,
+    `KON-001|15|0|wati.wh||2026-11-16
+KON-002|20|5|wati.wh|Supplier kirim 25, kelebihan 5 dicatat terpisah|2026-11-16
+KON-003|4|0|joko.wh||2026-11-17`,
     ['kon', 'qty', 'lebih', 'by', 'cat', 'tgl']
   )
   const SR = T(
-    `ITM-003|10|Siti Rahma
-ITM-002|20|Andi Saputra`,
+    `ITM-003|10|siti.prod
+ITM-002|20|andi.prod`,
     ['item', 'qty', 'to']
   )
-  const nmOf = id => U.find(u => u.id == id)?.n || id
 
   // Tambahan data contoh: SRL-2611-003 dengan 20 barang
   {
@@ -703,13 +723,13 @@ ITM-002|20|Andi Saputra`,
           pakai: buf ? '' : addDays(dt, 3 + (i % 5)), status: 'Sudah di ERO',
           appr: '2026-11-16T08:' + String(10 + i).padStart(2, '0'), kon: kid, tahan: '', alasan: '',
         })
-        if (i < 3 && !j) SR.push({ item: id, qty: String(q), to: nmOf(P[r]) })
+        if (i < 3 && !j) SR.push({ item: id, qty: String(q), to: P[r] })
       })
       K.push({ id: kid, dept: 'Produksi', kode: k, tahap: 'Sudah di ERO', srl: no, ero: String(tot), tutup: '0', alasan: '' })
       if (i < 6)
-        KD.push({ kon: kid, qty: String(tot), lebih: '0', by: 'Wati Handayani', cat: '', tgl: '2026-11-18' })
+        KD.push({ kon: kid, qty: String(tot), lebih: '0', by: 'wati.wh', cat: '', tgl: '2026-11-18' })
       else if (i < 12)
-        KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'Joko Susilo', cat: '', tgl: '2026-11-21' })
+        KD.push({ kon: kid, qty: String(Math.floor(tot / 2) || 1), lebih: '0', by: 'joko.wh', cat: '', tgl: '2026-11-21' })
     })
   }
   // Data contoh menu Validasi SRL: dua SRL dari Admin Dept yang menunggu diperiksa Admin Warehouse
@@ -750,13 +770,14 @@ ITM-002|20|Andi Saputra`,
       })
     })
   }
-  K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
+  K.forEach(k => (k.by = k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin'))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
 
   // ===== Data contoh lengkap: semua tahap proses, kedua departemen =====
   {
     const B = '2026-11-23'
-    const WT = 'Wati Handayani', JK = 'Joko Susilo'
+    const WT = 'Wati Handayani', JK = 'Joko Susilo' // hanya untuk teks alasan; kolom relasi memakai ID
+    const WI = 'wati.wh', JI = 'joko.wh'
     U.find(u => u.id == 'eko.prod').off = true // contoh akun nonaktif
     const buf = k => M.find(m => m.k == k).buf == '1'
     const rq = (id, by, tgl, st, cat = '') => R.push({ id, by, tgl, st, cat })
@@ -810,7 +831,7 @@ ITM-002|20|Andi Saputra`,
     let kn = Math.max(...K.map(k => +k.id.slice(4)))
     const kon = (dept, kode, tahap, srl, ero, o = {}) => {
       const id = 'KON-' + String(++kn).padStart(3, '0')
-      K.push({ id, dept, kode, tahap, srl, ero: String(ero), tutup: '0', alasan: '', by: nmOf(dept == 'Produksi' ? 'dewi.admin' : 'yani.admin'), ...o })
+      K.push({ id, dept, kode, tahap, srl, ero: String(ero), tutup: '0', alasan: '', by: dept == 'Produksi' ? 'dewi.admin' : 'yani.admin', ...o })
       return id
     }
     kon('Maintenance', 'SKR-901', 'Dikeluarkan', 'SRL-2611-006', 0, { alasan: 'Jumlah tidak sesuai dengan permintaan' })
@@ -837,34 +858,34 @@ ITM-002|20|Andi Saputra`,
       ['GRD-101', [['RQ-036', 6], ['RQ-037', 4]]],
       ['BOR-201', [['RQ-036', 4], ['RQ-037', 3]]],
       ['KBL-006', [['RQ-037', 5]], null, 2, 'Supplier kirim lebih 2 roll, dicatat terpisah'],
-    ], addDays(B, -7), WT)
+    ], addDays(B, -7), WI)
     // 2) Sebagian datang, ada barang ditutup sisanya
     srl('SRL-2611-008', 'Maintenance', addDays(B, -4), -10, { 'RQ-038': 'maya.mt', 'RQ-039': 'rina.mt' }, [
       ['BRG-205', [['RQ-038', 4], ['RQ-039', 6]], 6],
       ['SEL-601', [['RQ-038', 3], ['RQ-039', 5]]],
       ['CTR-801', [['RQ-038', 2]], 0, 0, '', 2, 'Supplier tidak bisa kirim, item discontinue'],
-    ], addDays(B, -3), JK)
+    ], addDays(B, -3), JI)
     // 3) Terlambat: estimasi sudah lewat, belum ada kedatangan
     srl('SRL-2611-009', 'Produksi', addDays(B, -3), -9, { 'RQ-040': 'dika.prod', 'RQ-041': 'rudi.prod' }, [
       ['LAS-021', [['RQ-040', 10], ['RQ-041', 5]], 0],
       ['OLI-010', [['RQ-040', 4]], 0],
-    ], B, WT)
+    ], B, WI)
     // 4) Belum waktunya datang (estimasi ke depan)
     srl('SRL-2611-010', 'Maintenance', addDays(B, 5), -3, { 'RQ-042': 'maya.mt' }, [
       ['LKT-101', [['RQ-042', 6]], 0],
       ['PNT-201', [['RQ-042', 3]], 0],
       ['KBL-006', [['RQ-042', 2]], 0],
-    ], B, JK)
+    ], B, JI)
     // 5) Datang sebagian hari ini, belum diserahkan
     srl('SRL-2611-011', 'Produksi', addDays(B, -1), -6, { 'RQ-043': 'andi.prod', 'RQ-044': 'dika.prod' }, [
       ['SLG-402', [['RQ-043', 8], ['RQ-044', 6]], 8],
       ['LMP-701', [['RQ-043', 2], ['RQ-044', 2]], 4],
       ['PNT-201', [['RQ-044', 5]], 0],
-    ], B, JK)
+    ], B, JI)
 
     // Serah terima: hitung jatah dengan aturan aplikasi supaya tidak melebihi jatah
     const sl = makeSel({ U, HP, M, R, I, K, L, KD, SR, RM: [] })
-    const to = it => nmOf(R.find(r => r.id == it.req).by)
+    const to = it => R.find(r => r.id == it.req).by
     const serah = (it, q, d) => q > 0 && SR.push({ item: it.id, qty: String(q), to: to(it), tgl: addDays(B, d) })
     I.filter(i => ['SRL-2611-007'].includes(sl.KN(i.kon)?.srl)).forEach((i, n) => serah(i, sl.siap(i), -6 + (n % 3)))
     I.filter(i => sl.KN(i.kon)?.srl == 'SRL-2611-008').forEach((i, n) => serah(i, n % 2 ? Math.ceil(sl.siap(i) / 2) : 0, -2))
@@ -876,7 +897,7 @@ ITM-002|20|Andi Saputra`,
   const sel = makeSel(db)
   db.I.filter(i => i.status == 'Sudah di ERO' && sel.siap(i) > 0).forEach((i, n) => {
     for (let c = 0; c < n % 4; c++)
-      db.RM.push({ item: i.id, by: 'Wati Handayani', at: addDays(TODAY, -((n % 4) - c)) + 'T09:00' })
+      db.RM.push({ item: i.id, by: 'wati.wh', at: addDays(TODAY, -((n % 4) - c)) + 'T09:00' })
   })
   return db
 }
@@ -899,7 +920,7 @@ ITM-002|20|Andi Saputra`,
 //     tx ditandai OK dan klien diberi tahu "berhasil". Jika tidak, di-rollback dan klien diberi tahu gagal.
 //  6. Pembacaan (sync) dilayani dari cache tanpa lock; cache diperbarui penulis di dalam lock.
 //
-// File ini digabung otomatis dengan src/lib/*.js oleh scripts/build-backend.mjs -> backend/dist/Code.gs
+// File ini digabung otomatis dengan src/lib/*.js dan rules.gs oleh scripts/build-backend.mjs -> backend/dist/Code.gs
 // =====================================================================================
 
 // Nama sheet dan urutan kolom mengikuti backend sebelumnya (data lama tetap terbaca); kolom baru
@@ -1314,6 +1335,7 @@ const PERM = {
   datangAll: a => PERM.datang(a),
   serah: a => PERM.datang(a),
   ingat: a => PERM.datang(a),
+  ingatAll: a => PERM.datang(a),
 }
 // Identitas pelaku selalu diambil dari server, bukan dari argumen klien
 const BIND = {
@@ -1321,10 +1343,11 @@ const BIND = {
   saveUser: (a, x) => [Object.assign({}, x[0], { me: a, dept: a.role === 'Admin Warehouse' ? x[0].dept : undefined })],
   saveRequest: (a, x) => [{ status: x[0].status, lines: x[0].lines, me: a }],
   simpanSrl: (a, x) => [Object.assign({}, x[0], { me: a })],
-  datang: (a, x) => [Object.assign({}, x[0], { by: a.n })],
-  datangAll: (a, x) => [x[0], a.n],
+  datang: (a, x) => [Object.assign({}, x[0], { by: a.id })],
+  datangAll: (a, x) => [x[0], a.id],
   keluarkan: (a, x) => [Object.assign({}, x[0], { by: a.n })],
-  ingat: (a, x) => [x[0], a.n],
+  ingat: (a, x) => [x[0], a.id],
+  ingatAll: (a, x) => [x[0], a.id],
   setujuAll: (a, x) => [a.id, x[1]],
 }
 
@@ -1414,6 +1437,13 @@ function locked_(txId, name, args, actorId, t0) {
   d.U.forEach(u => (u.hp = d.HP[u.id] || ''))
   delete d.HP
   const ch = diff_(before, d, txId)
+
+  // relasi & aturan data (rules.gs): aksi yang menghasilkan data tidak sah ditolak sebelum ada yang ditulis
+  const bad = validateChange_(d, ch)
+  if (bad.length) {
+    const pre = bad.some(e => e.c) ? 'Jumlah tidak cocok dengan data terbaru (mungkin diubah pengguna lain): ' : 'Data tidak valid: '
+    return reject_(pre + bad.slice(0, 2).map(e => e.m).join(' | '), before)
+  }
 
   const nChanged = TABLES.reduce((s, t) => s + ch[t].add.length + ch[t].upd.length, 0)
   if (!nChanged) return withSnap_({ ok: true, verified: true, noop: true, msg: (res && res.ok) || '' }, currentSnap_(before))
@@ -1582,12 +1612,42 @@ function migrate() {
       rg.setValues(vals.map(r => r.map(v => (v == null ? '' : String(v)))))
       log.push(def.sheet + ': ' + touched + ' baris dilengkapi')
     })
+    log.push(migrateNames_())
     SpreadsheetApp.flush()
     cacheDrop_()
     return log.join('\n') + '\nSelesai. Jalankan auditData() untuk memeriksa.'
   } finally {
     lock.releaseLock()
   }
+}
+
+// Dulu Konsolidasi.by, Kedatangan.by, SerahTerima.to, dan Pengingat.by berisi NAMA pengguna; sekarang berisi ID.
+// Nama yang cocok dengan tepat satu pengguna diganti ID-nya; yang tidak cocok/ganda dilaporkan, tidak diubah.
+function migrateNames_() {
+  const users = readTable_('U')
+  const byId = {}, byName = {}
+  users.forEach(u => {
+    byId[u.id] = 1
+    const k = String(u.n).toLowerCase().trim()
+    byName[k] = vHas_(byName, k) ? null : u.id // null = nama ganda
+  })
+  let changed = 0
+  const rep = []
+  ;[['K', 'by'], ['KD', 'by'], ['SR', 'to'], ['RM', 'by']].forEach(tc => {
+    const def = SCHEMA[tc[0]], sh = ss_().getSheetByName(def.sheet), last = sh.getLastRow()
+    if (last < 2) return
+    const rg = sh.getRange(2, def.cols.indexOf(tc[1]) + 1, last - 1, 1)
+    const vals = rg.getValues()
+    let dirty = false
+    vals.forEach((row, i) => {
+      const v = String(row[0] == null ? '' : row[0]).trim(), key = v.toLowerCase()
+      if (!v || byId[v]) return
+      if (byName[key]) { row[0] = byName[key]; dirty = true; changed++ }
+      else rep.push(def.sheet + ' baris ' + (i + 2) + ': "' + v + '" ' + (byName[key] === null ? 'cocok dengan lebih dari satu pengguna' : 'tidak cocok dengan pengguna mana pun'))
+    })
+    if (dirty) { rg.setNumberFormat('@'); rg.setValues(vals) }
+  })
+  return changed + ' sel nama diganti ID pengguna.' + (rep.length ? '\nPerlu dibetulkan manual:\n- ' + rep.join('\n- ') : '')
 }
 
 function seedDemo() {
@@ -1623,7 +1683,7 @@ function seedDemo() {
   return 'Data contoh dimuat.'
 }
 
-// Memeriksa kesehatan data: ID ganda, referensi yatim, transaksi menggantung
+// Memeriksa kesehatan data: kunci asing, nilai status, kesesuaian tahap, jumlah, transaksi menggantung (aturan di rules.gs)
 function auditData() {
   const lines = []
   let all
@@ -1632,19 +1692,7 @@ function auditData() {
   } catch (e) {
     return 'GAGAL BACA: ' + e.message
   }
-  const ids = t => new Set(all[t].map(r => r[SCHEMA[t].key]))
-  const R = ids('R'), I = ids('I'), K = ids('K'), U = ids('U'), M = ids('M')
-  all.R.forEach(r => { if (!U.has(r.by)) lines.push('Request ' + r.id + ': pemilik ' + r.by + ' tidak ada di Users') })
-  all.I.forEach(i => {
-    if (!R.has(i.req)) lines.push('Item ' + i.id + ': request ' + i.req + ' tidak ada')
-    if (!M.has(i.kode)) lines.push('Item ' + i.id + ': barang ' + i.kode + ' tidak ada di Master')
-    if (i.kon && !K.has(i.kon)) lines.push('Item ' + i.id + ': konsolidasi ' + i.kon + ' tidak ada')
-  })
-  all.KD.forEach(x => { if (!K.has(x.kon)) lines.push('Kedatangan ' + x.id + ': konsolidasi ' + x.kon + ' tidak ada') })
-  all.SR.forEach(x => { if (!I.has(x.item)) lines.push('Serah terima ' + x.id + ': item ' + x.item + ' tidak ada') })
-  all.K.forEach(k => {
-    if (+k.tutup < 0) lines.push('Konsolidasi ' + k.id + ': nilai tutup negatif')
-  })
+  validateAll_(all).forEach(e => lines.push(e.m))
   const tx = ss_().getSheetByName(TX_SHEET)
   if (tx.getLastRow() > 1) {
     tx.getRange(2, 1, tx.getLastRow() - 1, TX_COLS.length).getValues().forEach(v => {
@@ -1684,5 +1732,219 @@ function installTriggers() {
   })
   ScriptApp.newTrigger('housekeeping').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(2).create()
   return 'Trigger mingguan housekeeping terpasang.'
+}
+
+
+// ---------- backend/src/rules.gs ----------
+// =====================================================================================
+// SIPRAK -- relasi antartabel dan aturan data
+// -------------------------------------------------------------------------------------
+// Dipakai di dua tempat:
+//  1. locked_ (server.gs): setelah sebuah aksi dijalankan dan SEBELUM menulis, baris yang berubah diperiksa
+//     terhadap keadaan sesudah perubahan. Pelanggaran = aksi ditolak, tidak ada yang ditulis.
+//  2. auditData(): memeriksa SELURUH database (mis. setelah seseorang mengedit sheet manual).
+//
+// Semua kolom relasi berisi ID, bukan nama:
+//
+//   Users ─┬─< Users.boss        (atasan; ber-role Atasan)
+//          ├─< Request.by        (pemohon)
+//          ├─< Konsolidasi.by    (Admin Dept pembuat SRL)
+//          ├─< Kedatangan.by     (Admin Warehouse pencatat)
+//          ├─< SerahTerima.to    (penerima = pemohon barang)
+//          └─< Pengingat.by      (pengirim pengingat)
+//   Master ─┬─< Item.kode
+//           └─< Konsolidasi.kode
+//   Request ──< Item.req
+//   SRL ──────< Konsolidasi.srl
+//   Konsolidasi ─┬─< Item.kon         (kosong sebelum barang masuk SRL)
+//                └─< Kedatangan.kon
+//   Item ─┬─< SerahTerima.item
+//         └─< Pengingat.item
+//
+// Status Item.status dan Konsolidasi.tahap berjalan searah:
+//   Draft > Menunggu Approval > Approved > Validasi Warehouse > Sudah di ERO
+//   (Ditolak/Dibatalkan keluar dari alur; barang yang dikeluarkan Warehouse kembali ke Approved)
+//
+// File ini hanya berisi literal dan fungsi (aman terhadap urutan penggabungan).
+// =====================================================================================
+
+const ENUM = {
+  role: ['User', 'Atasan', 'Admin Dept', 'Admin Warehouse', 'Spv Warehouse'],
+  reqSt: ['Draft', 'Menunggu Approval', 'Disetujui', 'Ditolak', 'Dibatalkan'],
+  itemSt: ['Draft', 'Menunggu Approval', 'Approved', 'Validasi Warehouse', 'Sudah di ERO', 'Ditolak', 'Dibatalkan'],
+  tahap: ['Validasi Warehouse', 'Sudah di ERO', 'Dikeluarkan'],
+}
+const IN_KON = ['Validasi Warehouse', 'Sudah di ERO'] // status Item yang wajib terhubung ke Konsolidasi
+const DEAD = ['Ditolak', 'Dibatalkan'] // tidak dihitung sebagai jumlah yang harus datang
+
+// Aturan kolom. Format: jenis[?][:argumen]   ("?" = boleh kosong)
+//   req teks wajib   text teks bebas   date YYYY-MM-DD   dtm tanggal atau tanggal-jam
+//   pos angka > 0   num0 angka >= 0   int0 bilangan bulat   flag 0/1   phone 628xxxxxxxxx
+//   enum:<ENUM>   id:<PREFIX> (mis. RQ-001)   fk:<tabel> (harus ada di tabel itu)
+const REL = {
+  U: { id: 'req', n: 'req', dept: 'req', role: 'enum:role', boss: 'fk?:U', hp: 'phone?' },
+  M: { k: 'req', n: 'req', sat: 'req', buf: 'flag', kons: 'flag', lead: 'int0' },
+  R: { id: 'id:RQ', by: 'fk:U', tgl: 'date', st: 'enum:reqSt', cat: 'text', at: 'dtm?' },
+  I: { id: 'id:ITM', req: 'fk:R', kode: 'fk:M', qty: 'pos', datang: 'date', pakai: 'date?', status: 'enum:itemSt',
+       appr: 'dtm?', kon: 'fk?:K', alasan: 'text' },
+  K: { id: 'id:KON', dept: 'req', by: 'fk:U', kode: 'fk:M', tahap: 'enum:tahap', srl: 'fk:L', ero: 'num0', tutup: 'num0', alasan: 'text' },
+  L: { no: 'req', dept: 'req', est: 'date?' },
+  KD: { id: 'id:KD', kon: 'fk:K', qty: 'num0', lebih: 'num0', by: 'fk:U', cat: 'text', tgl: 'date', at: 'dtm?' },
+  SR: { id: 'id:SR', item: 'fk:I', qty: 'pos', to: 'fk:U', tgl: 'date', at: 'dtm?' },
+  RM: { id: 'id:RM', item: 'fk:I', by: 'fk:U', at: 'dtm' },
+}
+const PAT = {
+  date: /^\d{4}-\d{2}-\d{2}$/,
+  dtm: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/,
+  phone: /^628\d{8,11}$/,
+  num: /^\d+(\.\d+)?$/,
+  int: /^\d+$/,
+  flag: /^[01]$/,
+}
+const EPS = 1e-9
+
+// ---------- bantu ----------
+function vHas_(o, k) {
+  return Object.prototype.hasOwnProperty.call(o, k)
+}
+function vSum_(a, f) {
+  return a.reduce((s, x) => s + (+f(x) || 0), 0)
+}
+function vPush_(m, k, v) {
+  ;(m[k] = m[k] || []).push(v)
+}
+
+// Peta bantu: kunci -> baris per tabel, anak per induk, log per induk
+function vState_(tables) {
+  const st = { by: {}, kids: {}, kd: {}, sr: {}, names: {} }
+  TABLES.forEach(t => {
+    const m = (st.by[t] = {})
+    ;(tables[t] || []).forEach(r => (m[r[SCHEMA[t].key]] = r))
+  })
+  ;(tables.U || []).forEach(u => (st.names[String(u.n).toLowerCase().trim()] = u.id))
+  ;(tables.I || []).forEach(i => i.kon && vPush_(st.kids, i.kon, i))
+  ;(tables.KD || []).forEach(x => vPush_(st.kd, x.kon, x))
+  ;(tables.SR || []).forEach(x => vPush_(st.sr, x.item, x))
+  return st
+}
+
+// Periksa satu nilai terhadap aturan kolom; kembalikan pesan galat atau ''
+function vCell_(rule, v, st) {
+  const m = /^([a-z0-9]+)(\?)?(?::(.+))?$/.exec(rule)
+  const kind = m[1], opt = !!m[2], arg = m[3]
+  if (v === '') return opt || kind === 'text' ? '' : 'wajib diisi'
+  switch (kind) {
+    case 'req': case 'text': return ''
+    case 'date': return PAT.date.test(v) ? '' : 'harus tanggal YYYY-MM-DD'
+    case 'dtm': return PAT.dtm.test(v) ? '' : 'harus tanggal (YYYY-MM-DD) atau tanggal-jam'
+    case 'phone': return PAT.phone.test(v) ? '' : 'nomor WA harus berbentuk 628xxxxxxxxx'
+    case 'flag': return PAT.flag.test(v) ? '' : 'harus 0 atau 1'
+    case 'pos': return PAT.num.test(v) && +v > 0 ? '' : 'harus angka lebih dari 0'
+    case 'num0': return PAT.num.test(v) ? '' : 'harus angka 0 atau lebih'
+    case 'int0': return PAT.int.test(v) ? '' : 'harus bilangan bulat 0 atau lebih'
+    case 'enum': return ENUM[arg].indexOf(v) >= 0 ? '' : "'" + v + "' tidak dikenal (pilihan: " + ENUM[arg].join(', ') + ')'
+    case 'id': return new RegExp('^' + arg + '-\\d{3,}$').test(v) ? '' : 'format harus ' + arg + '-001'
+    case 'fk':
+      if (vHas_(st.by[arg], v)) return ''
+      return "'" + v + "' tidak ada di sheet " + SCHEMA[arg].sheet +
+        (arg === 'U' && vHas_(st.names, v.toLowerCase().trim()) ? ' (ini NAMA pengguna; kolom harus berisi ID. Jalankan migrate() lalu auditData())' : '')
+  }
+  return 'aturan tidak dikenal: ' + rule
+}
+
+function vLabel_(t, row) {
+  return SCHEMA[t].sheet + ' ' + row[SCHEMA[t].key]
+}
+
+// Periksa baris-baris: aturan kolom, lalu aturan lintas tabel bila kolomnya sah. rows = [{ t, row }]
+// Hasil: [{ m: pesan, c: true bila akibat benturan jumlah dengan pengguna lain }]
+function vRows_(st, rows) {
+  const errs = []
+  rows.forEach(x => {
+    const t = x.t, row = x.row, rules = REL[t], before = errs.length
+    const add = (msg, c) => errs.push({ m: vLabel_(t, row) + ': ' + msg, c: !!c })
+    Object.keys(rules).forEach(col => {
+      const msg = vCell_(rules[col], row[col] == null ? '' : String(row[col]), st)
+      if (msg) add('kolom ' + col + ' ' + msg)
+    })
+    if (errs.length === before) vLinks_(t, row, st, add)
+  })
+  return errs
+}
+
+// Aturan lintas tabel untuk satu baris
+function vLinks_(t, row, st, add) {
+  if (t === 'U' && row.boss) {
+    const boss = st.by.U[row.boss]
+    if (row.boss === row.id) add('atasan tidak boleh diri sendiri')
+    else if (boss && boss.role !== 'Atasan') add("atasan '" + row.boss + "' harus ber-role Atasan")
+  }
+
+  if (t === 'I') {
+    const inKon = IN_KON.indexOf(row.status) >= 0
+    if (inKon && !row.kon) add('status ' + row.status + ' wajib terhubung ke Konsolidasi (kolom kon)')
+    if (!inKon && row.kon) add("kolom kon harus kosong untuk status '" + row.status + "'")
+    const k = row.kon && st.by.K[row.kon]
+    if (k && k.kode !== row.kode) add('kode barang ' + row.kode + ' tidak sama dengan Konsolidasi ' + k.id + ' (' + k.kode + ')')
+    if (k && inKon && k.tahap !== row.status) add("status '" + row.status + "' tidak sama dengan tahap SRL '" + k.tahap + "'")
+  }
+
+  if (t === 'K') {
+    const l = st.by.L[row.srl]
+    if (l && l.dept !== row.dept) add('departemen ' + row.dept + ' tidak sama dengan SRL ' + l.no + ' (' + l.dept + ')')
+    const kids = st.kids[row.id] || []
+    if (row.tahap === 'Dikeluarkan' && kids.length) add("tahap 'Dikeluarkan' tetapi masih ada barang di dalamnya")
+    if (row.tahap !== 'Dikeluarkan')
+      kids.forEach(i => {
+        if (i.status !== row.tahap) add('barang ' + i.id + " berstatus '" + i.status + "' tetapi tahap SRL '" + row.tahap + "'")
+      })
+    vArrival_(row, st, add)
+  }
+
+  if (t === 'KD') {
+    const k = st.by.K[row.kon]
+    if (!(+row.qty > 0) && !(+row.lebih > 0)) add('isi qty datang atau qty lebih')
+    if (k && k.tahap !== 'Sudah di ERO') add('SRL ' + k.srl + " belum divalidasi Warehouse (tahap '" + k.tahap + "')")
+    if (k) vArrival_(k, st, add)
+  }
+
+  if (t === 'SR') {
+    const it = st.by.I[row.item]
+    if (!it) return
+    if (it.status !== 'Sudah di ERO') add("barang '" + it.id + "' belum berstatus Sudah di ERO")
+    const handed = vSum_(st.sr[it.id] || [], s => s.qty)
+    if (handed > +it.qty + EPS) add('total diserahkan ' + handed + ' melebihi qty request ' + it.qty, true)
+    const k = st.by.K[it.kon]
+    if (k) {
+      const out = vSum_(st.kids[k.id] || [], i => vSum_(st.sr[i.id] || [], s => s.qty))
+      const got = vSum_(st.kd[k.id] || [], d => d.qty)
+      if (out > got + EPS) add('total diserahkan ' + out + ' melebihi barang yang sudah datang ' + got, true)
+    }
+  }
+}
+
+// Barang datang + sisa yang ditutup tidak boleh melebihi total yang diminta
+function vArrival_(k, st, add) {
+  const total = vSum_((st.kids[k.id] || []).filter(i => DEAD.indexOf(i.status) < 0), i => i.qty)
+  const got = vSum_(st.kd[k.id] || [], d => d.qty)
+  const closed = +k.tutup || 0
+  if (got + closed > total + EPS) add('datang ' + got + ' + ditutup ' + closed + ' melebihi total request ' + total, true)
+}
+
+// Seluruh database (audit). tables = { U: [...], ... }
+function validateAll_(tables) {
+  const rows = []
+  TABLES.forEach(t => (tables[t] || []).forEach(r => rows.push({ t: t, row: r })))
+  return vRows_(vState_(tables), rows)
+}
+
+// Hanya baris yang diubah sebuah aksi, diperiksa pada keadaan sesudah perubahan. d = tabel kerja, ch = hasil diff_
+function validateChange_(d, ch) {
+  const rows = []
+  TABLES.forEach(t => {
+    ch[t].add.forEach(r => rows.push({ t: t, row: r }))
+    ch[t].upd.forEach(u => rows.push({ t: t, row: u.after }))
+  })
+  return vRows_(vState_(d), rows)
 }
 

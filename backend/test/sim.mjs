@@ -159,7 +159,7 @@ const KD0 = rows('Kedatangan').length
 const dtg = q => ({ tx: TX(), name: 'datang', me: 'wati.wh', args: [{ id: kon.id, q, l: 0, cat: '', by: 'PALSU' }] })
 const d1 = post(dtg(1))
 ok(d1.ok, 'kedatangan 1 dicatat')
-ok(rows('Kedatangan').slice(-1)[0].by === 'Wati Handayani', 'nama pencatat diambil server, bukan dari klien (PALSU diabaikan)')
+ok(rows('Kedatangan').slice(-1)[0].by === 'wati.wh', 'nama pencatat diambil server, bukan dari klien (PALSU diabaikan)')
 const d2 = post({ ...dtg(1), me: 'joko.wh' })
 ok(!d2.ok && /tidak dicatat ganda/i.test(d2.err), 'admin lain menginput hal yang sama -> ditolak sebagai duplikat: ' + d2.err)
 const d3 = post(dtg(sisa + 5))
@@ -260,6 +260,24 @@ sec('13b. Alur baru: Validasi SRL, keluarkan, serah semua, Master')
   ok(!sa2.ok && /sudah diserahkan/.test(sa2.err), 'serah semua kedua oleh admin lain ditolak, tidak ganda')
   ok(rows('SerahTerima').length === SR0 + sa.msg.match(/^(\d+)/)[1] * 1, 'jumlah baris serah terima = yang dilaporkan')
   const srIds = rows('SerahTerima').map(x => x.id); ok(new Set(srIds).size === srIds.length, 'ID serah terima unik')
+  // serah sebagian lewat serahAll(ids, qtys): jumlah dipotong sampai jatah, barang tanpa jumlah = semua yang siap
+  const S5 = snap(); const sel5 = $('makeSel')(S5)
+  const sisaSiap = S5.I.filter(i => i.status === 'Sudah di ERO' && sel5.siap(i) >= 2)
+  if (sisaSiap.length >= 2) {
+    const [a, b] = sisaSiap
+    const sa3 = post({ tx: TX(), name: 'serahAll', me: 'wati.wh', args: [[a.id, b.id], { [a.id]: 1, [b.id]: 9999 }] })
+    ok(sa3.ok, 'serahAll dengan jumlah per barang: ' + (sa3.err || sa3.msg))
+    const S6 = snap(); const sel6 = $('makeSel')(S6)
+    ok(sel6.diambil(S6.I.find(i => i.id === a.id)) === sel5.diambil(a) + 1, 'barang A diserahkan tepat 1 (sebagian)')
+    ok(sel6.siap(S6.I.find(i => i.id === b.id)) === 0, 'jumlah melebihi jatah dipotong sampai jatah (B habis), tidak lebih')
+  }
+  // pengingat banyak barang dalam satu panggilan; hanya Admin Warehouse
+  const RM0 = rows('Pengingat').length
+  const ia = post({ tx: TX(), name: 'ingatAll', me: 'andi.prod', args: [['ITM-001', 'ITM-002']] })
+  ok(!ia.ok, 'pengingat massal oleh User biasa ditolak')
+  const ib = post({ tx: TX(), name: 'ingatAll', me: 'wati.wh', args: [['ITM-001', 'ITM-002', 'ITM-NGAWUR']] })
+  ok(ib.ok && rows('Pengingat').length === RM0 + 2, 'pengingat massal mencatat 2 baris, id barang tak dikenal dilewati')
+  ok(rows('Pengingat').slice(-2).every(r => r.by === 'wati.wh'), 'pelaku pengingat selalu dari server (bukan argumen klien)')
   // master
   const M0 = rows('Master').length
   const mm = post({ tx: TX(), name: 'saveMaster', me: 'wati.wh', args: [{ mode: 'new', f: { k: 'tes-001', n: 'Barang Tes', sat: 'Pcs', buf: '1', kons: '0', lead: '4' } }] })
@@ -310,7 +328,7 @@ sec('13c. Migrasi dari backend lama (sheet tanpa kolom id/_v/tx)')
 sec('14. Kesehatan akhir')
 ok(keysUnique() === '', 'tidak ada kunci ganda di seluruh sheet')
 const au = ctx.auditData()
-ok(au === 'Item ITM-005: request RQ-004 tidak ada', 'auditData hanya melaporkan yatim akibat penghapusan manual tadi: ' + au)
+ok(au === "Item ITM-005: kolom req 'RQ-004' tidak ada di sheet Request", 'auditData hanya melaporkan yatim akibat penghapusan manual tadi: ' + au)
 const txs = rows('Tx'); ok(new Set(txs.map(t => t.tx)).size === txs.length, 'setiap tx tercatat tepat satu baris (' + txs.length + ')')
 ok(!txs.some(t => t.status === 'PENDING'), 'tidak ada Tx menggantung')
 const orphan = rows('Request').filter(x => /^TX-/.test(x.tx) && !txs.some(t => t.tx === x.tx && t.status === 'OK'))
