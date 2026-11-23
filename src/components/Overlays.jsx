@@ -3,11 +3,13 @@ import { TABS, useApp } from '../store'
 import { Pill } from './ui'
 import { Dialog } from './Dialog'
 import { D, TODAY, days, dayDiff, disp } from '../lib/utils'
+import { getTema, setTema } from '../lib/theme'
 
 const age = w => (w >= 7 ? 't-bad' : w >= 3 ? 't-warn' : 't-gray')
 
 export function Drawer({ cnt }) {
   const { ui, setUi, me, logout } = useApp()
+  const [tema, setT] = useState(getTema)
   const tabs = TABS[me.role]
   const close = () => setUi({ menu: false })
   return (
@@ -20,6 +22,7 @@ export function Drawer({ cnt }) {
             {t[1]}{cnt[t[0]] ? ' (' + cnt[t[0]] + ')' : ''}
           </button>
         ))}
+        <button className="mi" onClick={() => { const n = tema ? '' : 'smoke'; setTema(n); setT(n) }}>Tema: {tema ? 'White smoke' : 'Biru'} (ketuk untuk ganti)</button>
         <button className="mi" onClick={() => setUi({ help: true, menu: false })}>Cara pakai</button>
         <button className="mi" onClick={() => setUi({ eu: me.id, self: true, menu: false })}>Profil saya</button>
         <button className="mi mi-out" onClick={logout}>Keluar</button>
