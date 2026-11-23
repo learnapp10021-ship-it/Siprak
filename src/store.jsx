@@ -59,7 +59,7 @@ function Boot({ state, err, retry }) {
     <div id="app" className="mob" style={{ padding: 24 }}>
       <div className="hd"><h2>Request barang</h2></div>
       {state == 'loading' ? (
-        <div className="empty" role="status">Memuat data dari server…</div>
+        <div className="empty loading" role="status">Memuat data dari server…</div>
       ) : (
         <>
           <div className="empty" role="alert">Tidak bisa memuat data. {err}</div>

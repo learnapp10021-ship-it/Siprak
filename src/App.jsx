@@ -66,7 +66,7 @@ export function Shell() {
         {ui.help && <HelpSheet />}
         {ui.dpic && <PicSheet />}
         {ui.di && <DetailSheet />}
-        <main className={'v-' + tab}><View /></main>
+        <main key={tab} className={'v-' + tab}><View /></main>
         <nav aria-label="Menu utama">
           {tabs.map(t => (
             <button key={t[0]} className={hidden(t[0])} aria-current={t[0] == tab ? 'true' : undefined} onClick={() => setUi({ tab: t[0], menu: false, eu: null })}>

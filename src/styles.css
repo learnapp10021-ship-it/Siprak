@@ -538,3 +538,25 @@ nav button[aria-current=true]{color:var(--brand);border-top-color:var(--brand)}
 .itm-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
 .itm-facts div{min-width:0}.itm-facts dt{font-size:11px;color:var(--mut)}.itm-facts dd{margin:1px 0 0;font-size:13px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
 @media(max-width:340px){.itm-facts{grid-template-columns:1fr}}
+
+/* ---- Kehalusan interaksi: umpan balik sentuh, transisi halaman, scroll ---- */
+/* Hilangkan jeda ketuk ganda dan zoom tidak sengaja pada elemen yang bisa diketuk */
+button,a,select,input,textarea,label,.kbtn,.clk,.chip,.pk-row,.mi,.urow{touch-action:manipulation}
+/* Isi overlay yang di-scroll tidak ikut menggulung halaman di belakangnya */
+.drawer,.sheet{overscroll-behavior:contain}
+/* Umpan balik instan saat disentuh (:hover tidak berguna di layar sentuh) */
+.kbtn:active,.pk-row:active,.chip:active,.mi:active,.urow:active,nav button:active{background:var(--soft)}
+.clk:active td{background:var(--soft)}
+.kbtn,.pk-row,.chip,.mi,.urow,nav button,.ham,.btn{transition:background-color .15s,border-color .15s,box-shadow .15s,filter .15s,transform .12s}
+@media(prefers-reduced-motion:no-preference){
+  html{scroll-behavior:smooth}
+  .btn:active,.kbtn:active,.pk-row:active,.chip:active{transform:scale(.975)}
+  /* Pindah menu: isi halaman masuk pelan-pelan, bukan berganti mendadak */
+  @keyframes vIn{from{opacity:0;transform:translateY(6px)}}
+  main{animation:vIn .2s ease-out}
+  @keyframes fIn{from{opacity:0}}
+  .scrim{animation:fIn .18s ease-out}
+  @keyframes pulse{50%{opacity:.5}}
+  .empty.loading{animation:pulse 1.4s ease-in-out infinite}
+}
+@media(prefers-reduced-motion:reduce){.btn,.kbtn,.pk-row,.chip,.mi,.urow,nav button,.ham{transition:none}}
