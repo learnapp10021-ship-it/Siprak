@@ -557,7 +557,10 @@ rina.mt|Rina Marlina|Maintenance|User|tono.spv
 yani.admin|Yani Kusuma|Maintenance|Admin Dept|tono.spv
 wati.wh|Wati Handayani|Warehouse|Admin Warehouse|
 joko.wh|Joko Susilo|Warehouse|Admin Warehouse|
-agus.spv|Agus Prasetyo|Warehouse|Spv Warehouse|`,
+agus.spv|Agus Prasetyo|Warehouse|Spv Warehouse|
+dika.prod|Dika Pratama|Produksi|User|budi.spv
+lina.mt|Lina Wulandari|Maintenance|User|tono.spv
+eko.prod|Eko Nugroho|Produksi|User|budi.spv`,
     ['id', 'n', 'dept', 'role', 'boss']
   )
   const HP = {
@@ -565,7 +568,8 @@ agus.spv|Agus Prasetyo|Warehouse|Spv Warehouse|`,
     'siti.prod': '6281234560004', 'rudi.prod': '6281234560005', 'dewi.admin': '6281234560006',
     'tono.spv': '6281234560007', 'maya.mt': '6281234560008', 'rina.mt': '6281234560009',
     'yani.admin': '6281234560010', 'wati.wh': '6281234560011', 'joko.wh': '6281234560012',
-    'agus.spv': '6281234560013',
+    'agus.spv': '6281234560013', 'dika.prod': '6281234560014', 'lina.mt': '6281234560015',
+    'eko.prod': '6281234560016',
   }
   const M = T(
     `SRG-001|Sarung Tangan Kain|Pasang|0|0|3
@@ -714,6 +718,124 @@ ITM-002|20|Andi Saputra`,
   }
   K.forEach(k => (k.by = nmOf(k.dept == 'Produksi' ? 'dewi.admin' : 'yani.admin')))
   SR.forEach((s, n) => (s.tgl = addDays('2026-11-18', n % 3)))
+
+  // ===== Data contoh lengkap: semua tahap proses, kedua departemen =====
+  {
+    const B = '2026-11-23'
+    const WT = 'Wati Handayani', JK = 'Joko Susilo'
+    U.find(u => u.id == 'eko.prod').off = true // contoh akun nonaktif
+    const buf = k => M.find(m => m.k == k).buf == '1'
+    const rq = (id, by, tgl, st, cat = '') => R.push({ id, by, tgl, st, cat })
+    const it = (req, kode, qty, o = {}) => {
+      const id = 'ITM-' + String(I.length + 1).padStart(3, '0')
+      I.push({ id, req, kode, qty: String(qty), datang: '', pakai: '', status: 'Draft', appr: '', kon: '', tahan: '', alasan: '', ...o })
+      return id
+    }
+    // tanggal butuh: non-buffer wajib punya tgl pakai
+    const need = (kode, dDatang, dPakai) => ({ datang: addDays(B, dDatang), pakai: buf(kode) ? '' : addDays(B, dPakai) })
+    const apr = (tgl, m) => tgl + 'T08:' + String(m).padStart(2, '0')
+
+    // --- Menunggu approval atasan (Produksi: Budi, Maintenance: Tono)
+    rq('RQ-022', 'dika.prod', addDays(B, -1), 'Menunggu Approval')
+    ;[['SRG-001', 20, 10, 14], ['APD-007', 10, 12, 0], ['KBL-006', 4, 9, 13]].forEach(([k, q, a, b]) => it('RQ-022', k, q, { ...need(k, a, b), status: 'Menunggu Approval' }))
+    rq('RQ-023', 'siti.prod', B, 'Menunggu Approval')
+    ;[['LAS-021', 15, 8, 12], ['GRD-101', 6, 8, 11]].forEach(([k, q, a, b]) => it('RQ-023', k, q, { ...need(k, a, b), status: 'Menunggu Approval' }))
+    rq('RQ-024', 'maya.mt', B, 'Menunggu Approval')
+    ;[['BRG-205', 4, 9, 0], ['SEL-601', 6, 8, 0]].forEach(([k, q, a, b]) => it('RQ-024', k, q, { ...need(k, a, b), status: 'Menunggu Approval' }))
+    rq('RQ-025', 'lina.mt', addDays(B, -1), 'Menunggu Approval')
+    ;[['CTR-801', 2, 8, 12], ['LMP-701', 3, 10, 14], ['KBL-005', 6, 7, 10]].forEach(([k, q, a, b]) => it('RQ-025', k, q, { ...need(k, a, b), status: 'Menunggu Approval' }))
+    // --- Draft
+    rq('RQ-026', 'rudi.prod', B, 'Draft')
+    it('RQ-026', 'OLI-010', 2, { ...need('OLI-010', 9, 13), status: 'Draft' })
+    rq('RQ-027', 'rina.mt', addDays(B, -1), 'Draft')
+    ;[['FTG-501', 12, 9, 12], ['SLG-402', 6, 8, 11]].forEach(([k, q, a, b]) => it('RQ-027', k, q, { ...need(k, a, b), status: 'Draft' }))
+    // --- Ditolak (catatan atasan) dan Dibatalkan
+    rq('RQ-028', 'andi.prod', addDays(B, -4), 'Ditolak', 'Stok masih ada di gudang line 2, cek dulu sebelum request')
+    it('RQ-028', 'BOR-201', 10, { ...need('BOR-201', 6, 10), status: 'Ditolak' })
+    rq('RQ-029', 'lina.mt', addDays(B, -3), 'Ditolak', 'Anggaran bulan ini sudah habis, ajukan lagi bulan depan')
+    it('RQ-029', 'VBT-401', 2, { ...need('VBT-401', 7, 0), status: 'Ditolak' })
+    rq('RQ-030', 'dika.prod', addDays(B, -6), 'Dibatalkan')
+    it('RQ-030', 'GRD-102', 5, { ...need('GRD-102', 6, 9), status: 'Dibatalkan' })
+
+    // --- Pool Admin Dept: disetujui, belum dibuat di ERO (termasuk ditahan)
+    const ap = (id, by, d, rows) => {
+      rq(id, by, addDays(B, d), 'Disetujui')
+      rows.forEach(([k, q, a, b, o]) => it(id, k, q, { ...need(k, a, b), status: 'Approved', appr: apr(addDays(B, d + 1), 15), ...o }))
+    }
+    ap('RQ-031', 'andi.prod', -3, [['BOR-202', 8, 7, 10], ['BLT-301', 3, 8, 0], ['SLG-401', 30, 10, 14, { tahan: 'Y', alasan: 'Menunggu konfirmasi panjang selang dari produksi' }]])
+    ap('RQ-032', 'rudi.prod', -2, [['GRD-102', 10, 7, 9], ['FTG-501', 20, 8, 11]])
+    ap('RQ-033', 'maya.mt', -3, [['BRG-206', 4, 8, 0], ['VBT-401', 2, 7, 0], ['CTR-801', 2, 8, 12]])
+    ap('RQ-034', 'lina.mt', -2, [['LMP-701', 3, 9, 13], ['FTG-501', 10, 8, 11, { tahan: 'Y', alasan: 'Tunggu ukuran fitting dari teknisi' }]])
+    // Dikeluarkan Warehouse dari SRL-2611-006 (semua barang dikeluarkan) -> kembali ke pool dengan alasan
+    L.push({ no: 'SRL-2611-006', dept: 'Maintenance', est: addDays(B, 7) })
+    rq('RQ-035', 'rina.mt', addDays(B, -5), 'Disetujui')
+    ;[['SKR-901', 3, 7, 0], ['BRG-205', 6, 9, 0]].forEach(([k, q, a, b], n) => {
+      it('RQ-035', k, q, { ...need(k, a, b), status: 'Approved', appr: apr(addDays(B, -4), 20 + n), alasan: 'Dikeluarkan Warehouse (' + WT + ') dari SRL-2611-006: Jumlah tidak sesuai dengan permintaan' })
+    })
+
+    let kn = Math.max(...K.map(k => +k.id.slice(4)))
+    const kon = (dept, kode, tahap, srl, ero, o = {}) => {
+      const id = 'KON-' + String(++kn).padStart(3, '0')
+      K.push({ id, dept, kode, tahap, srl, ero: String(ero), tutup: '0', alasan: '', by: nmOf(dept == 'Produksi' ? 'dewi.admin' : 'yani.admin'), ...o })
+      return id
+    }
+    kon('Maintenance', 'SKR-901', 'Dikeluarkan', 'SRL-2611-006', 0, { alasan: 'Jumlah tidak sesuai dengan permintaan' })
+    kon('Maintenance', 'BRG-205', 'Dikeluarkan', 'SRL-2611-006', 0, { alasan: 'Jumlah tidak sesuai dengan permintaan' })
+
+    // --- SRL sudah di ERO. lines: [kode, [[req, jumlah], ...], jumlah datang (null = semua), kelebihan, catatan, tutup, alasan tutup]
+    const srl = (no, dept, est, tglReq, reqs, lines, tglDatang, by) => {
+      L.push({ no, dept, est })
+      Object.entries(reqs).forEach(([id, u]) => rq(id, u, addDays(B, tglReq), 'Disetujui'))
+      lines.forEach(([kode, rs, dtg, lebih, cat, tutup, alasan], li) => {
+        let tot = 0
+        const kid = 'KON-' + String(kn + 1).padStart(3, '0')
+        rs.forEach(([rid, q], j) => {
+          tot += q
+          it(rid, kode, q, { datang: est, pakai: buf(kode) ? '' : addDays(est, 4 + li + j), status: 'Sudah di ERO', appr: apr(addDays(B, tglReq + 1), 10 + li * 3 + j), kon: kid })
+        })
+        kon(dept, kode, 'Sudah di ERO', no, tot, tutup ? { tutup: String(tutup), alasan } : {})
+        const dq = dtg == null ? tot : dtg
+        if (dq > 0 || lebih) KD.push({ kon: kid, qty: String(dq), lebih: String(lebih || 0), by, cat: cat || '', tgl: tglDatang })
+      })
+    }
+    // 1) Selesai penuh: barang datang semua dan sudah diserahkan semua
+    srl('SRL-2611-007', 'Produksi', addDays(B, -8), -14, { 'RQ-036': 'andi.prod', 'RQ-037': 'siti.prod' }, [
+      ['GRD-101', [['RQ-036', 6], ['RQ-037', 4]]],
+      ['BOR-201', [['RQ-036', 4], ['RQ-037', 3]]],
+      ['KBL-006', [['RQ-037', 5]], null, 2, 'Supplier kirim lebih 2 roll, dicatat terpisah'],
+    ], addDays(B, -7), WT)
+    // 2) Sebagian datang, ada barang ditutup sisanya
+    srl('SRL-2611-008', 'Maintenance', addDays(B, -4), -10, { 'RQ-038': 'maya.mt', 'RQ-039': 'rina.mt' }, [
+      ['BRG-205', [['RQ-038', 4], ['RQ-039', 6]], 6],
+      ['SEL-601', [['RQ-038', 3], ['RQ-039', 5]]],
+      ['CTR-801', [['RQ-038', 2]], 0, 0, '', 2, 'Supplier tidak bisa kirim, item discontinue'],
+    ], addDays(B, -3), JK)
+    // 3) Terlambat: estimasi sudah lewat, belum ada kedatangan
+    srl('SRL-2611-009', 'Produksi', addDays(B, -3), -9, { 'RQ-040': 'dika.prod', 'RQ-041': 'rudi.prod' }, [
+      ['LAS-021', [['RQ-040', 10], ['RQ-041', 5]], 0],
+      ['OLI-010', [['RQ-040', 4]], 0],
+    ], B, WT)
+    // 4) Belum waktunya datang (estimasi ke depan)
+    srl('SRL-2611-010', 'Maintenance', addDays(B, 5), -3, { 'RQ-042': 'maya.mt' }, [
+      ['LKT-101', [['RQ-042', 6]], 0],
+      ['PNT-201', [['RQ-042', 3]], 0],
+      ['KBL-006', [['RQ-042', 2]], 0],
+    ], B, JK)
+    // 5) Datang sebagian hari ini, belum diserahkan
+    srl('SRL-2611-011', 'Produksi', addDays(B, -1), -6, { 'RQ-043': 'andi.prod', 'RQ-044': 'dika.prod' }, [
+      ['SLG-402', [['RQ-043', 8], ['RQ-044', 6]], 8],
+      ['LMP-701', [['RQ-043', 2], ['RQ-044', 2]], 4],
+      ['PNT-201', [['RQ-044', 5]], 0],
+    ], B, JK)
+
+    // Serah terima: hitung jatah dengan aturan aplikasi supaya tidak melebihi jatah
+    const sl = makeSel({ U, HP, M, R, I, K, L, KD, SR, RM: [] })
+    const to = it => nmOf(R.find(r => r.id == it.req).by)
+    const serah = (it, q, d) => q > 0 && SR.push({ item: it.id, qty: String(q), to: to(it), tgl: addDays(B, d) })
+    I.filter(i => ['SRL-2611-007'].includes(sl.KN(i.kon)?.srl)).forEach((i, n) => serah(i, sl.siap(i), -6 + (n % 3)))
+    I.filter(i => sl.KN(i.kon)?.srl == 'SRL-2611-008').forEach((i, n) => serah(i, n % 2 ? Math.ceil(sl.siap(i) / 2) : 0, -2))
+    I.filter(i => sl.KN(i.kon)?.srl == 'SRL-2611-011').forEach((i, n) => serah(i, n == 0 ? Math.floor(sl.siap(i) / 2) : 0, 0))
+  }
 
   const db = { U, HP, M, R, I, K, L, KD, SR, RM: [] }
   // Contoh riwayat pengingat
