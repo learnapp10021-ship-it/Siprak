@@ -1,6 +1,6 @@
 import { memo, useDeferredValue, useMemo, useState } from 'react'
 import { useApp } from '../store'
-import { Hd, Empty, Pill, Confirm, SrlPicker, SrlHead, useSrlPick, useMore } from '../components/ui'
+import { Hd, Empty, Pill, Confirm, SrlPicker, SrlHead, useSrlPick, useMore, fokusJumlah } from '../components/ui'
 import { D, TODAY, days, sum } from '../lib/utils'
 import { SerahPenerima } from './SerahView'
 
@@ -35,7 +35,7 @@ const DatangCard = memo(function DatangCard({ k }) {
   const needCat = lebih && !cat.trim()
   const can = (+q > 0 || lebih) && !over && !needCat
   const submit = async () => {
-    if (await act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.id })) { setQ(''); setL('0'); setCat(''); setOpen(false) }
+    if (await act('datang', { id: k.id, q: +q, l: +l, cat: cat.trim(), by: me.id })) { setQ(''); setL('0'); setCat(''); setOpen(false); fokusJumlah() }
   }
   return (
     <div className="row dtg">
@@ -44,7 +44,11 @@ const DatangCard = memo(function DatangCard({ k }) {
       <small className="mut">Datang {dt} dari {tot} {m.sat} ({k.id})</small>
       <div className="qrow" style={{ marginTop: 10 }}>
         <label>Jumlah datang ({m.sat})
-          <input type="number" inputMode="decimal" min="0" step="any" max={sisa} value={q} placeholder="0" onChange={e => setQ(e.target.value)} />
+          <input
+            type="number" inputMode="decimal" min="0" step="any" max={sisa} value={q} placeholder="0" enterKeyHint="done"
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={e => { if (e.key == 'Enter' && can) { e.preventDefault(); submit() } }}
+          />
         </label>
         <button className="btn alt" onClick={() => setQ(String(sisa))}>Semua sisa ({sisa})</button>
       </div>

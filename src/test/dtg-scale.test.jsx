@@ -62,4 +62,25 @@ describe('Kedatangan dengan seribu SRL', () => {
     fireEvent.change(screen.getByLabelText('Cari SRL'), { target: { value: 'SRL-0123' } })
     expect(await screen.findByText('1 dari ' + N + ' SRL')).toBeTruthy()
   })
+
+  it('Enter di kolom cari membuka SRL yang persis dan fokus ke kolom jumlah (alur pemindai)', async () => {
+    const { VDtg } = await import('../views/WarehouseViews')
+    render(<VDtg />)
+    const box = screen.getByLabelText('Cari SRL')
+    fireEvent.change(box, { target: { value: 'srl-0777' } })
+    fireEvent.keyDown(box, { key: 'Enter' }) // langsung, tanpa menunggu daftar tertunda
+    expect(await screen.findByText('SRL-0777', { selector: '.srlhd b' })).toBeTruthy()
+    await waitFor(() => expect(document.activeElement?.getAttribute('type')).toBe('number'))
+  })
+
+  it('Enter di kolom jumlah mencatat kedatangan', async () => {
+    const { VDtg } = await import('../views/WarehouseViews')
+    render(<VDtg />)
+    const qty = screen.getAllByRole('spinbutton')[0]
+    fireEvent.change(qty, { target: { value: '3' } })
+    const btn = screen.getAllByRole('button', { name: /Catat 3 .* datang/ })[0]
+    expect(btn.disabled).toBe(false)
+    fireEvent.keyDown(qty, { key: 'Enter' })
+    await waitFor(() => expect(qty.value).toBe(''))
+  })
 })

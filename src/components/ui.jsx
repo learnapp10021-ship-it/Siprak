@@ -176,6 +176,15 @@ function goDetail() {
   requestAnimationFrame(() => document.getElementById('srl-detail')?.scrollIntoView({ block: 'start', behavior: sm }))
 }
 
+// Fokus ke kolom jumlah pertama di detail SRL (alur cepat dengan keyboard atau pemindai barcode)
+export function fokusJumlah() {
+  if (typeof document == 'undefined') return
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = document.querySelector('#srl-detail ~ * input[type=number]:not(:disabled)')
+    if (el) el.focus({ preventScroll: false })
+  }))
+}
+
 export function useSrlPick(g, sel, prog) {
   const [f, setF] = useState({ pick: '', q: '', dept: '', late: false, sort: 'est', lim: PAGE, open: false })
   // ganti pilihan / buka-tutup / tampilkan lagi tidak mereset panjang daftar; ubah filter mereset
@@ -211,13 +220,22 @@ export function useSrlPick(g, sel, prog) {
     () => Object.values(meta).filter(m => (!q || !hay || hay[m.no].includes(q)) && (!f.dept || m.dept == f.dept) && (!f.late || m.late)).sort(cmp),
     [meta, hay, q, f.dept, f.late, f.sort], // eslint-disable-line react-hooks/exhaustive-deps
   )
+  // Enter di kolom cari: cari dari teks TERAKHIR (pemindai barcode mengetik lalu Enter dalam milidetik,
+  // sebelum daftar tertunda sempat diperbarui). Nomor yang persis sama didahulukan.
+  const pickFirst = txt => {
+    const t = txt.trim().toLowerCase()
+    const hit = Object.values(meta).filter(m =>
+      (!t || (m.no + ' ' + m.dept + ' ' + g[m.no].map(x => sel.mi(x.kode)?.n || '').join(' ')).toLowerCase().includes(t)) &&
+      (!f.dept || m.dept == f.dept) && (!f.late || m.late))
+    return hit.find(m => m.no.toLowerCase() == t) || hit.sort(cmp)[0]
+  }
   const nos = list.map(m => m.no)
   const cur = nos.includes(f.pick) ? f.pick : nos[0]
   const idx = nos.indexOf(cur)
   const go = no => { set({ pick: no, open: false }); goDetail() }
   const reset = () => set({ q: '', dept: '', late: false })
   const active = !!(f.q.trim() || f.dept || f.late)
-  return { list, cur, idx, prev: nos[idx - 1], next: nos[idx + 1], go, f, set, depts, lateN, total: Object.keys(g).length, active, reset }
+  return { list, cur, idx, prev: nos[idx - 1], next: nos[idx + 1], go, f, set, depts, lateN, total: Object.keys(g).length, active, reset, pickFirst }
 }
 
 // Daftar gulir tervirtualisasi: ribuan SRL tetap mulus karena hanya baris yang terlihat yang dirender.
@@ -284,7 +302,7 @@ function SrlList({ list, cur, go, unit, resetKey }) {
   )
 }
 
-export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN, total, active, reset, unit = 'barang' }) {
+export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN, total, active, reset, pickFirst, unit = 'barang' }) {
   if (!total) return null
   const fold = total > 5 // SRL sedikit: cukup daftar saja, tanpa cari, filter, dan lipat
   const c = list.find(m => m.no == cur)
@@ -307,7 +325,17 @@ export function SrlPicker({ list, cur, idx, prev, next, go, f, set, depts, lateN
         {fold && (
           <>
             <label>Cari SRL
-              <input type="search" value={f.q} placeholder="No. SRL, departemen, atau nama barang" onChange={e => set({ q: e.target.value })} />
+              <input
+                type="search" value={f.q} placeholder="No. SRL, departemen, atau nama barang. Enter = buka" enterKeyHint="go"
+                autoFocus={typeof window != 'undefined' && window.innerWidth >= 1024}
+                onChange={e => set({ q: e.target.value })}
+                onKeyDown={e => {
+                  if (e.key != 'Enter') return
+                  e.preventDefault()
+                  const m = pickFirst ? pickFirst(e.currentTarget.value) : list[0]
+                  if (m) { go(m.no); fokusJumlah() }
+                }}
+              />
             </label>
             <div className="grid" style={{ marginTop: 0 }}>
               <label>Departemen
