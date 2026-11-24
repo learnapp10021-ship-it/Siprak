@@ -51,7 +51,7 @@ function ImportSheet({ onClose }) {
   const good = rows.filter(r => !r.err)
   const exist = new Set(db.M.map(m => m.k))
   const ubah = good.filter(r => exist.has(r.k)).length
-  const go = async () => { if (await act('importMaster', rows)) onClose() }
+  const go = async () => { if (await act('importMaster', good)) onClose() } // hanya baris valid yang dikirim
   return (
     <>
       <div className="scrim" onClick={onClose} />

@@ -68,7 +68,11 @@ export const minsAgo = at => {
 }
 
 // Master item: normalisasi dan parser tempel dari Excel/CSV.
-export const flag = v => (/^(1|y|ya|yes|true|buffer|konsinyasi)$/i.test(String(v ?? '').trim()) ? '1' : '0')
+const FLAG_ON = /^(1|y|ya|yes|true|buffer|konsinyasi)$/i
+const FLAG_OFF = /^(0|n|no|tidak|false|-|non buffer|non konsinyasi)?$/i
+export const flag = v => (FLAG_ON.test(String(v ?? '').trim()) ? '1' : '0')
+// Nilai selain Ya/Tidak/1/0 (mis. "2", "x", salah ketik) ditolak, jangan diam-diam dianggap 0
+const flagOk = v => { const t = String(v ?? '').trim(); return FLAG_ON.test(t) || FLAG_OFF.test(t) }
 export function cleanMaster(r) {
   const k = String(r.k || '').trim().toUpperCase().replace(/\s+/g, '-')
   const n = String(r.n || '').trim()
@@ -79,6 +83,8 @@ export function cleanMaster(r) {
   else if (!n) err = 'Nama kosong'
   else if (!sat) err = 'Satuan kosong'
   else if (!/^\d+$/.test(lead)) err = 'Lead time harus angka hari'
+  else if (!flagOk(r.buf)) err = 'Buffer harus 1/0 atau Ya/Tidak (nilai "' + String(r.buf).trim() + '" tidak dikenal)'
+  else if (!flagOk(r.kons)) err = 'Konsinyasi harus 1/0 atau Ya/Tidak (nilai "' + String(r.kons).trim() + '" tidak dikenal)'
   return { k, n, sat, buf: flag(r.buf), kons: flag(r.kons), lead, err }
 }
 // Urutan kolom: Kode | Nama | Satuan | Buffer | Konsinyasi | Lead time (hari). Pemisah: tab, ; | atau koma.

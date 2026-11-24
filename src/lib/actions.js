@@ -284,7 +284,9 @@ export const actions = {
   },
   importMaster(sel, d, rows) {
     if (!Array.isArray(rows) || rows.length > 3000) return { err: 'Impor maksimal 3000 baris sekali jalan.' }
-    const ok = rows.map(cleanMaster).filter(r => !r.err) // dibersihkan ulang di server
+    // Baris yang sudah ditandai bermasalah oleh klien dibuang, sisanya dibersihkan ulang di server (server otoritatif)
+    const ok = rows.filter(r => r && !r.err).map(cleanMaster).filter(r => !r.err)
+    const skip = rows.length - ok.length
     if (!ok.length) return { err: 'Tidak ada baris yang valid.' }
     let baru = 0
     let ubah = 0
@@ -293,7 +295,7 @@ export const actions = {
       const ex = d.M.find(m => m.k == row.k)
       if (ex) { Object.assign(ex, row); ubah++ } else { d.M.push(row); baru++ }
     })
-    return { ok: `${baru} item baru, ${ubah} item diperbarui.` }
+    return { ok: `${baru} item baru, ${ubah} item diperbarui.` + (skip ? ` ${skip} baris tidak valid dilewati.` : '') }
   },
 
   // Admin Warehouse memeriksa SRL dari Admin Dept: barang yang tidak sesuai dikeluarkan (kembali ke Pool), sisanya divalidasi.

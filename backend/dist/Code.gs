@@ -75,7 +75,11 @@ const minsAgo = at => {
 }
 
 // Master item: normalisasi dan parser tempel dari Excel/CSV.
-const flag = v => (/^(1|y|ya|yes|true|buffer|konsinyasi)$/i.test(String(v ?? '').trim()) ? '1' : '0')
+const FLAG_ON = /^(1|y|ya|yes|true|buffer|konsinyasi)$/i
+const FLAG_OFF = /^(0|n|no|tidak|false|-|non buffer|non konsinyasi)?$/i
+const flag = v => (FLAG_ON.test(String(v ?? '').trim()) ? '1' : '0')
+// Nilai selain Ya/Tidak/1/0 (mis. "2", "x", salah ketik) ditolak, jangan diam-diam dianggap 0
+const flagOk = v => { const t = String(v ?? '').trim(); return FLAG_ON.test(t) || FLAG_OFF.test(t) }
 function cleanMaster(r) {
   const k = String(r.k || '').trim().toUpperCase().replace(/\s+/g, '-')
   const n = String(r.n || '').trim()
@@ -86,6 +90,8 @@ function cleanMaster(r) {
   else if (!n) err = 'Nama kosong'
   else if (!sat) err = 'Satuan kosong'
   else if (!/^\d+$/.test(lead)) err = 'Lead time harus angka hari'
+  else if (!flagOk(r.buf)) err = 'Buffer harus 1/0 atau Ya/Tidak (nilai "' + String(r.buf).trim() + '" tidak dikenal)'
+  else if (!flagOk(r.kons)) err = 'Konsinyasi harus 1/0 atau Ya/Tidak (nilai "' + String(r.kons).trim() + '" tidak dikenal)'
   return { k, n, sat, buf: flag(r.buf), kons: flag(r.kons), lead, err }
 }
 // Urutan kolom: Kode | Nama | Satuan | Buffer | Konsinyasi | Lead time (hari). Pemisah: tab, ; | atau koma.
@@ -559,7 +565,9 @@ const actions = {
   },
   importMaster(sel, d, rows) {
     if (!Array.isArray(rows) || rows.length > 3000) return { err: 'Impor maksimal 3000 baris sekali jalan.' }
-    const ok = rows.map(cleanMaster).filter(r => !r.err) // dibersihkan ulang di server
+    // Baris yang sudah ditandai bermasalah oleh klien dibuang, sisanya dibersihkan ulang di server (server otoritatif)
+    const ok = rows.filter(r => r && !r.err).map(cleanMaster).filter(r => !r.err)
+    const skip = rows.length - ok.length
     if (!ok.length) return { err: 'Tidak ada baris yang valid.' }
     let baru = 0
     let ubah = 0
@@ -568,7 +576,7 @@ const actions = {
       const ex = d.M.find(m => m.k == row.k)
       if (ex) { Object.assign(ex, row); ubah++ } else { d.M.push(row); baru++ }
     })
-    return { ok: `${baru} item baru, ${ubah} item diperbarui.` }
+    return { ok: `${baru} item baru, ${ubah} item diperbarui.` + (skip ? ` ${skip} baris tidak valid dilewati.` : '') }
   },
 
   // Admin Warehouse memeriksa SRL dari Admin Dept: barang yang tidak sesuai dikeluarkan (kembali ke Pool), sisanya divalidasi.
