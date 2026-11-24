@@ -1,5 +1,5 @@
 // =====================================================================================
-// SIPRAK -- relasi antartabel dan aturan data
+// NRB -- relasi antartabel dan aturan data
 // -------------------------------------------------------------------------------------
 // Dipakai di dua tempat:
 //  1. locked_ (server.gs): setelah sebuah aksi dijalankan dan SEBELUM menulis, baris yang berubah diperiksa

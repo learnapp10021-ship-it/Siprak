@@ -1,4 +1,4 @@
-# Backend SIPRAK (Google Apps Script + Google Spreadsheet)
+# Backend NRB (Google Apps Script + Google Spreadsheet)
 
 ## Deploy (sekali, ±10 menit)
 1. Buat Google Spreadsheet kosong. Buka **Extensions > Apps Script**.

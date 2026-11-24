@@ -964,7 +964,7 @@ ITM-002|20|andi.prod`,
 
 // ---------- backend/src/server.gs ----------
 // =====================================================================================
-// SIPRAK server (Google Apps Script) -- Google Spreadsheet sebagai database
+// NRB server (Google Apps Script) -- Google Spreadsheet sebagai database
 // -------------------------------------------------------------------------------------
 // Jaminan yang dibangun di sini:
 //  1. Semua penulisan diserialkan oleh LockService (satu penulis pada satu waktu = antrean).
@@ -1796,7 +1796,7 @@ function installTriggers() {
 
 // ---------- backend/src/rules.gs ----------
 // =====================================================================================
-// SIPRAK -- relasi antartabel dan aturan data
+// NRB -- relasi antartabel dan aturan data
 // -------------------------------------------------------------------------------------
 // Dipakai di dua tempat:
 //  1. locked_ (server.gs): setelah sebuah aksi dijalankan dan SEBELUM menulis, baris yang berubah diperiksa

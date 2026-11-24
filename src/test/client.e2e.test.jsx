@@ -65,7 +65,7 @@ beforeEach(() => {
   Object.assign(net, { posts: 0, gets: 0, dropResponses: 0, down: false })
 })
 
-describe('klien SIPRAK + backend Google Sheets', () => {
+describe('klien NRB + backend Google Sheets', () => {
   it('memuat data dari server', async () => {
     await mount()
     expect(app.db.R.length).toBe(rows('Request').length)

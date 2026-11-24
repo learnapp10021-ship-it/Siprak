@@ -1,4 +1,4 @@
-# Panduan Go Live — NRB / SIPRAK
+# Panduan Go Live — NRB (Nota Request Barang)
 
 Status per dokumen ini: kode sudah diuji dan siap. Yang tersisa adalah langkah yang hanya bisa dilakukan pemilik
 akun Google (Apps Script) dan satu keputusan keamanan (login).

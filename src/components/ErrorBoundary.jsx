@@ -10,7 +10,7 @@ export class ErrorBoundary extends Component {
   }
 
   componentDidCatch(err, info) {
-    console.error('SIPRAK: galat tampilan', err, info?.componentStack)
+    console.error('NRB: galat tampilan', err, info?.componentStack)
   }
 
   reload = () => window.location.reload()

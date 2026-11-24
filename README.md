@@ -1,4 +1,4 @@
-# SIPRAK — Request Barang (React)
+# NRB — Nota Request Barang (React)
 
 Aplikasi request barang: pengajuan → persetujuan atasan → pembuatan SRL di ERO → kedatangan → serah terima,
 dengan dashboard Warehouse untuk OPR mingguan. Versi React dari `legacy/Request_Barang_v2.html`.

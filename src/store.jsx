@@ -70,7 +70,7 @@ function Boot({ state, err, retry }) {
   return (
     <div className="boot" role={state == 'loading' ? 'status' : 'alert'} aria-live="polite">
       <div className="boot-card">
-        <h1>Request barang</h1>
+        <h1>NRB</h1>
         {state == 'loading' ? (
           <>
             <div className="spin big" aria-hidden="true" />

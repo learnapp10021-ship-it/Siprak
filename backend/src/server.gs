@@ -1,5 +1,5 @@
 // =====================================================================================
-// SIPRAK server (Google Apps Script) -- Google Spreadsheet sebagai database
+// NRB server (Google Apps Script) -- Google Spreadsheet sebagai database
 // -------------------------------------------------------------------------------------
 // Jaminan yang dibangun di sini:
 //  1. Semua penulisan diserialkan oleh LockService (satu penulis pada satu waktu = antrean).
