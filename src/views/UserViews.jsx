@@ -1,20 +1,85 @@
-import { useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { useApp, newLine } from '../store'
 import { Hd, Empty, Pill, ReqCard, Confirm, useMore } from '../components/ui'
 import { lineErrors } from '../lib/actions'
 import { useOwnRequests } from '../lib/useOwnRequests'
-import { D, TODAY, addDays } from '../lib/utils'
+import { CATS, CAT_ORDER, bySiapFirst, itemCat, reqSummary } from '../lib/reqStage'
+import { D, TODAY, addDays, days } from '../lib/utils'
+import './reqsaya.css'
 
 // Hanya request yang belum 100%. Yang sudah selesai, ditolak, atau dibatalkan pindah ke tab Histori.
+// Ringkasan per tahap bisa diketuk untuk menyaring; barang siap diambil selalu di atas karena itu yang butuh tindakan pemohon.
 export function VReq() {
-  const { setUi } = useApp()
+  const { sel, setUi } = useApp()
   const { aktif, histori } = useOwnRequests()
-  const [rows, more] = useMore(aktif, 10)
+  const [cat, setCat] = useState('')
+  const [q, setQ] = useState('')
+  const dq = useDeferredValue(q).trim().toLowerCase()
+
+  // dihitung sekali per perubahan data, bukan tiap mengetik
+  const sums = useMemo(() => aktif.map(r => reqSummary(r, sel)), [aktif, sel])
+  const total = useMemo(() => {
+    const t = { all: 0, siap: 0, approval: 0, proses: 0, tahan: 0, draft: 0 }
+    sums.forEach(s => { t.all += s.n; CAT_ORDER.forEach(k => { t[k] += s.c[k] }) })
+    return t
+  }, [sums])
+  const ready = useMemo(
+    () => sums
+      .flatMap(s => s.items.filter(i => itemCat(i, sel) == 'siap').map(i => ({ i, r: s.r, b: sel.siap(i), m: sel.mi(i.kode), w: days(sel.lastArrival(i.kon) || TODAY) })))
+      .sort((x, y) => y.w - x.w),
+    [sums, sel]
+  )
+  const list = useMemo(() => {
+    let l = sums
+    if (cat) l = l.filter(x => x.c[cat] > 0)
+    if (dq) l = l.filter(x => (x.r.id + ' ' + x.items.map(i => (sel.mi(i.kode)?.n || '') + ' ' + i.kode).join(' ')).toLowerCase().includes(dq))
+    return cat ? l : [...l].sort(bySiapFirst) // sort stabil: urutan terbaru tetap terjaga di tiap kelompok
+  }, [sums, cat, dq, sel])
+  const [rows, more] = useMore(list.map(x => x.r), 10)
+
   return (
     <>
-      <Hd t="Request saya" s="Request yang masih berjalan. Yang sudah selesai ada di Histori." />
+      <Hd t="Request saya" s="Pantau barang Anda sampai diambil." />
       {aktif.length ? (
-        rows.map(r => <ReqCard key={r.id} r={r} mode="own" />)
+        <>
+          {!cat && ready.length ? (
+            <section className="rs-ready" aria-label="Barang siap diambil">
+              <div className="rs-rh">
+                <h3>{ready.length} barang siap diambil di Warehouse</h3>
+                {ready.length > 3 ? <button type="button" className="lnk" onClick={() => setCat('siap')}>Lihat semua</button> : null}
+              </div>
+              <ul>
+                {ready.slice(0, 3).map(x => (
+                  <li key={x.i.id}>
+                    <span className="rs-n"><b>{x.m?.n || x.i.kode}</b><small className="mut">{x.r.id}, di gudang {x.w} hari</small></span>
+                    <span className="rs-q">{x.b} {x.m?.sat}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <div className="rs-chips" role="group" aria-label="Saring menurut tahap">
+            <button type="button" className="chip" aria-pressed={!cat} onClick={() => setCat('')}>Semua ({total.all})</button>
+            {CAT_ORDER.filter(k => total[k] > 0).map(k => (
+              <button key={k} type="button" className="chip" aria-pressed={cat == k} onClick={() => setCat(cat == k ? '' : k)}>{CATS[k].l} ({total[k]})</button>
+            ))}
+          </div>
+          {aktif.length > 5 ? (
+            <input className="rs-q-in" type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Cari nomor request atau nama barang" aria-label="Cari request" />
+          ) : null}
+          <p className="mut rs-cnt" aria-live="polite">{cat || dq ? list.length + ' dari ' + aktif.length + ' request' : ''}</p>
+
+          {rows.length ? (
+            rows.map(r => <ReqCard key={r.id} r={r} mode="own" />)
+          ) : (
+            <Empty>
+              Tidak ada request yang cocok.{' '}
+              <button type="button" className="lnk" onClick={() => { setCat(''); setQ('') }}>Hapus filter</button>
+            </Empty>
+          )}
+          {more}
+        </>
       ) : (
         <Empty>
           {histori.length
@@ -22,7 +87,6 @@ export function VReq() {
             : 'Belum ada request. Buka tab Buat request untuk mulai.'}
         </Empty>
       )}
-      {more}
       {histori.length ? (
         <div style={{ marginTop: 12 }}>
           <button className="lnk" onClick={() => setUi({ tab: 'his' })}>Lihat Histori ({histori.length} request)</button>

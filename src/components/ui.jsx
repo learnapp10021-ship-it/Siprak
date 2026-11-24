@@ -1,6 +1,7 @@
 import { memo, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { D, TODAY } from '../lib/utils'
+import { reqStage, reqSummary } from '../lib/reqStage'
 
 export const Pill = ({ t, children }) => <span className={`pill ${t}`}>{children}</span>
 export const Hd = ({ t, s }) => (
@@ -134,11 +135,13 @@ export const ReqCard = memo(function ReqCard({ r, mode }) {
   const its = all.filter(i => !sel.itemDone(i) || i.status != 'Sudah di ERO')
   const fin = all.filter(i => sel.itemDone(i) && i.status == 'Sudah di ERO')
   const doneId = useId()
+  // Di "Request saya" kepala kartu menunjukkan tahap barang (siap diambil, diproses, ...), bukan status request yang berulang
+  const stage = mode == 'own' && r.st != 'Ditolak' && r.st != 'Dibatalkan' ? reqStage(reqSummary(r, sel)) : null
   return (
     <div className="row">
       <div className="between">
         <div><b>{r.id}</b> <small>{D(r.tgl)}{mode != 'own' ? ', ' + sel.nm(r.by) : ''}</small></div>
-        <Pill t={TONE[r.st]}>{r.st}</Pill>
+        <Pill t={stage ? stage.t : TONE[r.st]}>{stage ? stage.l : r.st}</Pill>
       </div>
       {r.cat ? <small className="mut">Catatan atasan: {r.cat}</small> : null}
       {its.map(i => <ItemCard key={i.id} it={i} />)}
