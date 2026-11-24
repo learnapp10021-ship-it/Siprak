@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import logo from '../assets/logo-dbc.png'
+import { REMOTE } from '../lib/api'
 
 const ORDER = ['User', 'Atasan', 'Admin Dept', 'Admin Warehouse', 'Spv Warehouse']
 
@@ -46,6 +47,7 @@ export function Login({ users, onPick }) {
           value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
         />
         <button type="submit" className="login-btn">Login</button>
+        {!REMOTE && <p className="login-demo" role="note">Mode demo: data contoh dan tidak tersimpan ke Google Sheets.</p>}
         <img className="login-logo" src={logo} width="334" height="167" decoding="async" alt="DBC, Inspired to Exceed" />
         <p className="login-note">Mode uji coba: password belum diperiksa, boleh dikosongkan.</p>
       </form>

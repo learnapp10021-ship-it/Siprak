@@ -20,6 +20,10 @@ npm run build:backend  # bangun ulang backend/dist/Code.gs (wajib setelah mengub
   banyak pengguna sekaligus, dengan antrean kirim ulang yang aman (tidak menulis ganda). Cara memasang ada di
   [`backend/README.md`](backend/README.md). Salin `.env.example` ke `.env` untuk mengatur `VITE_API_URL` dan `VITE_API_KEY`.
 
+## Go live
+
+Lihat [`GO-LIVE.md`](GO-LIVE.md): status pengujian, langkah pasang backend, uji bersama, rencana mundur, dan satu keputusan keamanan (login) yang harus diambil.
+
 ## Struktur
 
 ```
