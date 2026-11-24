@@ -1,4 +1,4 @@
-// SIPRAK service worker: kerangka aplikasi tersedia tanpa jaringan dan pemuatan ulang nyaris instan.
+// NRB service worker: kerangka aplikasi tersedia tanpa jaringan dan pemuatan ulang nyaris instan.
 //  - /assets/* (berkas ber-hash, isinya tidak pernah berubah)  -> cache dulu, jaringan hanya bila belum ada
 //  - halaman, manifest, ikon                                      -> jaringan dulu (versi baru langsung terpakai);
 //                                                                    bila jaringan lambat (>3,5 dtk) atau mati, pakai cadangan

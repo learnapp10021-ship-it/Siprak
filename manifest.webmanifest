@@ -1,6 +1,6 @@
 {
-  "name": "SIPRAK — Request Barang",
-  "short_name": "SIPRAK",
+  "name": "NRB — Nota Request Barang",
+  "short_name": "NRB",
   "lang": "id",
   "start_url": "./",
   "scope": "./",
