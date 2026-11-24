@@ -1012,3 +1012,133 @@ main.v-new>.acts .btn{min-height:44px;font-weight:600}
 /* Penanda mode demo (tanpa backend): jangan sampai dikira data sungguhan */
 .demo-tag{margin-left:8px;padding:1px 7px;border-radius:3px;background:#fff;color:var(--bad);font-size:12px;font-weight:700;letter-spacing:.05em;vertical-align:middle}
 .login-demo{margin:12px 0 0;padding:8px 10px;border:1px dashed var(--bad);border-radius:var(--r);color:var(--bad);background:var(--badbg);font-size:13px;text-align:center}
+
+/* ==========================================================================
+   Kematangan visual (v3): satu bahasa visual untuk seluruh layar. Hanya tampilan.
+   Hierarki: judul halaman > bilah alat > data. Datar, bergaris tipis, sedikit kartu,
+   status berupa teks kecil, satu warna aksi, kontrol seragam.
+   Diberi awalan #app agar menang atas lapisan lama tanpa mengubah class/ID/aria/breakpoint.
+   ========================================================================== */
+:root{--bg:#F2F4F7;--line:#E1E5EA;--bd:#C8CFD7;--ink:#1D2733;--mut:#586474;--soft:#EAF0F7;--r:5px;--r2:5px;
+  /* turunan dari token tema aktif: ikut tema terang, white smoke, maupun gelap */
+  --head:color-mix(in srgb,var(--paper) 55%,var(--bg));--rowline:color-mix(in srgb,var(--line) 55%,var(--paper))}
+
+/* Komponen khusus HP tidak boleh muncul di desktop (label "Urutkan") */
+#app main .grid .only-m{display:none}
+@media screen and (max-width:699px){#app main .grid .only-m{display:grid}}
+
+/* --- Header: lebih tenang, tanpa garis warna --- */
+#app header{border-bottom:1px solid rgba(0,0,0,.3);box-shadow:none}
+#app header h1{font-weight:600;letter-spacing:0}
+
+/* --- Kontrol seragam: tepi tipis, fokus jelas, kotak centang sewarna aksi --- */
+#app main input:not([type=checkbox]):not([type=radio]),#app main select,#app main textarea,
+#app .sheet input:not([type=checkbox]):not([type=radio]),#app .sheet select,#app .sheet textarea{
+  border:1px solid var(--bd);border-radius:4px;background:var(--paper);color:var(--ink);box-shadow:none}
+#app main input:not([type=checkbox]):not([type=radio]):focus,#app main select:focus,#app main textarea:focus,
+#app .sheet input:not([type=checkbox]):not([type=radio]):focus,#app .sheet select:focus,#app .sheet textarea:focus{
+  outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(46,109,164,.18)}
+#app input::placeholder,#app textarea::placeholder{color:#6B7787;opacity:1}
+input[type=checkbox],input[type=radio]{accent-color:var(--fill)}
+#app .btn{border-radius:4px;font-weight:600;letter-spacing:0}
+
+/* --- Filter: segmen datar, aktif ditandai warna aksi (bukan blok biru penuh) --- */
+#app .chip{border-radius:4px;font-size:14px;font-weight:500;border-color:var(--bd);background:var(--paper);color:var(--ink)}
+@media(hover:hover){#app .chip:hover{border-color:var(--brand);background:var(--head)}}
+#app .chip[aria-pressed=true]{background:var(--soft);border-color:var(--brand);color:var(--brand);font-weight:600}
+#app .chips{gap:6px}
+
+/* --- Status: lencana kecil, rapat, tanpa sudut bulat --- */
+#app .pill{border-radius:3px;font-size:13px;font-weight:600;padding:1px 8px;letter-spacing:0;line-height:1.5}
+
+/* --- Tabel: kepala abu muda, garis baris tipis, angka rata kanan sudah dari lapisan lama --- */
+#app .tbl th,#app .egrid thead th{background:var(--head);color:var(--mut);font-size:13px;font-weight:600;border-bottom:1px solid var(--bd)}
+#app .tbl td,#app .egrid td{border-bottom:1px solid var(--rowline);color:var(--ink)}
+#app .tbl tbody tr:last-child td{border-bottom:0}
+#app .tw{background:var(--paper);border:1px solid var(--line);border-radius:6px;box-shadow:none;overflow:auto}
+@media(hover:hover){#app .tbl tbody tr:hover td,#app .egrid tbody tr:hover td{background:var(--head)}}
+
+/* --- Panel & kartu: satu gaya (kertas putih, garis tipis, sudut 6px, tanpa bayangan) --- */
+#app .trend,#app .kpi,#app .empty,#app .eropanel,#app .his-row{border:1px solid var(--line);border-radius:6px;box-shadow:none}
+
+@media screen and (min-width:700px){
+  /* Kartu request: kepala kelompok bergaris, barang berupa baris daftar (bukan kartu di dalam kartu) */
+  #app main .row{padding:8px 14px 4px;overflow:hidden;border:1px solid var(--line);border-radius:6px;background:var(--paper);box-shadow:none}
+  #app main .row>.between:first-child{margin:-8px -14px 4px;padding:9px 14px;background:var(--head);border-bottom:1px solid var(--line);align-items:center}
+  #app main .row>.between:first-child b{font-size:14px}
+  #app main .row .item{border:0;border-top:1px solid var(--rowline);border-radius:0;margin:0;padding:10px 0;background:none;box-shadow:none}
+  #app main .row>.between:first-child+.item,#app main .row>small+.item{border-top:0}
+  #app main .row>.acts{padding-bottom:8px}
+
+  /* Ringkasan "siap diambil": panel netral dengan garis atas berwarna status, bukan kotak hijau */
+  #app main .rs-ready{background:var(--paper);border:1px solid var(--line);border-top:2px solid var(--ok);border-radius:6px;box-shadow:none;padding:12px 16px}
+  #app main .rs-ready h3{font-size:14px;font-weight:600;color:var(--ink);margin:0}
+  #app main .rs-ready li{border-bottom-color:var(--rowline)}
+}
+@media screen and (min-width:1024px){
+  /* Judul halaman: bilah judul dengan garis pemisah, lalu bilah alat, lalu data */
+  #app main .hd{padding:14px 0 12px;margin:0 0 14px;border-bottom:1px solid var(--line)}
+  #app main .hd h2{font-size:20px;font-weight:600;letter-spacing:-.012em;margin:0 0 2px}
+  #app main .hd p{font-size:14px;color:var(--mut)}
+  #app main .btn{min-height:32px;padding:5px 16px;font-size:14px;font-weight:600}
+  #app main .acts .btn{min-height:32px}
+  #app .rg{width:44px;height:44px;flex-basis:44px}#app .rg svg{width:44px;height:44px}
+  /* Dashboard: bilah periode sejajar di kiri, bukan satu baris melebar */
+  #app main .dtop{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+  #app main .dtop label{min-width:260px}
+  #app main .dtop .btn{width:auto}
+  #app main .dfil{grid-template-columns:minmax(200px,260px) minmax(240px,360px);justify-content:start}
+}
+
+/* --- HP: kepala kartu rapi, tanpa garis kiri tebal pada barang, filter tidak terpotong --- */
+@media screen and (max-width:699px){
+  #app main .row>.between:first-child>div:first-child{display:grid;gap:1px;min-width:0}
+  #app main .row .item,#app main .item.itm{border-left:0;border-radius:0;box-shadow:none}
+  #app main .row .item{border-top:1px solid var(--rowline);padding-inline:0}
+  #app main .row>.between:first-child+.item,#app main .row>small+.item{border-top:0}
+  #app .chip{min-height:40px}
+  #app small.itm-id,#app .tbl.cards td.ttl small,#app main .srlpick small b{white-space:nowrap}
+}
+@media screen and (max-width:420px){
+  /* Pencarian dan pilihan filter bertumpuk: placeholder & isi pilihan terbaca penuh */
+  #app main .grid:has(>label>input[type=search]),#app main .sh-tools{grid-template-columns:1fr}
+  #app main .grid:has(>label>input[type=search])>label{min-width:0}
+  #app main .grid:has(>label>input[type=search]) input[type=search],#app main .grid input[type=search]{width:100%}
+  #app main .sh-lc .sh-tools select{width:100%}
+}
+
+/* --- Penyempurnaan v3 --- */
+/* Tabel data: hanya garis baris (tanpa garis kolom); status selalu berupa lencana yang sama di semua tabel */
+@media screen and (min-width:1024px){
+  #app .egrid th,#app .egrid td{border-left:0;border-right:0;border-top:0}
+  #app .egrid{border-collapse:collapse}
+  #app .egrid .pill,#app .egrid .t-warn,#app .egrid .t-bad{padding:1px 8px;border-radius:3px}
+  #app .egrid .t-warn{background:var(--warnbg);color:var(--warn)}
+  #app .egrid .t-bad{background:var(--badbg);color:var(--bad)}
+}
+/* Penghitung di menu: antrean kerja, bukan alarm; merah hanya untuk bahaya sungguhan */
+#app nav .bdg{background:var(--brand);color:var(--onb);border-radius:10px;min-width:22px;font-weight:600}
+/* Pencarian & hitungan pada susunan kolom: satu baris penuh, tidak nyangkut di kolom pertama */
+#app main .rs-q-in{column-span:all;max-width:360px;margin:0 0 6px}
+#app main .rs-cnt{column-span:all}
+/* Pengalih mode (Per penerima / Per SRL): kontrol segmen, bukan dua tombol lebar */
+@media screen and (min-width:700px){
+  #app main .sh-modes{display:inline-flex;max-width:none;width:auto;gap:0}
+  #app main .sh-modes>*{flex:none;min-width:130px;border-radius:0;margin:0;min-height:32px;padding:4px 18px}
+  #app main .sh-modes>*+*{margin-left:-1px}
+  #app main .sh-modes>:first-child{border-radius:4px 0 0 4px}
+  #app main .sh-modes>:last-child{border-radius:0 4px 4px 0}
+  #app main .sh-modes>[aria-pressed=true]{position:relative;z-index:1}
+}
+/* Hierarki dashboard: judul bagian lebih tegas, angka utama lebih besar, bilah umur lebih ramping */
+#app main .srl{color:var(--ink);font-size:14px;font-weight:600;margin:22px 0 8px}
+#app main .kpi b{font-size:22px;line-height:1.2}
+#app .agb{height:8px;border-radius:4px}
+#app .agb:has(button){height:12px}
+
+/* Ringkasan "siap diambil": netral di semua ukuran layar (sebelumnya hijau penuh di HP) */
+#app main .rs-ready{background:var(--paper);border:1px solid var(--line);border-top:2px solid var(--ok);border-left:1px solid var(--line);border-radius:6px;box-shadow:none}
+#app main .rs-ready h3{color:var(--ink)}
+@media screen and (max-width:420px){
+  #app main .grid:has(>label>input[type=search]),#app main .grid:has(>label>input[type=text]),#app main .grid:has(>label>input:not([type])){grid-template-columns:1fr}
+}
