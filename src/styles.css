@@ -972,3 +972,32 @@ main.v-new>.acts .btn{min-height:44px;font-weight:600}
 .itm-steps li{min-width:0}.itm-steps li span{white-space:nowrap;line-height:1.2}
 /* HP sangat kecil (<=340px): padding kartu User dikurangi agar enam label tahap tidak bertabrakan */
 @media(max-width:340px){main.v-req .row,main.v-his .his-det{padding-left:10px;padding-right:10px}.itm-steps li span{letter-spacing:-.02em}}
+
+/* ---- Dashboard: kartu KPI sejajar, petunjuk grafik sesuai perangkat, dan tabel lebar menjadi kartu di HP ---- */
+.kpi.kbtn{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
+.only-m,.only-m-i{display:none}
+.trend .tch{display:none}
+@media (hover:none){.trend .hov{display:none}.trend .tch{display:inline}}
+@media screen and (max-width:699px){
+  .only-m{display:grid}.only-m-i{display:inline}.m-hide{display:none}
+  .dtop{grid-template-columns:minmax(0,1fr) auto;align-items:end}
+  .dtop label small{font-weight:400}
+  .dtop .btn{width:auto!important;padding:0 16px;white-space:nowrap}
+  .dfil{grid-template-columns:1fr}
+  main .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  main .kpi{padding:10px 12px}
+  main .kpi>small:first-child{line-height:1.3;min-height:2.6em}
+  .agl.chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .agl .chip{white-space:normal;text-align:center;padding:6px 4px;font-size:12px;line-height:1.25;min-height:44px}
+  .tw.tw-c{border:0;background:transparent;box-shadow:none;overflow:visible;border-radius:0}
+  .tbl.cards,.tbl.cards tbody{display:block;width:100%}
+  .tbl.cards thead{display:none}
+  .tbl.cards tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 14px;padding:12px 14px;margin:0 0 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r2)}
+  .tbl.cards td,.tbl.cards tr:last-child td{display:block;padding:0;border:0;white-space:normal;min-width:0;overflow-wrap:anywhere;font-size:13px;background:none}
+  .tbl.cards td[data-l]::before{content:attr(data-l);display:block;font-size:12px;font-weight:400;color:var(--mut);margin-bottom:2px}
+  .tbl.cards td.ttl{grid-column:1/-1;font-size:14px;font-weight:600}
+  .tbl.cards td.isi,.tbl.cards td.wide{grid-column:1/-1;min-width:0;order:2}
+  .tbl.cards td.ttl.h{grid-column:1}
+  .tbl.cards td.ttl small{white-space:nowrap}
+  .tbl.cards td.hd{grid-column:2;grid-row:1;justify-self:end;align-self:start;text-align:right}
+}

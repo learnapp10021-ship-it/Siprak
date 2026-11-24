@@ -49,7 +49,7 @@ function Trend({ kd, sr, ps: p0, pe }) {
         ))}
       </svg>
       <div className="trend-x" aria-hidden="true">{rows.map((r, k) => <span key={r.d}>{n <= 8 || k % Math.ceil(n / 8) == 0 ? D(r.d).split(' ').slice(0, 2).join(' ') : ''}</span>)}</div>
-      <small className="mut trend-v">{cur ? `${D(cur.d)}: tiba ${cur.a}, diserahkan ${cur.h}` : 'Arahkan kursor ke batang untuk melihat angka harian.'}</small>
+      <small className="mut trend-v">{cur ? `${D(cur.d)}: tiba ${cur.a}, diserahkan ${cur.h}` : <><span className="hov">Arahkan kursor ke batang untuk melihat angka harian.</span><span className="tch">Ketuk batang untuk melihat angka harian.</span></>}</small>
     </div>
   )
 }
@@ -142,8 +142,8 @@ export function VDash() {
     <>
       <Hd t="Dashboard Warehouse" s="Monitoring untuk OPR mingguan. Pengingat dilakukan Admin Warehouse." />
       <p className="print-only"><b>Periode: {D(ps)} sampai {D(pe)}</b>. Posisi barang per {D(TODAY)}. Dicetak {D(TODAY)}.</p>
-      <div className="grid" style={{ gridColumn: '1/-1' }}>
-        <label>Periode ({D(ps)} sampai {D(pe)})
+      <div className="grid dtop" style={{ gridColumn: '1/-1' }}>
+        <label><span>Periode <small className="mut">({D(ps)} sampai {D(pe)})</small></span>
           <select value={pr} onChange={e => setUi({ dp: e.target.value })}>
             <option value="w0">Minggu ini</option>
             <option value="w1">Minggu lalu</option>
@@ -151,7 +151,7 @@ export function VDash() {
           </select>
         </label>
         <div style={{ alignSelf: 'end' }}>
-          <button className="btn alt" style={{ width: '100%' }} onClick={() => window.print()}>Cetak atau simpan PDF</button>
+          <button className="btn alt" style={{ width: '100%' }} onClick={() => window.print()}><span className="m-hide">Cetak atau simpan PDF</span><span className="only-m-i">Cetak / PDF</span></button>
         </div>
       </div>
 
@@ -187,7 +187,7 @@ export function VDash() {
       </div>
 
       <Srl>Sudah sampai, belum diambil</Srl>
-      <div className="grid" style={{ gridColumn: '1/-1' }}>
+      <div className="grid dfil" style={{ gridColumn: '1/-1' }}>
         <label>Tampilkan
           <select value={f} onChange={e => setUi({ df: e.target.value })}>
             <option value="">Semua</option>
@@ -201,16 +201,23 @@ export function VDash() {
         <label>Cari
           <input type="search" value={qs} placeholder="Barang, PIC, departemen" onChange={e => setQs(e.target.value)} />
         </label>
+        <label className="only-m">Urutkan
+          <select value={so.k} onChange={e => setSo({ k: e.target.value, dir: e.target.value == 'n' ? 1 : -1 })}>
+            <option value="w">Terlama di gudang</option>
+            <option value="q">Qty terbanyak</option>
+            <option value="n">Nama barang A sampai Z</option>
+          </select>
+        </label>
       </div>
       <div className="chips" style={{ gridColumn: '1/-1' }}>
         <button type="button" className="chip" aria-pressed={!fd} onClick={() => setFd('')}>Semua dept</button>
         {deps.map(d => <button key={d} type="button" className="chip" aria-pressed={fd == d} onClick={() => setFd(fd == d ? '' : d)}>{d} ({w.filter(x => x.d == d).length})</button>)}
         {(f || fd || qs) && <button type="button" className="chip lnk-reset" onClick={() => { setUi({ df: '' }); setFd(''); setQs('') }}>Hapus semua filter</button>}
       </div>
-      <p className="mut" style={{ gridColumn: '1/-1', margin: '6px 0 6px' }}>{lw.length} dari {w.length} barang. Ketuk kartu atau grafik untuk menyaring, klik judul kolom untuk mengurutkan, ketuk baris untuk detail barang.</p>
+      <p className="mut" style={{ gridColumn: '1/-1', margin: '6px 0 6px' }}>{lw.length} dari {w.length} barang. <span className="m-hide">Ketuk kartu atau grafik untuk menyaring, klik judul kolom untuk mengurutkan, ketuk baris untuk detail barang.</span><span className="only-m-i">Ketuk kartu atau grafik untuk menyaring, ketuk barang untuk detail.</span></p>
       {lw.length ? (
-        <div className="tw" tabIndex={0} role="region" aria-label="Barang yang sudah sampai dan belum diambil">
-          <table className="tbl">
+        <div className="tw tw-c" tabIndex={0} role="region" aria-label="Barang yang sudah sampai dan belum diambil">
+          <table className="tbl cards">
             <thead>
               <tr>
                 {[['Barang', 'n'], ['Qty', 'q'], ['Peminta'], ['Datang'], ['Di gudang', 'w'], ['Pengingat'], ['Dipakai']].map(([t, k]) => (
@@ -226,15 +233,15 @@ export function VDash() {
                 const open = () => setUi({ di: x.i.id })
                 return (
                   <tr key={x.i.id} className="clk" onClick={open} onKeyDown={rowKey(open)} tabIndex={0} role="button">
-                    <td>{x.m.n} <small className="mut">{x.i.id}</small></td>
-                    <td>{x.b} {x.m.sat}</td>
-                    <td>{x.by}<br /><small className="mut">{x.d}</small></td>
-                    <td>{D(x.a)}</td>
-                    <td><Pill t={agePill(x.w)}>{x.w} hari</Pill></td>
-                    <td>
+                    <td className="ttl h">{x.m.n} <small className="mut">{x.i.id}</small></td>
+                    <td data-l="Qty">{x.b} {x.m.sat}</td>
+                    <td data-l="Peminta">{x.by}<br /><small className="mut">{x.d}</small></td>
+                    <td data-l="Datang">{D(x.a)}</td>
+                    <td data-l="Di gudang" className="hd"><Pill t={agePill(x.w)}>{x.w} hari</Pill></td>
+                    <td data-l="Pengingat" className="wide">
                       {l ? <>{x.rm.length} kali<br /><small className="mut">{D(l.at)}, {sel.nm(l.by)}</small></> : <Pill t={x.w >= 3 ? 't-bad' : 't-gray'}>Belum</Pill>}
                     </td>
-                    <td>{x.i.pakai ? D(x.i.pakai) : '-'}</td>
+                    <td data-l="Dipakai">{x.i.pakai ? D(x.i.pakai) : '-'}</td>
                   </tr>
                 )
               })}
@@ -248,8 +255,8 @@ export function VDash() {
 
       <Srl>PIC yang belum mengambil ({pics.length} orang)</Srl>
       {pics.length ? (
-        <div className="tw" tabIndex={0} role="region" aria-label="Barang menunggu per peminta">
-          <table className="tbl">
+        <div className="tw tw-c" tabIndex={0} role="region" aria-label="Barang menunggu per peminta">
+          <table className="tbl cards">
             <thead><Th a={['PIC', 'Barang', 'Isi', 'Terlama', 'Pengingat']} /></thead>
             <tbody>
               {picV.map(a => {
@@ -259,13 +266,13 @@ export function VDash() {
                 const open = () => setUi({ dpic: x.u })
                 return (
                   <tr key={x.u} className="clk" onClick={open} onKeyDown={rowKey(open)} tabIndex={0} role="button">
-                    <td>{x.by}<br /><small className="mut">{x.d}</small></td>
-                    <td>{a.length}</td>
-                    <td style={{ whiteSpace: 'normal', minWidth: 200 }}>
+                    <td className="ttl h">{x.by} <small className="mut">{x.d}</small></td>
+                    <td data-l="Barang">{a.length}</td>
+                    <td data-l="Isi" className="isi">
                       {a.slice(0, 2).map(y => y.m.n + ' ' + y.b).join(', ')}{a.length > 2 ? ' +' + (a.length - 2) + ' lainnya' : ''}
                     </td>
-                    <td><Pill t={agePill(mx)}>{mx} hari</Pill></td>
-                    <td>{sum(a, y => y.rm.length)} kali{nr ? <> <Pill t="t-bad">{nr} belum diingatkan</Pill></> : null}</td>
+                    <td data-l="Terlama" className="hd"><Pill t={agePill(mx)}>{mx} hari</Pill></td>
+                    <td data-l="Pengingat">{sum(a, y => y.rm.length)} kali{nr ? <> <Pill t="t-bad">{nr} belum diingatkan</Pill></> : null}</td>
                   </tr>
                 )
               })}
@@ -279,23 +286,23 @@ export function VDash() {
 
       <Srl>Lead time kedatangan per SRL</Srl>
       {slT.length ? (
-        <div className="tw" tabIndex={0} role="region" aria-label="Kinerja kedatangan per SRL">
-          <table className="tbl">
+        <div className="tw tw-c" tabIndex={0} role="region" aria-label="Kinerja kedatangan per SRL">
+          <table className="tbl cards">
             <thead><Th a={['SRL', 'Dept', 'Disetujui', 'Datang pertama', 'Lead time', 'Estimasi', 'Status', 'Datang']} /></thead>
             <tbody>
               {slV.map(x => (
                 <tr key={x.no}>
-                  <td>{x.no}</td><td>{x.d}</td>
-                  <td>{x.ap ? D(x.ap) : '-'}</td>
-                  <td>{x.first ? D(x.first) : '-'}</td>
-                  <td>{x.lt == null ? '-' : x.lt + ' hari'}</td>
-                  <td>{x.est ? D(x.est) : '-'}</td>
-                  <td>
+                  <td className="ttl h">{x.no}</td><td data-l="Dept">{x.d}</td>
+                  <td data-l="Disetujui">{x.ap ? D(x.ap) : '-'}</td>
+                  <td data-l="Datang pertama">{x.first ? D(x.first) : '-'}</td>
+                  <td data-l="Lead time">{x.lt == null ? '-' : x.lt + ' hari'}</td>
+                  <td data-l="Estimasi">{x.est ? D(x.est) : '-'}</td>
+                  <td data-l="Status" className="hd">
                     {x.first
                       ? x.late ? <Pill t="t-bad">Telat {dayDiff(x.est, x.first)} hari</Pill> : <Pill t="t-ok">Tepat waktu</Pill>
                       : x.late ? <Pill t="t-bad">Lewat estimasi</Pill> : <Pill t="t-gray">Belum datang</Pill>}
                   </td>
-                  <td>{x.dt} dari {x.tot}</td>
+                  <td data-l="Datang">{x.dt} dari {x.tot}</td>
                 </tr>
               ))}
             </tbody>
@@ -307,8 +314,8 @@ export function VDash() {
       {slMore}
 
       <Srl>Per departemen</Srl>
-      <div className="tw" tabIndex={0} role="region" aria-label="Ringkasan per departemen">
-        <table className="tbl">
+      <div className="tw tw-c" tabIndex={0} role="region" aria-label="Ringkasan per departemen">
+        <table className="tbl cards">
           <thead><Th a={['Dept', 'Belum diambil', 'Rata-rata menunggu', 'Pengingat (periode)', 'Lead time pengambilan (periode)']} /></thead>
           <tbody>
             {deps.map(d => {
@@ -316,10 +323,10 @@ export function VDash() {
               const p = pkP.filter(x => x.d == d)
               return (
                 <tr key={d}>
-                  <td>{d}</td><td>{a.length}</td>
-                  <td>{a.length ? f1(avg(a.map(x => x.w))) + ' hari' : '-'}</td>
-                  <td>{sum(a, x => x.rm.filter(r => inP(r.at)).length)}</td>
-                  <td>{p.length ? f1(avg(p.map(x => x.v))) + ' hari' : '-'}</td>
+                  <td className="ttl">{d}</td><td data-l="Belum diambil">{a.length}</td>
+                  <td data-l="Rata-rata menunggu">{a.length ? f1(avg(a.map(x => x.w))) + ' hari' : '-'}</td>
+                  <td data-l="Pengingat (periode)">{sum(a, x => x.rm.filter(r => inP(r.at)).length)}</td>
+                  <td data-l="Lead time pengambilan">{p.length ? f1(avg(p.map(x => x.v))) + ' hari' : '-'}</td>
                 </tr>
               )
             })}
@@ -328,12 +335,12 @@ export function VDash() {
       </div>
 
       <Srl>Aktivitas admin warehouse (periode)</Srl>
-      <div className="tw" tabIndex={0} role="region" aria-label="Kinerja admin warehouse">
-        <table className="tbl">
+      <div className="tw tw-c" tabIndex={0} role="region" aria-label="Kinerja admin warehouse">
+        <table className="tbl cards">
           <thead><Th a={['Admin', 'Kedatangan dicatat', 'Pengingat terkirim']} /></thead>
           <tbody>
             {adm.map(u => (
-              <tr key={u.id}><td>{u.n}</td><td>{kd.filter(d => d.by == u.id).length}</td><td>{rmP.filter(x => x.by == u.id).length}</td></tr>
+              <tr key={u.id}><td className="ttl">{u.n}</td><td data-l="Kedatangan dicatat">{kd.filter(d => d.by == u.id).length}</td><td data-l="Pengingat terkirim">{rmP.filter(x => x.by == u.id).length}</td></tr>
             ))}
           </tbody>
         </table>
