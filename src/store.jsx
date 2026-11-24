@@ -165,9 +165,19 @@ export function AppProvider({ children, initialUi: init }) {
     if (REMOTE) load()
   }, [load])
 
-  // Simpan snapshot ke cache lokal setiap data berubah
+  // Simpan snapshot ke cache lokal setiap data berubah. JSON.stringify + localStorage sinkron dan bisa puluhan ms
+  // pada data besar, jadi ditunda ke saat browser senggang (tidak menahan animasi/ketikan); sisa tulisan dituntaskan saat halaman ditutup.
   useEffect(() => {
-    if (REMOTE && db?.U?.length) writeCache(db, verRef.current)
+    if (!REMOTE || !db?.U?.length) return
+    const run = () => writeCache(db, verRef.current)
+    const ric = window.requestIdleCallback
+    const h = ric ? ric(run, { timeout: 2000 }) : setTimeout(run, 400)
+    window.addEventListener('pagehide', run)
+    return () => {
+      window.removeEventListener('pagehide', run)
+      if (ric) cancelIdleCallback(h)
+      else clearTimeout(h)
+    }
   }, [db])
 
   // Polling ringan: server membalas { same: true } bila tidak ada perubahan (dilayani dari cache)

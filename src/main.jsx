@@ -19,3 +19,8 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </StrictMode>
 )
+
+// Service worker (hanya build produksi): pemuatan ulang nyaris instan dan kerangka aplikasi tersedia tanpa jaringan.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}))
+}

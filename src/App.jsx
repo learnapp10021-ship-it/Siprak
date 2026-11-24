@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import { AppProvider, TABS, useApp, useStatus } from './store'
 import { ThemeSwitch } from './components/ThemeSwitch'
 import { Drawer, UserSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
@@ -29,7 +29,8 @@ export function Shell() {
   const tab = tabs.find(t => t[0] == ui.tab) ? ui.tab : BOTTOM[me.role]?.[0] || tabs[0][0]
   const View = VIEWS[tab]
 
-  const cnt = badgeCounts(db, sel, me)
+  // badge menu hanya bergantung pada data (bukan pada ketikan di kotak pencarian)
+  const cnt = useMemo(() => badgeCounts(db, sel, me), [db, sel, me.id, me.dept, me.role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const bottom = BOTTOM[me.role]
   const hidden = k => (bottom && !bottom.includes(k) ? 'nv-x' : undefined)
