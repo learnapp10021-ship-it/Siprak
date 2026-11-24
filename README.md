@@ -13,6 +13,9 @@ npm test               # sinkronisasi build backend + simulasi backend + audit m
 npm run build:backend  # bangun ulang backend/dist/Code.gs (wajib setelah mengubah src/lib atau src/data)
 ```
 
+> **Go live:** lihat [`GO-LIVE.md`](GO-LIVE.md) (langkah, biaya, dan syarat keamanan). Templat spreadsheet ada di
+> `backend/template/SIPRAK-Spreadsheet.xlsx`; periksa data dengan `npm run check:sheet -- data-asli/berkas.xlsx`.
+
 ## Dua mode data
 
 - **Demo lokal** (default, `VITE_API_URL` kosong): data contoh ada di memori browser dan hilang saat refresh.

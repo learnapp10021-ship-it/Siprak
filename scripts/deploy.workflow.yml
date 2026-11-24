@@ -1,0 +1,52 @@
+# PASANG SEKALI: salin isi berkas ini ke .github/workflows/deploy.yml lewat web GitHub
+# (Add file > Create new file, ketik nama .github/workflows/deploy.yml). Tidak bisa di-push dengan token biasa tanpa izin `workflow`.
+#
+# Terbitkan aplikasi ke GitHub Pages (cabang gh-pages) setiap ada perubahan di main, atau lewat tombol "Run workflow".
+# Go live = isi dua secret di Settings > Secrets and variables > Actions, lalu jalankan workflow ini:
+#   VITE_API_URL  URL web app Apps Script (berakhiran /exec)
+#   VITE_API_KEY  sama dengan Script Property API_KEY (opsional)
+# Bila VITE_API_URL kosong, hasilnya mode demo (data contoh di memori), sama seperti sebelumnya.
+# Opsional: variable VITE_POLL_MS (ms) untuk mengatur seberapa sering aplikasi mengecek data baru (bawaan 15000).
+name: Deploy ke GitHub Pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
+          VITE_POLL_MS: ${{ vars.VITE_POLL_MS }}
+      - name: Terbitkan ke cabang gh-pages
+        env:
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          git clone --depth 1 --branch gh-pages "https://x-access-token:${TOKEN}@github.com/${REPO}.git" pages
+          find pages -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r dist/. pages/
+          touch pages/.nojekyll
+          cd pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "Tidak ada perubahan untuk diterbitkan."; exit 0; fi
+          git commit -q -m "Deploy dari main@${SHA::7}"
+          git push origin gh-pages

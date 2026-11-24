@@ -1,7 +1,7 @@
 # Backend NRB (Google Apps Script + Google Spreadsheet)
 
 ## Deploy (sekali, ±10 menit)
-1. Buat Google Spreadsheet kosong. Buka **Extensions > Apps Script**.
+1. Unggah `backend/template/SIPRAK-Spreadsheet.xlsx` ke Google Drive dan buka dengan Google Sheets (atau buat Spreadsheet kosong dan biarkan `setup()` membuat sheetnya). Buka **Extensions > Apps Script**. Langkah lengkap: [`../GO-LIVE.md`](../GO-LIVE.md).
 2. Tempel isi `backend/dist/Code.gs` ke `Code.gs`. Di Project Settings aktifkan "Show appsscript.json", lalu salin isi `backend/dist/appsscript.json` (zona waktu Asia/Jakarta).
 3. Jalankan `setup()` (beri izin). Lalu `seedDemo()` untuk data contoh, atau isi sheet **Users** dan **Master** sendiri.
 4. (Disarankan) Project Settings > Script Properties: tambah `API_KEY` = kata acak. Jalankan `installTriggers()` sekali.

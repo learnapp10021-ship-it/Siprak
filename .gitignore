@@ -3,3 +3,8 @@ dist
 !backend/dist
 .env*
 !.env.example
+
+# Data asli (pengguna, nomor WhatsApp, master) TIDAK boleh masuk repo ini: repo bersifat publik.
+data-asli/
+*-asli.xlsx
+*.asli.xlsx
