@@ -10,7 +10,8 @@
     "build:backend": "node scripts/build-backend.mjs",
     "check:backend": "node scripts/build-backend.mjs --check",
     "test:backend": "node backend/test/sim.mjs && node backend/test/audit.mjs && node backend/test/relasi.mjs",
-    "test": "npm run check:backend && npm run test:backend && vitest run"
+    "test": "npm run check:backend && npm run test:backend && SEEDS=1,2,3 OPS=400 node backend/test/fuzz.mjs && vitest run",
+    "fuzz:backend": "node backend/test/fuzz.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

@@ -263,6 +263,23 @@ function rollbackTx_(txId) {
     del.sort((a, b) => b - a).forEach(r => sh.deleteRow(r))
   })
   SpreadsheetApp.flush()
+  // Verifikasi pemulihan (jalur terakhir pengaman tidak boleh dipercaya buta): tidak boleh ada baris yang masih
+  // bertanda tx ini, dan baris yang dikembalikan harus sama persis dengan nilai lama. Jika tidak: lempar galat
+  // supaya transaksi tetap PENDING dan dipulihkan ulang oleh transaksi berikutnya.
+  TABLES.forEach(t => {
+    const def = SCHEMA[t]
+    if (def.cols[def.cols.length - 1] !== 'tx') return
+    const sh = ss.getSheetByName(def.sheet)
+    const n = def.cols.length
+    const last = sh.getLastRow()
+    if (last < 2) return
+    const ki = def.cols.indexOf(def.key)
+    sh.getRange(2, 1, last - 1, n).getValues().forEach(v => {
+      if (String(v[n - 1]) === txId) throw new Error('Pemulihan belum tuntas: baris di ' + def.sheet + ' masih bertanda ' + txId)
+      const o = old[t] && old[t][String(v[ki])]
+      if (o && !same_(serRaw_(v, def), o)) throw new Error('Pemulihan belum tuntas: baris ' + v[ki] + ' di ' + def.sheet + ' belum kembali')
+    })
+  })
 }
 
 // ---------- menghitung perubahan ----------
