@@ -127,6 +127,7 @@ const load = async seedFn => {
   }
   ;({ AppProvider } = await import('../store'))
   ;({ Shell } = await import('../App'))
+  await (await import('../views/registry')).preloadAll() // layar dimuat malas di aplikasi; di tes dimuat dulu agar dirender sinkron
 }
 const open = async id => {
   localStorage.setItem('siprak.me', id)

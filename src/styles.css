@@ -1001,3 +1001,10 @@ main.v-new>.acts .btn{min-height:44px;font-weight:600}
   .tbl.cards td.ttl small{white-space:nowrap}
   .tbl.cards td.hd{grid-column:2;grid-row:1;justify-self:end;align-self:start;text-align:right}
 }
+
+/* ===== Kerangka saat layar pertama dimuat (hanya tampil bila kode layar belum ada) ===== */
+.v-load{display:grid;gap:12px;align-content:start}
+.skel{height:84px;border-radius:var(--r2);background:var(--line);opacity:.55}
+.skel.s{height:48px;width:60%}
+@media(prefers-reduced-motion:no-preference){.skel{animation:skel 1.1s ease-in-out infinite alternate}}
+@keyframes skel{to{opacity:.25}}

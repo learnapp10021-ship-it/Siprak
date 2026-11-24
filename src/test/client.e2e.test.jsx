@@ -3,6 +3,10 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import { render, act as rtlAct, waitFor, cleanup } from '@testing-library/react'
 import { createBackend } from '../../backend/test/mock-gas.mjs'
+import { preloadAll } from '../views/registry'
+
+// layar dimuat malas di aplikasi; di tes dimuat dulu agar dirender sinkron
+beforeAll(() => preloadAll())
 
 const be = createBackend()
 const { env, ctx } = be

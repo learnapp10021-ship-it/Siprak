@@ -6,6 +6,10 @@ import path from 'node:path'
 import postcss from 'postcss'
 import { Dialog } from '../components/Dialog'
 import { buildSeed } from '../data/seed'
+import { preloadAll } from '../views/registry'
+
+// layar dimuat malas di aplikasi; di tes dimuat dulu agar dirender sinkron
+beforeAll(() => preloadAll())
 
 let AppProvider, Shell
 beforeAll(async () => {

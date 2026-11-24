@@ -1,23 +1,10 @@
-import { memo, useEffect, useMemo } from 'react'
+import { Suspense, startTransition, useEffect, useMemo } from 'react'
 import { AppProvider, TABS, useApp, useStatus } from './store'
 import { ThemeSwitch } from './components/ThemeSwitch'
 import { Drawer, UserSheet, PicSheet, DetailSheet, HelpSheet } from './components/Overlays'
-import { VReq, VNew } from './views/UserViews'
-import { VHis } from './views/HistoriView'
-import { VAppr, VTim } from './views/AtasanViews'
-import { VPool, VKon, VAll } from './views/AdminDeptViews'
-import { VDtg, VSrh } from './views/WarehouseViews'
-import { VUsr } from './views/UsersView'
-import { VMst } from './views/MasterView'
-import { VVal } from './views/ValidasiView'
-import { VDash } from './views/DashboardView'
 import { SaveBar } from './components/SaveBar'
 import { badgeCounts } from './lib/notes'
-
-// Tiap layar dimemo: berubahnya status simpan/toast di Shell tidak menggambar ulang daftar yang berat.
-const VIEWS = Object.fromEntries(
-  Object.entries({ dash: VDash, allr: VAll, usr: VUsr, req: VReq, new: VNew, his: VHis, appr: VAppr, tim: VTim, pool: VPool, kon: VKon, dtg: VDtg, srh: VSrh, mst: VMst, val: VVal }).map(([k, v]) => [k, memo(v)])
-)
+import { VIEWS, preloadTabs } from './views/registry'
 
 // Menu bawah (HP/tablet) hanya untuk pekerjaan harian; menu lain ada di menu samping (hamburger). Desktop tetap menampilkan semua.
 const BOTTOM = { 'Admin Warehouse': ['dtg', 'srh'], 'Admin Dept': ['pool', 'kon'], User: ['req', 'new'] }
@@ -35,6 +22,14 @@ export function Shell() {
   const bottom = BOTTOM[me.role]
   const hidden = k => (bottom && !bottom.includes(k) ? 'nv-x' : undefined)
   const hamCnt = bottom ? tabs.filter(t => !bottom.includes(t[0])).reduce((a, t) => a + (cnt[t[0]] || 0), 0) : 0
+
+  // Setelah layar pertama tampil: muat kode semua tab peran ini saat browser senggang, sehingga pindah tab terasa instan.
+  useEffect(() => {
+    const keys = tabs.map(t => t[0])
+    const ric = window.requestIdleCallback
+    const h = ric ? ric(() => preloadTabs(keys), { timeout: 2500 }) : setTimeout(() => preloadTabs(keys), 800)
+    return () => (ric ? window.cancelIdleCallback(h) : clearTimeout(h))
+  }, [me.role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pindah tab -> kembali ke atas. Esc menutup overlay.
   useEffect(() => { window.scrollTo(0, 0) }, [tab, ui.me])
@@ -66,10 +61,16 @@ export function Shell() {
         {ui.help && <HelpSheet />}
         {ui.dpic && <PicSheet />}
         {ui.di && <DetailSheet />}
-        <main key={tab} className={'v-' + tab}><View /></main>
+        {/* Suspense di LUAR main yang ber-key: saat pindah tab, layar lama tetap tampil sampai layar baru siap */}
+        <Suspense fallback={<main className="v-load" aria-busy="true" aria-label="Memuat tampilan"><div className="skel" /><div className="skel" /><div className="skel s" /></main>}>
+          <main key={tab} className={'v-' + tab}><View /></main>
+        </Suspense>
         <nav aria-label="Menu utama">
           {tabs.map(t => (
-            <button key={t[0]} className={hidden(t[0])} aria-current={t[0] == tab ? 'true' : undefined} onClick={() => setUi({ tab: t[0], menu: false, eu: null })}>
+            <button
+              key={t[0]} className={hidden(t[0])} aria-current={t[0] == tab ? 'true' : undefined}
+              onPointerDown={() => VIEWS[t[0]]?.preload()} onClick={() => setUi({ tab: t[0], menu: false, eu: null })}
+            >
               {t[1]}{cnt[t[0]] ? <span className="bdg" aria-label={cnt[t[0]] + ' menunggu'}>{cnt[t[0]]}</span> : null}
             </button>
           ))}

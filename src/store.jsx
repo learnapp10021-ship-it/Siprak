@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { produce } from 'immer'
 import { buildSeed } from './data/seed'
 import { makeSel } from './lib/selectors'
@@ -118,7 +118,15 @@ export function AppProvider({ children, initialUi: init }) {
   const inflight = useRef(new Map())
   const decide = useRef(null)
 
-  const setUi = useCallback(p => setUiState(s => ({ ...s, ...(typeof p == 'function' ? p(s) : p) })), [])
+  const setUi = useCallback(p => {
+    // Pindah tab = transisi: menu/sheet menutup seketika, sedangkan layar lama tetap tampil sampai layar baru siap (tanpa kedip).
+    // tab 'x' dipakai untuk masuk/keluar dan harus langsung.
+    if (p && typeof p == 'object' && p.tab && p.tab != 'x') {
+      const { tab, ...rest } = p
+      if (Object.keys(rest).length) setUiState(s => ({ ...s, ...rest }))
+      startTransition(() => setUiState(s => ({ ...s, tab })))
+    } else setUiState(s => ({ ...s, ...(typeof p == 'function' ? p(s) : p) }))
+  }, [])
 
   // kind: 'ok' (default) | 'info' | 'err' (atau true). Galat tampil lebih lama; ketuk untuk menutup.
   const toast = useCallback((text, k) => {

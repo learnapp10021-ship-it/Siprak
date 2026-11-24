@@ -1,6 +1,10 @@
 // Buat ERO (Admin Dept): pilih request dengan checkbox, simpan SRL hanya untuk yang dipilih, lalu muncul konfirmasi.
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { preloadAll } from '../views/registry'
+
+// layar dimuat malas di aplikasi; di tes dimuat dulu agar dirender sinkron
+beforeAll(() => preloadAll())
 
 let AppProvider, Shell
 beforeAll(async () => {

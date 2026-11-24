@@ -1,6 +1,10 @@
 // Serah terima per penerima: cari, pilih penerima, centang/ubah jumlah, serahkan lintas SRL dengan dua ketukan.
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
+import { preloadAll } from '../views/registry'
+
+// layar dimuat malas di aplikasi; di tes dimuat dulu agar dirender sinkron
+beforeAll(() => preloadAll())
 
 let AppProvider, Shell
 beforeAll(async () => {

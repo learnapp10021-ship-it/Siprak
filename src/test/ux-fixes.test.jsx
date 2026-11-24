@@ -14,6 +14,7 @@ beforeAll(async () => {
   vi.resetModules()
   ;({ AppProvider } = await import('../store'))
   ;({ Shell } = await import('../App'))
+  await (await import('../views/registry')).preloadAll() // layar dimuat malas di aplikasi; di tes dimuat dulu agar dirender sinkron
 })
 const media = q => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })
 beforeEach(() => {

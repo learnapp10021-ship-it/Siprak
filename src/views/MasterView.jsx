@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react'
+import { useDeferredValue, useState, useMemo } from 'react'
 import { useApp } from '../store'
 import { Hd, Empty, Pill, useMore } from '../components/ui'
 import { Dialog } from '../components/Dialog'
@@ -90,9 +90,12 @@ export function VMst() {
   const [sat, setSat] = useState('')
   const [ed, setEd] = useState(null) // null | 'new' | item
   const [imp, setImp] = useState(false)
-  const use = {}
-  db.I.forEach(i => { use[i.kode] = (use[i.kode] || 0) + 1 })
-  const sats = [...new Set(db.M.map(m => m.sat))].sort()
+  const use = useMemo(() => {
+    const u = {}
+    db.I.forEach(i => { u[i.kode] = (u[i.kode] || 0) + 1 })
+    return u
+  }, [db.I])
+  const sats = useMemo(() => [...new Set(db.M.map(m => m.sat))].sort(), [db.M])
   const key = useDeferredValue(q).trim().toLowerCase()
   const l = db.M.filter(m => (!sat || m.sat == sat) && (!key || (m.k + ' ' + m.n).toLowerCase().includes(key)))
   const [vis, more] = useMore(l, 20)
