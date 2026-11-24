@@ -93,7 +93,11 @@ function PoolGrid({ p, all, off, flip, setOff, no, setNo, est, setEst, simpan })
                   <td className="n">{i.qty} {m.sat}</td>
                   <td className={i.datang < TODAY && !i.tahan ? 'bad' : ''}>{D(i.datang)}</td>
                   <td className="n">{w} hr</td>
-                  <td>{i.tahan ? <span className="t-warn">Ditahan: {i.alasan}</span> : i.datang < TODAY ? <span className="t-bad">Terlewat</span> : 'Siap'}</td>
+                  <td>
+                    {i.tahan ? <span className="t-warn">Ditahan: {i.alasan}</span> : null}
+                    {!i.tahan && i.alasan ? <span className="t-warn" title={i.alasan}>{i.alasan}</span> : null}
+                    {!i.tahan && !i.alasan ? (i.datang < TODAY ? <span className="t-bad">Terlewat</span> : 'Siap') : null}
+                  </td>
                   <td className="c">{i.tahan ? <button className="eb sm" onClick={() => act('lepas', i.id)}>Lepas</button> : null}</td>
                 </tr>
               )
