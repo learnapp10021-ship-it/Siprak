@@ -17,7 +17,7 @@ const parts = [
   '// Sumber: src/lib/utils.js, selectors.js, actions.js, src/data/seed.js, backend/src/server.gs, backend/src/rules.gs',
   '// Bangun ulang: npm run build:backend',
   '// ============================================================================',
-  ...['src/lib/utils.js', 'src/lib/selectors.js', 'src/lib/actions.js', 'src/data/seed.js'].map(
+  ...['src/lib/utils.js', 'src/lib/selectors.js', 'src/lib/actions.js', 'src/lib/perm.js', 'src/data/seed.js'].map(
     f => `\n// ---------- ${f} ----------\n` + strip(rd(f))
   ),
   '\n// ---------- backend/src/server.gs ----------\n' + rd('backend/src/server.gs'),

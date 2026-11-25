@@ -17,6 +17,8 @@ const StatusCtx = createContext(null)
 export const useApp = () => useContext(Ctx)
 export const useStatus = () => useContext(StatusCtx)
 const REMOTE = api.REMOTE
+const AUTH = api.AUTH // Supabase: login nyata (Supabase Auth); null untuk Apps Script/demo
+const STORE_NAME = AUTH ? 'database' : 'spreadsheet'
 const emptyDb = () => ({ U: [], HP: {}, M: [], R: [], I: [], K: [], L: [], KD: [], SR: [], RM: [] })
 
 const emptyLine = () => ({ kode: '', qty: '', datang: '', pakai: '' })
@@ -76,7 +78,7 @@ function Boot({ state, err, retry }) {
             <div className="spin big" aria-hidden="true" />
             <p><b>Menghubungkan ke server…</b></p>
             <p className="mut">
-              {sec < 6 && 'Mengambil data terbaru dari Google Sheets.'}
+              {sec < 6 && (AUTH ? 'Mengambil data terbaru dari database.' : 'Mengambil data terbaru dari Google Sheets.')}
               {sec >= 6 && sec < 15 && 'Masih memuat. Google Sheets kadang butuh beberapa detik, terutama saat ramai.'}
               {sec >= 15 && 'Lebih lama dari biasanya. Periksa koneksi internet Anda; aplikasi akan terus mencoba.'}
             </p>
@@ -106,6 +108,8 @@ export function AppProvider({ children, initialUi: init }) {
   const verRef = useRef(first.current.ver)
   const trusted = useRef(!first.current.cached) // versi dari cache belum diverifikasi server
   const [boot, setBoot] = useState({ state: db ? 'ready' : 'loading', err: '' })
+  // 'checking' (memeriksa sesi) | 'out' (belum masuk) | 'in'. Tanpa Supabase Auth selalu 'in'.
+  const [authed, setAuthed] = useState(AUTH ? 'checking' : 'in')
   const [ui, setUiState] = useState({ ...initialUi, me: readSession(), ...init })
   const uiRef = useRef(ui)
   uiRef.current = ui
@@ -170,8 +174,29 @@ export function AppProvider({ children, initialUi: init }) {
   }, [applySnap])
 
   useEffect(() => {
-    if (REMOTE) load()
-  }, [load])
+    if (!AUTH) return
+    let live = true
+    AUTH.session().then(
+      s => {
+        if (!live) return
+        if (s) setUiState(u => ({ ...u, me: s.id }))
+        setAuthed(s ? 'in' : 'out')
+      },
+      () => live && setAuthed('out')
+    )
+    const off = AUTH.onAuth(s => {
+      if (!live) return
+      if (!s) {
+        setAuthed('out')
+        setUiState(u => ({ ...u, me: '' }))
+      }
+    })
+    return () => { live = false; off() }
+  }, [])
+
+  useEffect(() => {
+    if (REMOTE && authed == 'in') load()
+  }, [load, authed])
 
   // Simpan snapshot ke cache lokal setiap data berubah. JSON.stringify + localStorage sinkron dan bisa puluhan ms
   // pada data besar, jadi ditunda ke saat browser senggang (tidak menahan animasi/ketikan); sisa tulisan dituntaskan saat halaman ditutup.
@@ -190,7 +215,7 @@ export function AppProvider({ children, initialUi: init }) {
 
   // Polling ringan: server membalas { same: true } bila tidak ada perubahan (dilayani dari cache)
   useEffect(() => {
-    if (!REMOTE || boot.state != 'ready') return
+    if (!REMOTE || boot.state != 'ready' || authed != 'in') return
     let stop = false
     let t
     const tick = async () => {
@@ -220,7 +245,7 @@ export function AppProvider({ children, initialUi: init }) {
     }
     document.addEventListener('visibilitychange', vis)
     return () => { stop = true; clearTimeout(t); document.removeEventListener('visibilitychange', vis) }
-  }, [boot.state, applySnap, toast])
+  }, [boot.state, authed, applySnap, toast])
 
   // Ganti hari saat tab tetap terbuka: segarkan "hari ini" lalu hitung ulang semua turunan (status terlambat, dll.)
   const [day, setDay] = useState(TODAY)
@@ -280,7 +305,7 @@ export function AppProvider({ children, initialUi: init }) {
           if (r.snap) applySnap(r.snap)
           if (!REMOTE) { if (r.msg) toast(r.msg) }
           else if (r.replay) toast((r.msg ? r.msg + '\n' : '') + 'Sudah tersimpan sebelumnya (terverifikasi).')
-          else if (r.msg) toast(r.msg + '\nTersimpan dan terverifikasi di spreadsheet.')
+          else if (r.msg) toast(r.msg + '\nTersimpan dan terverifikasi di ' + STORE_NAME + '.')
           return true
         }
         if (r.rejected) {
@@ -336,10 +361,10 @@ export function AppProvider({ children, initialUi: init }) {
   // Setelah halaman dimuat ulang: selesaikan transaksi yang dulu belum terkonfirmasi (aman: tx sama)
   const resumed = useRef(false)
   useEffect(() => {
-    if (!REMOTE || boot.state != 'ready' || resumed.current) return
+    if (!REMOTE || boot.state != 'ready' || authed != 'in' || resumed.current) return
     resumed.current = true
     outbox.all().forEach(e => enqueue(() => runLoop(e)))
-  }, [boot.state, enqueue, runLoop])
+  }, [boot.state, authed, enqueue, runLoop])
 
   const retry = useCallback(() => decide.current?.('retry'), [])
   const skip = useCallback(() => decide.current?.('skip'), [])
@@ -351,8 +376,25 @@ export function AppProvider({ children, initialUi: init }) {
     },
     [setUi]
   )
+  const signIn = useCallback(async (id, pin) => {
+    const r = await AUTH.signIn(id, pin)
+    if (r.ok) {
+      trusted.current = false // data pengguna sebelumnya tidak dipercaya; ambil ulang
+      setUi({ me: r.id, tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
+      setAuthed('in')
+    }
+    return r
+  }, [setUi])
   const logout = useCallback(() => {
     writeSession('')
+    if (AUTH) {
+      try { localStorage.removeItem(CACHE_KEY) } catch { /* abaikan */ }
+      outbox.all().forEach(e => outbox.del(e.tx))
+      dbRef.current = null
+      setDb(null)
+      AUTH.signOut()
+      setAuthed('out')
+    }
     setUi({ me: '', tab: 'x', menu: false, eu: null, self: false, help: false, dpic: null, di: null })
   }, [setUi])
 
@@ -362,9 +404,14 @@ export function AppProvider({ children, initialUi: init }) {
     [db, sel, uiEff, setUi, me, act, toast, logout]
   )
 
+  if (api.CONFIG_ERROR) return <Boot state="error" err={api.CONFIG_ERROR} />
+  if (AUTH && authed == 'checking') return <Boot state="loading" />
+  if (AUTH && authed == 'out') return <Login signIn={signIn} />
   if (boot.state != 'ready' || !db)
     return <Boot state={boot.state == 'error' ? 'error' : 'loading'} err={boot.err} retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
   if (!me && db.U.length) return <Login users={db.U} onPick={login} />
+  if (!me && AUTH)
+    return <Boot state="error" err={`Akun "${ui.me}" sudah bisa masuk tetapi belum terdaftar di tabel users (atau nonaktif). Hubungi admin.`} retry={logout} />
   if (!me)
     return <Boot state="error" err="Sheet Users masih kosong. Isi pengguna atau jalankan seedDemo() di Apps Script." retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
 

@@ -1,9 +1,32 @@
 // Klien untuk backend Google Apps Script (lihat backend/).
 // Tanpa VITE_API_URL aplikasi berjalan dalam mode demo lokal (data di memori), seperti sebelumnya.
-import { API_URL as URL_ } from '../config'
+import { createClient } from '@supabase/supabase-js'
+import { API_URL as URL_, SUPABASE_URL, SUPABASE_KEY, DEMO_OK } from '../config'
+import { createSupaApi, newTx as newTxSupa } from './supa'
 const KEY = import.meta.env.VITE_API_KEY || ''
-export const REMOTE = !!URL_
+
+// Backend yang dipakai: Supabase (utama) > Apps Script (lama) > demo lokal (hanya jika diizinkan).
+export const SUPA = !!(SUPABASE_URL && SUPABASE_KEY)
+export const REMOTE = SUPA || !!URL_
 export const apiOn = REMOTE
+// Build produksi tanpa database dikonfigurasi: tampilkan galat konfigurasi, jangan diam-diam masuk mode demo.
+export const MISCONFIGURED = !REMOTE && !DEMO_OK
+
+const jwtRole = t => {
+  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role } catch { return undefined }
+}
+// Pengaman: kunci rahasia tidak boleh pernah ada di browser.
+const unsafeKey = SUPA && (SUPABASE_KEY.startsWith('sb_secret_') || jwtRole(SUPABASE_KEY) === 'service_role')
+export const CONFIG_ERROR = unsafeKey
+  ? 'Kunci Supabase yang terpasang adalah Secret/Service Role Key. Ganti dengan Publishable Key (sb_publishable_...) lalu build ulang.'
+  : MISCONFIGURED
+    ? 'Database belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_PUBLISHABLE_KEY saat build.'
+    : ''
+const supa = SUPA && !unsafeKey
+  ? createSupaApi(createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }))
+  : null
+// Pengguna wajib login (Supabase Auth) bila memakai Supabase.
+export const AUTH = supa
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
@@ -24,7 +47,7 @@ async function req(url, opts, timeoutMs) {
 }
 
 // Ambil snapshot data. `since` = versi yang sudah dimiliki; jika sama, server menjawab { same: true }.
-export function sync(since) {
+function syncAS(since) {
   const q = new URLSearchParams({ action: 'sync', since: since || '', key: KEY, _: Date.now() })
   return req(URL_ + '?' + q, {}, 30000)
 }
@@ -33,7 +56,7 @@ export function sync(since) {
 //   { ok: true, verified: true, msg, snap, replay? }   tersimpan DAN terverifikasi di spreadsheet
 //   { ok: false, rejected: true, err, snap? }          ditolak aturan bisnis (tidak ada yang tertulis)
 //   { ok: false, retry: true, err, unknown? }          belum pasti: aman dikirim ulang dengan tx yang sama
-export async function write({ tx, name, args, me }, onWait) {
+async function writeAS({ tx, name, args, me }, onWait) {
   let attempt = 0
   for (;;) {
     let r
@@ -60,7 +83,11 @@ export async function write({ tx, name, args, me }, onWait) {
 }
 
 // ID transaksi unik per niat pengguna (dibuat sekali, dipakai ulang saat retry)
-export const newTx = () => {
+const newTxAS = () => {
   const rnd = (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/-/g, '')
   return 'TX-' + Date.now().toString(36) + '-' + rnd.slice(0, 16)
 }
+
+export const sync = supa ? supa.sync : syncAS
+export const write = supa ? supa.write : writeAS
+export const newTx = supa ? newTxSupa : newTxAS

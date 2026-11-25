@@ -3,9 +3,11 @@
 #
 # Terbitkan aplikasi ke GitHub Pages (cabang gh-pages) setiap ada perubahan di main, atau lewat tombol "Run workflow".
 # Go live = isi dua secret di Settings > Secrets and variables > Actions, lalu jalankan workflow ini:
-#   VITE_API_URL  URL web app Apps Script (berakhiran /exec)
+#   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY  database Supabase (utama; boleh publik, dijaga login + RLS)
+#   VITE_API_URL  URL web app Apps Script (cadangan lama, berakhiran /exec)
 #   VITE_API_KEY  sama dengan Script Property API_KEY (opsional)
-# Bila VITE_API_URL kosong, hasilnya mode demo (data contoh di memori), sama seperti sebelumnya.
+# Build produksi TANPA database dikonfigurasi menampilkan galat konfigurasi (bukan mode demo).
+# Mode demo hanya jika variable VITE_ALLOW_DEMO=1.
 # Opsional: variable VITE_POLL_MS (ms) untuk mengatur seberapa sering aplikasi mengecek data baru (bawaan 15000).
 name: Deploy ke GitHub Pages
 on:
@@ -30,6 +32,9 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_ALLOW_DEMO: ${{ vars.VITE_ALLOW_DEMO }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
           VITE_POLL_MS: ${{ vars.VITE_POLL_MS }}
