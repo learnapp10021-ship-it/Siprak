@@ -1,5 +1,9 @@
 # Panduan Go Live — NRB (Nota Request Barang)
 
+> **Backend sekarang bisa memakai Supabase** (lihat `supabase/README.md`): database Postgres + Edge Function dengan protokol yang sama.
+> Bagian C di bawah (Apps Script) hanya diperlukan bila tetap memakai Google Spreadsheet. Untuk Supabase cukup `npm run build`
+> (URL sudah ada di `.env.production`) lalu terbitkan `dist/`.
+
 Status per dokumen ini: kode sudah diuji dan siap. Yang tersisa adalah langkah yang hanya bisa dilakukan pemilik
 akun Google (Apps Script) dan satu keputusan keamanan (login).
 

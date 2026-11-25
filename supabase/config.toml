@@ -1,0 +1,7 @@
+# Konfigurasi Supabase CLI untuk proyek ini (supabase link --project-ref <ref>).
+project_id = "nrb"
+
+[functions.api]
+# Klien web memanggil tanpa header Authorization (protokol sama dengan Apps Script). Akses dijaga di dalam fungsi
+# (API_KEY opsional + hak akses per aksi), dan database terkunci RLS sehingga hanya fungsi ini yang bisa menyentuhnya.
+verify_jwt = false

@@ -1,0 +1,50 @@
+-- Data contoh: pengguna + master item (tanpa request). Dibangkitkan oleh scripts/gen-seed-supabase.mjs.
+-- Jalankan di SQL Editor Supabase SETELAH migrasi, hanya untuk uji coba.
+insert into public.users ("id", "n", "dept", "role", "boss", "hp", "off", "_v", "tx") values
+  ('hendra.mgr', 'Hendra Wijaya', 'Produksi', 'Atasan', '', '6281234560001', '', '1', 'SEED'),
+  ('budi.spv', 'Budi Hartono', 'Produksi', 'Atasan', 'hendra.mgr', '6281234560002', '', '1', 'SEED'),
+  ('andi.prod', 'Andi Saputra', 'Produksi', 'User', 'budi.spv', '6281234560003', '', '1', 'SEED'),
+  ('siti.prod', 'Siti Rahma', 'Produksi', 'User', 'budi.spv', '6281234560004', '', '1', 'SEED'),
+  ('rudi.prod', 'Rudi Firmansyah', 'Produksi', 'User', 'budi.spv', '6281234560005', '', '1', 'SEED'),
+  ('dewi.admin', 'Dewi Lestari', 'Produksi', 'Admin Dept', 'budi.spv', '6281234560006', '', '1', 'SEED'),
+  ('tono.spv', 'Tono Sugiarto', 'Maintenance', 'Atasan', '', '6281234560007', '', '1', 'SEED'),
+  ('maya.mt', 'Maya Anggraeni', 'Maintenance', 'User', 'tono.spv', '6281234560008', '', '1', 'SEED'),
+  ('rina.mt', 'Rina Marlina', 'Maintenance', 'User', 'tono.spv', '6281234560009', '', '1', 'SEED'),
+  ('yani.admin', 'Yani Kusuma', 'Maintenance', 'Admin Dept', 'tono.spv', '6281234560010', '', '1', 'SEED'),
+  ('wati.wh', 'Wati Handayani', 'Warehouse', 'Admin Warehouse', '', '6281234560011', '', '1', 'SEED'),
+  ('joko.wh', 'Joko Susilo', 'Warehouse', 'Admin Warehouse', '', '6281234560012', '', '1', 'SEED'),
+  ('agus.spv', 'Agus Prasetyo', 'Warehouse', 'Spv Warehouse', '', '6281234560013', '', '1', 'SEED'),
+  ('dika.prod', 'Dika Pratama', 'Produksi', 'User', 'budi.spv', '6281234560014', '', '1', 'SEED'),
+  ('lina.mt', 'Lina Wulandari', 'Maintenance', 'User', 'tono.spv', '6281234560015', '', '1', 'SEED'),
+  ('eko.prod', 'Eko Nugroho', 'Produksi', 'User', 'budi.spv', '6281234560016', 'Y', '1', 'SEED')
+on conflict ("id") do nothing;
+
+insert into public.master ("k", "n", "sat", "buf", "kons", "lead", "_v", "tx") values
+  ('SRG-001', 'Sarung Tangan Kain', 'Pasang', '0', '0', '3', '1', 'SEED'),
+  ('SRG-002', 'Masker KN95', 'Box', '1', '0', '3', '1', 'SEED'),
+  ('APD-007', 'Helm Safety', 'Pcs', '1', '0', '7', '1', 'SEED'),
+  ('OLI-010', 'Oli Hidrolik 20L', 'Jerigen', '0', '1', '5', '1', 'SEED'),
+  ('BRG-204', 'Bearing 6204', 'Pcs', '1', '1', '7', '1', 'SEED'),
+  ('KBL-005', 'Kabel Tie 30cm', 'Pack', '0', '0', '2', '1', 'SEED'),
+  ('LAS-021', 'Kawat Las RB26', 'Kg', '0', '0', '3', '1', 'SEED'),
+  ('GRD-101', 'Mata Gerinda Potong 4 inci', 'Pcs', '0', '0', '3', '1', 'SEED'),
+  ('GRD-102', 'Mata Gerinda Poles 4 inci', 'Pcs', '0', '0', '4', '1', 'SEED'),
+  ('BOR-201', 'Mata Bor HSS 8mm', 'Pcs', '0', '0', '5', '1', 'SEED'),
+  ('BOR-202', 'Mata Bor HSS 10mm', 'Pcs', '0', '0', '6', '1', 'SEED'),
+  ('BLT-301', 'Baut Hex M10x50', 'Box', '1', '0', '3', '1', 'SEED'),
+  ('BLT-302', 'Mur Hex M10', 'Box', '1', '0', '4', '1', 'SEED'),
+  ('BLT-303', 'Ring Plat M10', 'Box', '1', '0', '5', '1', 'SEED'),
+  ('SLG-401', 'Selang Hidrolik 1/2 inci', 'Meter', '0', '0', '6', '1', 'SEED'),
+  ('SLG-402', 'Klem Selang 1 inci', 'Pcs', '0', '0', '3', '1', 'SEED'),
+  ('FTG-501', 'Fitting Nipple 1/2 inci', 'Pcs', '0', '0', '4', '1', 'SEED'),
+  ('BRG-205', 'Bearing 6205', 'Pcs', '1', '0', '5', '1', 'SEED'),
+  ('BRG-206', 'Bearing 6206', 'Pcs', '1', '0', '6', '1', 'SEED'),
+  ('SEL-601', 'Oil Seal 35x52x7', 'Pcs', '1', '0', '3', '1', 'SEED'),
+  ('VBT-401', 'V-Belt B-52', 'Pcs', '1', '0', '4', '1', 'SEED'),
+  ('KBL-006', 'Kabel NYAF 1.5mm', 'Roll', '0', '0', '5', '1', 'SEED'),
+  ('LMP-701', 'Lampu LED Highbay 100W', 'Pcs', '0', '0', '6', '1', 'SEED'),
+  ('CTR-801', 'Kontaktor 3P 25A', 'Pcs', '0', '0', '3', '1', 'SEED'),
+  ('SKR-901', 'Sekring Cartridge 10A', 'Box', '1', '0', '4', '1', 'SEED'),
+  ('LKT-101', 'Lakban Isolasi Hitam', 'Roll', '0', '0', '5', '1', 'SEED'),
+  ('PNT-201', 'Cat Marking Kuning', 'Kaleng', '0', '0', '6', '1', 'SEED')
+on conflict ("k") do nothing;
