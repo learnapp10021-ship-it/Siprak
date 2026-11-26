@@ -8,3 +8,4 @@ dist
 data-asli/
 *-asli.xlsx
 *.asli.xlsx
+!.env.production
