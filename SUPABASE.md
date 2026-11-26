@@ -5,6 +5,7 @@ menampilkan galat konfigurasi, bukan mode demo (demo hanya jika `VITE_ALLOW_DEMO
 
 ## Langkah (sekali, dikerjakan di akun Supabase Anda)
 1. **SQL Editor**: jalankan `supabase/setup.sql` (menambah kolom `_v`/`tx`/`at` bila belum ada, mengaktifkan RLS: hanya pengguna login yang boleh akses).
+   Setup juga membuat fungsi `login_users()` supaya layar login menampilkan **daftar pilihan pengguna** (id, nama, dept, peran; tanpa hp/atasan). Untuk database yang sudah berjalan cukup jalankan `supabase/login_users.sql`. Tanpa fungsi ini layar login memakai kotak ketik ID.
 2. **Akun login**: di komputer Anda jalankan
    `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=sb_secret_... node scripts/create-auth-users.mjs`
    Skrip membuat akun `<id>@login.siprak.app` + PIN acak 6 digit untuk tiap baris `users` dan mencetaknya sekali. Secret key hanya untuk skrip ini, jangan di `.env` berawalan `VITE_`.

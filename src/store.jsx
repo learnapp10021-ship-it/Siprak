@@ -406,7 +406,7 @@ export function AppProvider({ children, initialUi: init }) {
 
   if (api.CONFIG_ERROR) return <Boot state="error" err={api.CONFIG_ERROR} />
   if (AUTH && authed == 'checking') return <Boot state="loading" />
-  if (AUTH && authed == 'out') return <Login signIn={signIn} />
+  if (AUTH && authed == 'out') return <Login signIn={signIn} loadUsers={AUTH.loginUsers} />
   if (boot.state != 'ready' || !db)
     return <Boot state={boot.state == 'error' ? 'error' : 'loading'} err={boot.err} retry={() => { setBoot({ state: 'loading', err: '' }); load() }} />
   if (!me && db.U.length) return <Login users={db.U} onPick={login} />

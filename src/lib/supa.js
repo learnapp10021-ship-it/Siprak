@@ -88,6 +88,17 @@ export function createSupaApi(client, { domain = AUTH_DOMAIN } = {}) {
   async function signOut() {
     await client.auth.signOut()
   }
+  // Daftar pengguna untuk DIPILIH di layar login (fungsi database login_users: hanya id, nama, dept, peran; tanpa hp/atasan).
+  // Gagal/tidak ada fungsinya => { ok: false } dan layar login memakai kotak ketik ID.
+  async function loginUsers() {
+    try {
+      const { data, error } = await client.rpc('login_users')
+      if (error || !Array.isArray(data)) return { ok: false }
+      return { ok: true, users: data.map(u => ({ id: String(u.id), n: String(u.n ?? ''), dept: String(u.dept ?? ''), role: String(u.role ?? '') })) }
+    } catch {
+      return { ok: false }
+    }
+  }
   function onAuth(cb) {
     const { data } = client.auth.onAuthStateChange((_e, s) => cb(s?.user ? { id: idOf(s.user.email) } : null))
     return () => data?.subscription?.unsubscribe?.()
@@ -367,5 +378,5 @@ export function createSupaApi(client, { domain = AUTH_DOMAIN } = {}) {
     }
   }
 
-  return { sync, write, newTx, session, signIn, signOut, onAuth, _readAll: readAll }
+  return { sync, write, newTx, session, signIn, signOut, loginUsers, onAuth, _readAll: readAll }
 }
